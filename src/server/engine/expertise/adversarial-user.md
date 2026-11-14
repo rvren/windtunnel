@@ -27,7 +27,29 @@ else finds them. Describe weaknesses; do not write exploit code.
   guessing.
 - **Secrets and exposure.** Keys or passwords in the code, verbose errors,
   debug routes, permissive cross-origin rules, sensitive data in logs.
+- **Output into pages.** Request or stored data written into HTML without
+  escaping: unescaped template tags (`<%- %>`, `{{{ }}}`, `|safe`,
+  `dangerouslySetInnerHTML`), `innerHTML`, values put into attributes or
+  scripts. Check both what a request echoes back and what is stored and shown
+  to other people later.
+- **Forged requests.** State-changing routes (POST, PUT, DELETE, and any GET
+  that changes data) that rely on a session cookie with no CSRF token or
+  SameSite cookie.
+- **Unsafe parsers.** Deserializers that can run code (`node-serialize`,
+  `pickle`, `yaml.load`, Java serialization), XML parsers with external
+  entities on, archive extraction that trusts file names, uploads with no
+  type or size check.
+- **Vulnerable dependencies.** Read the manifest and the lockfile
+  (`package.json`, `requirements.txt`, `go.mod`, `pom.xml`). A pinned old
+  version of a parser, template engine, deserializer or expression library
+  that the code uses on request data is a finding; cite the manifest line.
+- **Insecure defaults.** Session secrets left at a sample value, cookies
+  without Secure or HttpOnly, missing security headers, stack traces sent to
+  the client, framework banners, containers that run as root or bake in
+  secrets.
 
 In code, start from the routes and their middleware, then the data access
-layer. The finding is strongest when you can name the route, the missing
+layer, then the templates and the manifest. Before you stop, go down the
+list above once and make sure each item has been checked against every
+route. The finding is strongest when you can name the route, the missing
 check and the record it exposes.
