@@ -261,16 +261,24 @@ flowchart LR
   publish --> sse["GET /api/runs/[id]/events<br/>replay, then live"]
   events --> sse
   sse --> feed["src/lib/run-feed.ts<br/>applyEvent"]
-  feed --> rail["Stage rail and agent lanes<br/>src/components/run/run-progress.tsx"]
+  feed --> story["Stepper and story cards<br/>src/components/run/story"]
   feed --> live["Live map<br/>src/components/project/live-map.tsx"]
   feed --> found["Live findings<br/>src/components/run/live-findings.tsx"]
   sse --> times["src/lib/viz/times.ts<br/>applyTime"]
-  times --> time["Time by stage<br/>src/components/run/stage-time.tsx"]
+  times --> time["Stage times, time by stage<br/>src/components/run/stage-time.tsx"]
   times --> trace["Time and tokens<br/>RunTrace, Scoreboard tab"]
 ```
 
 `applyTime` keeps when each stage and agent started and ended, from the
-events' own times. The bar under the stage rail and the flame graph in the
+events' own times. `storyOf` (`src/lib/viz/story.ts`) turns the feed and the
+saved run into one chapter per stage: a card appears when its stage starts
+and turns into what the stage found when it finishes; a finished run shows
+a summary, with the story folded under "How the run went". `applyTime` also
+keeps when each scenario and finding arrived, which draws the agents'
+parallel lanes. A finished run's Issues tab is built from `issueRows`
+(`src/lib/viz/insights.ts`) and its right column from
+`src/lib/viz/run-widgets.ts`; the run page loader adds the project's
+previous run and the 8090 deliveries. The bar under the stage rail and the flame graph in the
 Scoreboard tab are drawn from it; nothing is timed that has no event.
 
 Every event is saved before it is sent, so a page opened half-way replays

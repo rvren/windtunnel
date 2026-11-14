@@ -56,6 +56,10 @@ export const EXPLAIN = {
     "Points per agent for accepted findings: 8 for critical, 5 high, 3 medium, 1 low, shared when agents found the same flaw. Disputing a finding the judge then rejects earns 1.",
   timeAndTokens:
     "A flame graph of the run: each block is a stage or an agent, its width the time it took. Tokens are the model's input and output counts for that block.",
+  designSpecified:
+    "How fully the design states its rules: the share of role and operation pairs it gives a permission for. Below: permissions given, items stated rather than assumed by the model, and operations that some journey uses.",
+  whatChanged:
+    "This run against the project's previous finished run: each number now, and how much it went up or down.",
   remediation:
     "A fix for this security issue: steps, its CWE and OWASP mapping, and a patch whose lines matched the real files. It is never applied.",
 } as const;

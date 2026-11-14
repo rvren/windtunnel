@@ -14,6 +14,8 @@ import { MemoryRunStore } from "@/server/engine/store";
 import { buildCockpit } from "@/server/projects/cockpit";
 
 import { issueFlowView, securityView } from "./cockpit-views";
+import { issueRows, kindCounts, searchRows, sortRows } from "./insights";
+import { agentStandings, designSpecified, whatChanged } from "./run-widgets";
 import { patchCoverage, remediationFiles, traceSpans } from "./run";
 import { elapsedSeconds, stageSegments, stageSplits, timesFrom } from "./times";
 
@@ -193,5 +195,159 @@ describe("the cockpit's canvas views", () => {
     };
     expect(issueFlowView(empty)).toBeNull();
     expect(securityView(empty)).toBeNull();
+  });
+});
+
+describe("when the agents' work arrived", () => {
+  it("marks each new scenario and each finding at its time", () => {
+    const at = (second: number, event: StoredEvent["event"]): StoredEvent => ({
+      seq: second,
+      at: new Date(Date.UTC(2026, 10, 13, 10, 0, second)).toISOString(),
+      event,
+    });
+    const times = timesFrom([
+      at(1, { type: "agent.started", agentId: "chaos" }),
+      at(2, {
+        type: "agent.progress",
+        agentId: "chaos",
+        scenarios: ["a"],
+        findings: 0,
+      }),
+      // The same scenario list again adds nothing.
+      at(3, {
+        type: "agent.progress",
+        agentId: "chaos",
+        scenarios: ["a"],
+        findings: 0,
+      }),
+      at(4, {
+        type: "agent.progress",
+        agentId: "chaos",
+        scenarios: ["a", "b", "c"],
+        findings: 0,
+      }),
+      at(5, {
+        type: "agent.finding",
+        agentId: "chaos",
+        finding: {
+          uid: "chaos/f1",
+          type: "security_vulnerability",
+          severity: "high",
+          title: "t",
+          path: null,
+          startLine: null,
+        },
+      }),
+    ]);
+    expect(times.marks.map((m) => m.kind)).toEqual([
+      "scenario",
+      "scenario",
+      "scenario",
+      "finding",
+    ]);
+    expect(times.marks.at(-1)).toMatchObject({ severity: "high" });
+    expect(times.marks[1].at).toBe(Date.parse("2026-11-13T10:00:04Z"));
+  });
+});
+
+describe("a finished run as insights", () => {
+  it("makes one row per accepted issue, with its agents, fix and work order", () => {
+    const rows = issueRows(run);
+    expect(rows).toHaveLength(run.groups.length);
+    for (const row of rows) {
+      const group = run.groups.find((g) => g.id === row.id)!;
+      const filedBy = new Set(
+        run.agents
+          .filter((a) =>
+            a.findings.some((f) => group.findingIds.includes(f.uid)),
+          )
+          .map((a) => a.agentId),
+      );
+      expect(new Set(row.agents)).toEqual(filedBy);
+      const comments = (run.challenges ?? []).filter((c) =>
+        group.findingIds.includes(c.findingId),
+      );
+      expect(row.challenge.support + row.challenge.dispute).toBe(
+        comments.length,
+      );
+      const edits = run.remediations?.[row.id]?.edits ?? [];
+      if (edits.length) {
+        expect(row.patch!.added).toBe(
+          edits.reduce((s, e) => s + e.after.length, 0),
+        );
+      } else {
+        expect(row.patch).toBeNull();
+      }
+      const order = run.workOrders.find((w) => w.groupIds.includes(row.id));
+      expect(row.workOrder?.id ?? null).toBe(order?.id ?? null);
+    }
+  });
+
+  it("counts kinds, sorts and searches", () => {
+    const rows = issueRows(run);
+    const counts = kindCounts(rows);
+    expect(counts.reduce((s, k) => s + k.count, 0)).toBe(rows.length);
+    const sorted = sortRows(rows, "severity");
+    const order = ["critical", "high", "medium", "low"];
+    for (let i = 1; i < sorted.length; i += 1) {
+      expect(order.indexOf(sorted[i].severity)).toBeGreaterThanOrEqual(
+        order.indexOf(sorted[i - 1].severity),
+      );
+    }
+    const first = rows[0];
+    const word = first.title.split(" ").find((w) => w.length > 4)!;
+    expect(searchRows(rows, word).map((r) => r.id)).toContain(first.id);
+    expect(searchRows(rows, "zzzz-nothing")).toHaveLength(0);
+    expect(searchRows(rows, "  ")).toHaveLength(rows.length);
+  });
+
+  it("states how fully the design is specified, as plain ratios", () => {
+    const design = designSpecified(run)!;
+    const stats = run.coverage!.stats;
+    expect(design.score).toBe(
+      Math.round((stats.specifiedCells / stats.permissionCells) * 100),
+    );
+    expect(design.parts[0]).toMatchObject({
+      value: stats.specifiedCells,
+      total: stats.permissionCells,
+    });
+  });
+
+  it("compares with the run before only when there is one", () => {
+    expect(whatChanged(run, null, null)).toEqual([]);
+    const changes = whatChanged(
+      run,
+      {
+        id: "before",
+        projectId: "p",
+        createdAt: "",
+        status: "completed",
+        stage: null,
+        title: "",
+        findingCount: 10,
+        workOrderCount: 4,
+        workspaces: [],
+      },
+      { critical: 1, high: 2 },
+    );
+    expect(changes[0]).toMatchObject({
+      label: "Issues",
+      now: run.groups.length,
+      before: 10,
+    });
+    expect(changes.map((c) => c.label)).toEqual([
+      "Issues",
+      "Critical",
+      "High",
+      "Work orders",
+    ]);
+  });
+
+  it("ranks the agents by points", () => {
+    const standings = agentStandings(run);
+    expect(standings).toHaveLength(run.scoreboard.length);
+    for (let i = 1; i < standings.length; i += 1) {
+      expect(standings[i].points).toBeLessThanOrEqual(standings[i - 1].points);
+    }
   });
 });

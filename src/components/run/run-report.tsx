@@ -1,4 +1,3 @@
-import { Remediation } from "@/components/run/remediation";
 import { InfoTip } from "@/components/info-tip";
 import { RunTrace } from "@/components/tuff/run-trace";
 import {
@@ -6,12 +5,6 @@ import {
   DeliveryTag,
   useDeliveries,
 } from "@/components/connectors/deliveries";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -22,14 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { agentById } from "@/lib/agents";
-import {
-  FINDING_TYPE_LABEL,
-  FINDING_TYPE_ORDER,
-  GAP_KIND_LABEL,
-  SEVERITY_ORDER,
-  STAGE_LABEL,
-  STAGE_ORDER,
-} from "@/lib/labels";
+import { GAP_KIND_LABEL, STAGE_LABEL, STAGE_ORDER } from "@/lib/labels";
 import type { ExplainKey } from "@/lib/explain";
 import { cn } from "@/lib/utils";
 import { traceSpans } from "@/lib/viz/run";
@@ -42,12 +28,7 @@ import type {
   Usage,
 } from "@/server/engine/schema";
 
-import {
-  AgentIcon,
-  OutcomeLabel,
-  PriorityBadge,
-  SeverityBadge,
-} from "./badges";
+import { AgentIcon, PriorityBadge } from "./badges";
 
 /* The four tabs of a run's report. Plain rendering of the run record. */
 
@@ -106,227 +87,43 @@ function lookups(run: RunRecord) {
 
 // ── Findings ────────────────────────────────────────────────────────────────
 
-export function FindingsTab({ run }: { run: RunRecord }) {
-  const { findings, scenarios } = lookups(run);
+/** Findings the judge threw out, and those the citation check dropped. */
+export function NotAccepted({ run }: { run: RunRecord }) {
+  const { findings } = lookups(run);
   const dropped = run.agents.flatMap((agent) => agent.dropped);
-
-  if (run.groups.length === 0) {
-    return (
-      <Empty>
-        {run.status === "completed"
-          ? "The agents found no flaws that the judge accepted."
-          : "No findings yet."}
-      </Empty>
-    );
-  }
-
+  if (run.rejected.length + dropped.length === 0) return null;
   return (
-    <div className="space-y-10">
-      {FINDING_TYPE_ORDER.map((type) => {
-        const groups = run.groups
-          .filter((group) => group.type === type)
-          .sort(
-            (a, b) =>
-              SEVERITY_ORDER.indexOf(a.severity) -
-              SEVERITY_ORDER.indexOf(b.severity),
+    <section>
+      <SectionTitle
+        count={run.rejected.length + dropped.length}
+        about="rejected"
+      >
+        Not accepted
+      </SectionTitle>
+      <ul className="mt-3 divide-y rounded-card border bg-card px-4 text-sm">
+        {run.rejected.map((item) => {
+          const finding = findings.get(item.findingId);
+          return (
+            <li key={item.findingId} className="py-3">
+              <p className="font-medium">{finding?.title ?? item.findingId}</p>
+              <p className="mt-0.5 text-muted-foreground">
+                {finding ? `${agentName(finding.agentId)}. ` : ""}
+                Rejected by the judge: {item.reason}
+              </p>
+            </li>
           );
-        if (groups.length === 0) return null;
-        return (
-          <section key={type} data-testid={`findings-${type}`}>
-            <SectionTitle count={groups.length} about="findings">
-              {FINDING_TYPE_LABEL[type]}
-            </SectionTitle>
-            <Accordion className="mt-3 rounded-card border bg-card px-4">
-              {groups.map((group) => {
-                const members = group.findingIds.flatMap((uid) => {
-                  const finding = findings.get(uid);
-                  return finding ? [finding] : [];
-                });
-                const finders = [
-                  ...new Set(members.map((item) => item.agentId)),
-                ];
-                return (
-                  <AccordionItem key={group.id} value={group.id}>
-                    <AccordionTrigger data-testid="finding-toggle">
-                      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
-                        <SeverityBadge severity={group.severity} />
-                        <span className="min-w-0 flex-1 basis-64 text-left font-medium">
-                          {group.title}
-                        </span>
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          {finders.map((agentId) => (
-                            <span
-                              key={agentId}
-                              title={agentName(agentId)}
-                              className="flex size-6 items-center justify-center rounded-md bg-accent text-accent-foreground"
-                            >
-                              <AgentIcon
-                                agentId={agentId}
-                                className="size-3.5"
-                              />
-                            </span>
-                          ))}
-                        </span>
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <p className="max-w-3xl leading-relaxed">
-                        {group.summary}
-                      </p>
-                      {!group.reviewed ? (
-                        <p className="mt-2 text-xs text-sev-high">
-                          The judge did not review this finding. It is shown as
-                          the agent reported it.
-                        </p>
-                      ) : null}
-                      {group.foundBy === "code" && group.location ? (
-                        <figure className="mt-3 overflow-hidden rounded-card border">
-                          <figcaption className="border-b bg-muted/50 px-3 py-1.5 font-mono text-xs text-muted-foreground">
-                            {group.location.path}:{group.location.startLine} ·
-                            found by the secret scan, value hidden
-                          </figcaption>
-                          <pre className="overflow-x-auto px-3 py-2 font-mono text-xs leading-relaxed">
-                            {group.location.quote}
-                          </pre>
-                        </figure>
-                      ) : null}
-                      {run.remediations?.[group.id] ? (
-                        <Remediation record={run.remediations[group.id]} />
-                      ) : null}
-                      <ul className="mt-5 space-y-5">
-                        {members.map((finding) => (
-                          <li key={finding.uid} className="border-l pl-4">
-                            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <AgentIcon
-                                agentId={finding.agentId}
-                                className="size-3.5"
-                              />
-                              {agentName(finding.agentId)}
-                            </p>
-                            <p className="mt-1 font-medium">{finding.title}</p>
-                            <p className="mt-1 max-w-3xl text-muted-foreground">
-                              {finding.description}
-                            </p>
-                            {finding.location ? (
-                              <figure className="mt-3 overflow-hidden rounded-card border">
-                                <figcaption className="border-b bg-muted/50 px-3 py-1.5 font-mono text-xs text-muted-foreground">
-                                  {finding.location.path}:
-                                  {finding.location.startLine}
-                                  {finding.location.endLine >
-                                  finding.location.startLine
-                                    ? `-${finding.location.endLine}`
-                                    : ""}
-                                </figcaption>
-                                <pre className="overflow-x-auto px-3 py-2 font-mono text-xs leading-relaxed">
-                                  {finding.location.quote}
-                                </pre>
-                              </figure>
-                            ) : null}
-                            <ol className="mt-3 space-y-2">
-                              {finding.evidence.map((item) => {
-                                const scenario = scenarios.get(
-                                  `${finding.agentId}/${item.scenarioId}`,
-                                );
-                                const step = scenario?.steps[item.step - 1];
-                                if (!scenario || !step) return null;
-                                return (
-                                  <li
-                                    key={`${item.scenarioId}-${item.step}`}
-                                    className="rounded-md bg-muted/50 px-3 py-2 text-xs leading-relaxed"
-                                  >
-                                    <p className="text-muted-foreground">
-                                      {scenario.title} · step {item.step}
-                                    </p>
-                                    <p className="mt-1">{step.action}</p>
-                                    <p className="mt-1">
-                                      <OutcomeLabel outcome={step.outcome} />{" "}
-                                      <span className="text-muted-foreground">
-                                        {step.detail}
-                                      </span>
-                                    </p>
-                                  </li>
-                                );
-                              })}
-                            </ol>
-                            {finding.suggestion ? (
-                              <p className="mt-3 max-w-3xl text-sm">
-                                <span className="text-muted-foreground">
-                                  Suggestion:
-                                </span>{" "}
-                                {finding.suggestion}
-                              </p>
-                            ) : null}
-                            {(run.challenges ?? [])
-                              .filter((item) => item.findingId === finding.uid)
-                              .map((item) => (
-                                <p
-                                  key={`${item.agentId}-${item.stance}`}
-                                  className="mt-2 max-w-3xl text-sm"
-                                >
-                                  <span
-                                    className={
-                                      item.stance === "dispute"
-                                        ? "text-sev-high"
-                                        : "text-muted-foreground"
-                                    }
-                                  >
-                                    {agentName(item.agentId)}{" "}
-                                    {item.stance === "dispute"
-                                      ? "disputes"
-                                      : "supports"}
-                                    :
-                                  </span>{" "}
-                                  {item.reason}
-                                </p>
-                              ))}
-                          </li>
-                        ))}
-                      </ul>
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          </section>
-        );
-      })}
-
-      {run.rejected.length + dropped.length > 0 ? (
-        <section>
-          <SectionTitle
-            count={run.rejected.length + dropped.length}
-            about="rejected"
-          >
-            Not accepted
-          </SectionTitle>
-          <ul className="mt-3 divide-y rounded-card border bg-card px-4 text-sm">
-            {run.rejected.map((item) => {
-              const finding = findings.get(item.findingId);
-              return (
-                <li key={item.findingId} className="py-3">
-                  <p className="font-medium">
-                    {finding?.title ?? item.findingId}
-                  </p>
-                  <p className="mt-0.5 text-muted-foreground">
-                    {finding ? `${agentName(finding.agentId)}. ` : ""}
-                    Rejected by the judge: {item.reason}
-                  </p>
-                </li>
-              );
-            })}
-            {dropped.map((item, index) => (
-              <li key={`${item.agentId}-${index}`} className="py-3">
-                <p className="font-medium">{item.title}</p>
-                <p className="mt-0.5 text-muted-foreground">
-                  {agentName(item.agentId)}. Dropped by the citation check:{" "}
-                  {item.reason}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-    </div>
+        })}
+        {dropped.map((item, index) => (
+          <li key={`${item.agentId}-${index}`} className="py-3">
+            <p className="font-medium">{item.title}</p>
+            <p className="mt-0.5 text-muted-foreground">
+              {agentName(item.agentId)}. Dropped by the citation check:{" "}
+              {item.reason}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

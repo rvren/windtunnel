@@ -94,6 +94,23 @@ Three things keep the report honest:
 The model, the judge and the work orders use Claude Opus 5.5; the five agents
 use Claude Sonnet 5.5. Both are settings (see `.env.example`).
 
+The run page tells the run as it happens: a row of stages fills as each
+finishes, with its time, and a card for each stage appears when it starts
+and turns into what it found when it ends (the design model, the gaps, each
+agent's findings, disputes, the accepted issues by severity, fixes and work
+orders). The agents' stage shows them working in parallel: one lane each on
+a shared clock, with scenarios and findings landing as they arrive. Focus
+opens the run full screen (Esc leaves).
+
+A finished run's Issues tab reads like an insights page: tabs per kind with
+counts, sort and search, and one row per issue with its tag, a plain
+summary, one action (View fix or Work order), and a small chart of which
+agents filed it, how the challenge round went and its patch. Details opens
+a wide drawer with every merged finding, the comments, the fix and the work
+order. The right column shows how fully the design is specified, what
+changed since the project's last run, the agents (select one to filter),
+and delivery to 8090.
+
 ## Run it against a repository
 
 On the New run page choose "A repository". The same five agents then read

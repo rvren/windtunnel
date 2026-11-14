@@ -79,6 +79,13 @@ take something away.
   (the owner rejected a Lap Timer, Tool Call Graph, Radar, Blast Radius and
   Tick Gauge for this reason). Prefer one line (a bar, a count with a
   change) over a chart.
+- **The run page** tells a live run as a story (`components/run/story/`:
+  stepper, a card per stage that turns into its result, agents as parallel
+  lanes on one clock from the events' times, focus mode `?focus=1`). A
+  finished run's Issues tab is an insights page (`components/run/insights/`:
+  rows with a tag, one action and a chart of their own, a drawer for the
+  detail, and a right column of widgets); its data comes from the pure
+  adapters `src/lib/viz/story.ts`, `insights.ts` and `run-widgets.ts`.
 - **Tuffui widgets** live in `src/components/tuff/` (copied from
   tuffui.com, MIT, adapted: our tokens, read-only where Windtunnel never
   acts). In use: `SegmentedBar` (time by stage), `RunTrace` (time and

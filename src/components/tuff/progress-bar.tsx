@@ -126,23 +126,34 @@ export function SegmentedBar({
           .map((s) => `${s.label} ${s.value.toLocaleString("en-US")}`)
           .join(", ")
       }
-      className={cn("flex w-full gap-1", heights[size], className)}
+      className={cn(
+        "flex w-full min-w-0 gap-1 overflow-hidden",
+        heights[size],
+        className,
+      )}
       {...props}
     >
+      {/* Shares of the width, not percentages: with the gaps and the
+          smallest segment's floor they always fit inside the bar. */}
       {segments.map((s) => (
         <span
           key={s.id}
           title={`${s.label} · ${s.value.toLocaleString("en-US")}`}
-          className="h-full min-w-1.5 shrink-0 rounded-full transition-[width] duration-500 motion-reduce:transition-none"
+          className="h-full min-w-1.5 rounded-full transition-[flex-grow] duration-500 motion-reduce:transition-none"
           style={{
-            width: `${(s.value / max) * 100}%`,
+            flex: `${Math.max(s.value, 0)} 1 0%`,
             backgroundColor: s.color,
             backgroundImage: striped ? STRIPES : undefined,
             transitionTimingFunction: EASE,
           }}
         />
       ))}
-      <span className="h-full min-w-0 flex-1 rounded-full bg-foreground/[0.07]" />
+      {max > total ? (
+        <span
+          className="h-full min-w-0 rounded-full bg-foreground/[0.07]"
+          style={{ flex: `${max - total} 1 0%` }}
+        />
+      ) : null}
     </div>
   );
 }

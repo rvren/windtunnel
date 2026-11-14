@@ -1,6 +1,11 @@
 import type { AgentId } from "@/lib/agents";
 import { STAGE_LABEL, STAGE_ORDER } from "@/lib/labels";
-import type { RunEvent, Stage, StoredEvent } from "@/server/engine/schema";
+import type {
+  RunEvent,
+  Severity,
+  Stage,
+  StoredEvent,
+} from "@/server/engine/schema";
 
 /*
  * When each part of a run started and ended, read from its events alone.
@@ -14,15 +19,35 @@ export interface Span {
   end?: number;
 }
 
+/** A moment in an agent's work: a scenario walked or a finding filed. */
+export interface AgentMark {
+  agentId: AgentId;
+  at: number;
+  kind: "scenario" | "finding";
+  /** For a finding: how bad the agent said it was. */
+  severity?: Severity;
+}
+
 export interface RunTimes {
   start: number | null;
   end: number | null;
   stages: Partial<Record<Stage, Span>>;
   agents: Partial<Record<AgentId, Span>>;
+  /** When each scenario and finding arrived, in order. */
+  marks: AgentMark[];
+  /** Scenarios seen so far per agent, to tell a new one from a repeat. */
+  scenarios: Partial<Record<AgentId, number>>;
 }
 
 export function emptyTimes(): RunTimes {
-  return { start: null, end: null, stages: {}, agents: {} };
+  return {
+    start: null,
+    end: null,
+    stages: {},
+    agents: {},
+    marks: [],
+    scenarios: {},
+  };
 }
 
 /** Adds one event to the times. Pure: returns the same object when unchanged. */
@@ -55,6 +80,34 @@ export function applyTime(
         },
       };
     }
+    case "agent.progress": {
+      const before = times.scenarios[event.agentId] ?? 0;
+      const now = event.scenarios.length;
+      if (now <= before) return times;
+      const added: AgentMark[] = Array.from({ length: now - before }, () => ({
+        agentId: event.agentId,
+        at: when,
+        kind: "scenario",
+      }));
+      return {
+        ...times,
+        marks: [...times.marks, ...added],
+        scenarios: { ...times.scenarios, [event.agentId]: now },
+      };
+    }
+    case "agent.finding":
+      return {
+        ...times,
+        marks: [
+          ...times.marks,
+          {
+            agentId: event.agentId,
+            at: when,
+            kind: "finding",
+            severity: event.finding.severity,
+          },
+        ],
+      };
     case "agent.started":
       return {
         ...times,

@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Download, FolderKanban, LoaderCircle, RotateCcw } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  ChevronDown,
+  Download,
+  Maximize2,
+  FolderKanban,
+  LoaderCircle,
+  RotateCcw,
+} from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -12,19 +19,22 @@ import { LocalTime } from "@/components/local-time";
 import { LiveMap } from "@/components/project/live-map";
 import { FadeIn } from "@/components/motion";
 import { applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
+import { storyOf } from "@/lib/viz/story";
 import { applyTime, emptyTimes, type RunTimes } from "@/lib/viz/times";
-import type { RunRecord, StoredEvent } from "@/server/engine/schema";
+import { cn } from "@/lib/utils";
+import type {
+  RunRecord,
+  RunSummary,
+  StoredEvent,
+} from "@/server/engine/schema";
 
 import { SampleBadge, StatusBadge } from "./badges";
-import { LiveFindings } from "./live-findings";
-import { AgentLanes, StageRail } from "./run-progress";
-import { StageTime } from "./stage-time";
-import {
-  FindingsTab,
-  ModelTab,
-  ScoreboardTab,
-  WorkOrdersTab,
-} from "./run-report";
+import { Stepper } from "./story/stepper";
+import { Story, type ReportTab } from "./story/story";
+import { seconds } from "./stage-time";
+import { RunFocus } from "./story/focus";
+import { Insights } from "./insights/insights";
+import { ModelTab, ScoreboardTab, WorkOrdersTab } from "./run-report";
 
 // The events after which the saved run has something new worth fetching.
 const REFRESH_ON = new Set([
@@ -148,10 +158,74 @@ function RunAgain({ run }: { run: RunRecord }) {
   );
 }
 
-export function RunView({ initial }: { initial: RunRecord }) {
+const noSubscribe = () => () => undefined;
+
+/** What the report's right column needs from beyond the run itself. */
+export interface RunContext {
+  /** The project's previous finished run, for "What changed". */
+  previous: RunSummary | null;
+  previousSeverity: { critical: number; high: number } | null;
+  /** Work orders of this run that reached 8090; null when not linked. */
+  sent: number | null;
+}
+
+export function RunView({
+  initial,
+  context = { previous: null, previousSeverity: null, sent: null },
+}: {
+  initial: RunRecord;
+  context?: RunContext;
+}) {
   const { run, feed, times, connected } = useRun(initial);
   const running = run.status === "running";
   const hasReport = run.designModel !== null;
+  // The report waits for the end of the run; until then the story is it.
+  const ended = !running;
+  const chapters = storyOf(run, feed, times);
+  const [storyOpen, setStoryOpen] = useState(false);
+  const [tab, setTab] = useState<ReportTab>("findings");
+  // Focus mode lives in the address (?focus=1); it only turns on in the
+  // browser, since the full-screen view is drawn into the body.
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const mounted = useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  );
+  const focus = mounted && params.get("focus") === "1";
+  const setFocus = (on: boolean) => {
+    const query = new URLSearchParams(params.toString());
+    if (on) query.set("focus", "1");
+    else query.delete("focus");
+    const text = query.toString();
+    router.replace(text ? `${pathname}?${text}` : pathname, { scroll: false });
+  };
+  const openTab = (next: ReportTab) => {
+    setTab(next);
+    if (focus) setFocus(false);
+    requestAnimationFrame(() =>
+      document
+        .getElementById("run-report")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
+  const liveMap =
+    running && run.source && run.projectId ? (
+      <LiveMap
+        bare
+        feed={feed}
+        expected={
+          run.source.workspaces ?? [
+            {
+              name: run.workspaces?.[0] ?? run.source.label,
+              label: originText(run.source),
+            },
+          ]
+        }
+      />
+    ) : null;
 
   return (
     <div className="space-y-8" data-testid="run-view" data-status={run.status}>
@@ -205,19 +279,30 @@ export function RunView({ initial }: { initial: RunRecord }) {
         <h1 className="max-w-4xl text-2xl leading-tight font-semibold tracking-[-0.03em] text-balance sm:text-3xl">
           {run.title}
         </h1>
-        {run.source ? (
-          <p
-            className="font-mono text-xs text-muted-foreground"
-            data-testid="run-source"
-          >
-            {run.source.workspaces
-              ? `${run.source.workspaces.length} workspaces · ${run.source.workspaces.map((item) => item.name).join(", ")}`
-              : `${run.workspaces?.[0] ? `${run.workspaces[0]} · ` : ""}${originText(run.source)}`}
-            {run.source.files !== null
-              ? ` · ${run.source.files.toLocaleString("en")} files · ${run.source.languages.join(" ")}`
-              : ""}
-          </p>
-        ) : null}
+        {/* One line of context: what was read, by which models, how long. */}
+        <p
+          className="font-mono text-xs text-muted-foreground"
+          data-testid="run-source"
+        >
+          {[
+            run.source
+              ? run.source.workspaces
+                ? `${run.source.workspaces.length} workspaces · ${run.source.workspaces.map((item) => item.name).join(", ")}`
+                : `${run.workspaces?.[0] ? `${run.workspaces[0]} · ` : ""}${originText(run.source)}`
+              : "Requirement run",
+            run.source?.files != null
+              ? `${run.source.files.toLocaleString("en")} files · ${run.source.languages.join(" ")}`
+              : null,
+            run.sample
+              ? null
+              : `${run.models.reasoning} / ${run.models.agents}`,
+            times.start !== null && times.end !== null
+              ? `took ${seconds((times.end - times.start) / 1000)}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
         {run.requirement &&
         (run.requirement !== run.title || run.documents.length > 0) ? (
           <details className="max-w-4xl text-sm">
@@ -267,27 +352,80 @@ export function RunView({ initial }: { initial: RunRecord }) {
         </Alert>
       ) : null}
 
-      {/* A run of a project's code, in progress: the application being read. */}
-      {running && run.source && run.projectId ? (
-        <LiveMap
+      {/* The stages, then the run told stage by stage. */}
+      <Stepper
+        chapters={chapters}
+        action={
+          <button
+            type="button"
+            onClick={() => setFocus(true)}
+            data-testid="run-focus-open"
+            className="ml-2 flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-foreground/10 hover:text-foreground"
+          >
+            <Maximize2 className="size-3" aria-hidden="true" />
+            Focus
+          </button>
+        }
+        onSelect={(chapter) => {
+          if (ended && !storyOpen) setStoryOpen(true);
+          requestAnimationFrame(() =>
+            document
+              .getElementById(`chapter-${chapter.stage}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+          );
+        }}
+      />
+
+      {ended && run.status === "completed" ? (
+        <FadeIn>
+          <button
+            type="button"
+            onClick={() => setStoryOpen((open) => !open)}
+            aria-expanded={storyOpen}
+            data-testid="run-story-toggle"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <ChevronDown
+              className={cn(
+                "size-3.5 transition-transform duration-300",
+                storyOpen && "rotate-180",
+              )}
+              aria-hidden="true"
+            />
+            {storyOpen ? "Hide how the run went" : "How the run went"}
+          </button>
+        </FadeIn>
+      ) : null}
+
+      {!ended || run.status !== "completed" || storyOpen ? (
+        <Story
+          chapters={chapters}
           feed={feed}
-          expected={
-            run.source.workspaces ?? [
-              {
-                name: run.workspaces?.[0] ?? run.source.label,
-                label: originText(run.source),
-              },
-            ]
-          }
+          times={times}
+          onOpen={openTab}
+          liveMap={liveMap}
         />
       ) : null}
-      <StageRail feed={feed} repository={Boolean(run.source)} />
-      <StageTime times={times} />
-      <AgentLanes feed={feed} />
-      {running ? <LiveFindings feed={feed} /> : null}
 
-      {hasReport ? (
-        <Tabs defaultValue="findings" className="gap-6">
+      {focus ? (
+        <RunFocus
+          run={run}
+          chapters={chapters}
+          feed={feed}
+          times={times}
+          liveMap={liveMap}
+          onExit={() => setFocus(false)}
+          onOpen={openTab}
+        />
+      ) : null}
+
+      {hasReport && ended ? (
+        <Tabs
+          value={tab}
+          onValueChange={(next) => setTab(next as ReportTab)}
+          className="scroll-mt-6 gap-6"
+          id="run-report"
+        >
           {/* The four tabs do not fit a phone: the strip scrolls sideways. */}
           <div className="overflow-x-auto">
             <TabsList className="w-max min-w-full">
@@ -296,7 +434,7 @@ export function RunView({ initial }: { initial: RunRecord }) {
                 data-testid="run-tab-findings"
                 className="flex-none px-4"
               >
-                Findings
+                Issues
                 <span className="font-mono text-xs text-muted-foreground">
                   {run.groups.length}
                 </span>
@@ -329,7 +467,7 @@ export function RunView({ initial }: { initial: RunRecord }) {
           </div>
           <TabsContent value="findings">
             <FadeIn>
-              <FindingsTab run={run} />
+              <Insights run={run} context={context} onOpen={openTab} />
             </FadeIn>
           </TabsContent>
           <TabsContent value="work-orders">
