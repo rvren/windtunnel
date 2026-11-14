@@ -285,7 +285,7 @@ export function RunView({ initial }: { initial: RunRecord }) {
         <Tabs defaultValue="findings" className="gap-6">
           {/* The four tabs do not fit a phone: the strip scrolls sideways. */}
           <div className="overflow-x-auto">
-            <TabsList className="w-max">
+            <TabsList className="w-max min-w-full">
               <TabsTrigger
                 value="findings"
                 data-testid="run-tab-findings"

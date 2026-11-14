@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -106,6 +107,7 @@ export function RunFilters({
               })
             }
           >
+            {on ? <Check /> : null}
             {name}
           </Button>
         );

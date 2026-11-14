@@ -75,6 +75,9 @@ take something away.
   white on dark, ink on light. Every other button is `outline` or `ghost`.
   The current sidebar item is a soft grey chip in the text colour, never a
   solid block.
+- **Tabs are underline tabs** (`ui/tabs.tsx`): plain labels on a hairline,
+  the current one in the text colour with a 2px line that slides. No box, no
+  fill, and on keyboard focus a thin outline only.
 - **The shell follows Plinth's console** (`~/Documents/GitHub/plinth`, the
   owner's other product). Sidebar: the mark and the collapse control in one
   row, the project scope card under a hairline, quiet 40px rows, "New run"

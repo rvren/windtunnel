@@ -118,7 +118,11 @@ async function RunsTable({
                     data-testid="runs-row-link"
                     className="line-clamp-2 font-medium underline-offset-4 hover:underline"
                   >
-                    {run.title}
+                    {/* A run of a project's code is titled after the project,
+                        which the next column already shows. */}
+                    {run.projectId && run.title === nameOf.get(run.projectId)
+                      ? "Code run"
+                      : run.title}
                   </Link>
                 </TableCell>
                 <TableCell>

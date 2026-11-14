@@ -390,8 +390,9 @@ export function RunForm({
           {starting ? "Starting" : "Start run"}
         </Button>
         <p className="max-w-md text-xs text-muted-foreground">
-          The requirement and files are sent to the Claude API to be analysed. A
-          run takes a few minutes and goes on if you close this page.
+          {project?.demo
+            ? "A sample project: the run replays a script, and nothing is sent to the Claude API. It goes on if you close this page."
+            : "The requirement and files are sent to the Claude API to be analysed. A run takes a few minutes and goes on if you close this page."}
         </p>
       </div>
     </form>

@@ -111,18 +111,19 @@ function Part({
   style?: React.CSSProperties;
 }) {
   const kind = KIND[component.kind];
+  const reduced = useReducedMotion();
   return (
     <motion.div
       layout
       layoutId={`part-${component.id}`}
-      initial={{ opacity: 0 }}
+      initial={reduced ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={glide}
       style={style}
       className="relative"
     >
       {/* A finding has just landed here: one soft ring in its colour. */}
-      {component.worst && component.issues > 0 ? (
+      {component.worst && component.issues > 0 && !reduced ? (
         <motion.span
           key={component.issues}
           aria-hidden="true"
@@ -218,7 +219,7 @@ function Line({
         stroke="currentColor"
         strokeWidth={1}
         markerEnd="url(#architecture-arrow)"
-        initial={{ pathLength: 0, opacity: 0 }}
+        initial={reduced ? false : { pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
         transition={{ duration: 0.9, ease: EASE, delay: 0.25 + index * 0.05 }}
       />

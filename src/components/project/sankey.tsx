@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 
 import { EASE } from "@/components/motion";
 import { useWidth } from "@/hooks/use-width";
@@ -42,6 +42,7 @@ export function Sankey({
   selected: string[];
   onSelect: (node: SankeyNode) => void;
 }) {
+  const reduced = useReducedMotion();
   const [ref, measured] = useWidth<HTMLDivElement>();
   const width = Math.max(measured, 560);
   const rows = Math.max(
@@ -97,7 +98,7 @@ export function Sankey({
                   key={`${link.source}>${link.target}`}
                   // A band keeps its place and changes shape, so a new run
                   // or a wider window never redraws the chart.
-                  initial={{ d: link.d, opacity: 0 }}
+                  initial={reduced ? false : { d: link.d, opacity: 0 }}
                   animate={{ d: link.d, opacity: 1 }}
                   transition={{
                     d: { duration: 0.7, ease: EASE },
@@ -156,7 +157,11 @@ export function Sankey({
                     x={placed.x}
                     width={NODE_WIDTH}
                     rx={1.5}
-                    initial={{ y: placed.y + placed.height / 2, height: 0 }}
+                    initial={
+                      reduced
+                        ? false
+                        : { y: placed.y + placed.height / 2, height: 0 }
+                    }
                     animate={{
                       y: placed.y,
                       height: Math.max(placed.height, 2),

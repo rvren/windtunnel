@@ -39,9 +39,11 @@ type SectionProps = HTMLMotionProps<"section"> & { delay?: number };
 
 /** Fades and rises in when it mounts. For page content and tab panels. */
 export function FadeIn({ delay = 0, ...props }: SectionProps) {
+  // With reduced motion nothing starts hidden: it is simply there.
+  const reduced = useReducedMotion();
   return (
     <motion.section
-      initial={hidden}
+      initial={reduced ? false : hidden}
       animate={shown}
       transition={{ duration: DURATION, ease: EASE, delay }}
       {...props}
@@ -51,9 +53,10 @@ export function FadeIn({ delay = 0, ...props }: SectionProps) {
 
 /** Fades and rises in the first time it scrolls into view. */
 export function Reveal({ delay = 0, ...props }: SectionProps) {
+  const reduced = useReducedMotion();
   return (
     <motion.section
-      initial={hidden}
+      initial={reduced ? false : hidden}
       whileInView={shown}
       viewport={{ once: true, margin: "0px 0px -80px 0px" }}
       transition={{ duration: 0.7, ease: EASE, delay }}
@@ -64,10 +67,11 @@ export function Reveal({ delay = 0, ...props }: SectionProps) {
 
 /** A list row that eases in as it is added, and makes room smoothly. */
 export function FadeInItem(props: HTMLMotionProps<"li">) {
+  const reduced = useReducedMotion();
   return (
     <motion.li
       layout="position"
-      initial={{ opacity: 0, y: 6 }}
+      initial={reduced ? false : { opacity: 0, y: 6 }}
       animate={shown}
       transition={{ duration: 0.4, ease: EASE }}
       {...props}

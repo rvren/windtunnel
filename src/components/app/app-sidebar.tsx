@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
@@ -84,9 +85,27 @@ function Collapse() {
   );
 }
 
+/** A project's own page: /app/projects/<id>. */
+const COCKPIT = /^\/app\/projects\/[0-9a-f-]{36}\/?$/;
+
 /** The sidebar for the page being shown. Needs a Suspense boundary above it. */
 export function AppSidebar({ switcher }: { switcher: React.ReactNode }) {
-  return <AppSidebarFor pathname={usePathname()} switcher={switcher} />;
+  const pathname = usePathname();
+  // A project's cockpit gets the whole width: the sidebar folds to its rail
+  // on the way in and opens again on the way to any other page. It is only
+  // moved when the page changes, so the collapse control still works there.
+  const { setOpen } = useSidebar();
+  const cockpit = COCKPIT.test(pathname ?? "");
+  // setOpen is a new function after every toggle. It is kept in a ref so
+  // that only a change of page moves the sidebar, never the toggle itself.
+  const move = useRef(setOpen);
+  useEffect(() => {
+    move.current = setOpen;
+  });
+  useEffect(() => {
+    move.current(!cockpit);
+  }, [cockpit]);
+  return <AppSidebarFor pathname={pathname} switcher={switcher} />;
 }
 
 /**
