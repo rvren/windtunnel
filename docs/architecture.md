@@ -287,15 +287,22 @@ flowchart LR
   run --> arch["Architecture<br/>components and connections"]
   run --> groups["Accepted findings"]
   arch & groups --> c["buildCockpit<br/>src/server/projects/cockpit.ts"]
-  c --> s["Sankey<br/>workspace → kind → severity"]
+  c --> v["Canvas views<br/>src/lib/viz/cockpit-views.ts"]
+  v --> s["Issue flow · Data flow · Security<br/>command/flow-canvas.tsx"]
   c --> d["Architecture diagram"]
   c --> i["Issues list"]
-  c --> n["Numbers<br/>StatGrid, change vs the last run"]
+  c --> n["Four cards<br/>command/cards.tsx"]
 ```
 
-The numbers at the top come from `cockpitStats` in `src/lib/viz/project.ts`,
-with the change and trend read from the project's earlier finished runs.
-The widgets themselves are in `src/components/tuff/` (from tuffui.com, MIT).
+The cockpit is a command center: a switcher picks the canvas view (issue
+flow, architecture, data flow, security; `?view=` in the address). Each flow
+view is a pure adapter in `src/lib/viz/cockpit-views.ts` that turns the
+cockpit into sources, hubs, groups and coloured bands; one renderer,
+`src/components/project/command/flow-canvas.tsx`, draws them all with the
+band geometry of `src/lib/sankey-layout.ts`. The four cards
+(`src/components/project/command/cards.tsx`) read the change and trend from
+the project's earlier finished runs and the 8090 deliveries of this run.
+The widgets come from `src/components/tuff/` (from tuffui.com, MIT).
 
 Projects and workspaces: `src/server/projects/store.ts`. Older runs with no
 project are gathered under "Demo project" by `src/server/projects/adopt.ts`.

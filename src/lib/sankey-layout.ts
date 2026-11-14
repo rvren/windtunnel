@@ -30,20 +30,35 @@ export interface PlacedLink {
   value: number;
   /** A closed path: the band between the two nodes. */
   d: string;
+  /** Where the band leaves and enters, its top edge, and its thickness. */
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  thickness: number;
 }
 
-export interface FlowLayout {
+export interface FlowLayout<L extends FlowLink = FlowLink> {
   nodes: PlacedNode[];
-  links: PlacedLink[];
+  /** The links given, each with its band; extra fields are kept. */
+  links: (L & PlacedLink)[];
 }
 
 export const NODE_WIDTH = 6;
 
-export function layoutFlow(
+export function layoutFlow<L extends FlowLink>(
   nodes: FlowNode[],
-  links: FlowLink[],
-  size: { width: number; height: number; gap: number },
-): FlowLayout {
+  links: L[],
+  size: {
+    width: number;
+    height: number;
+    gap: number;
+    /** The most pixels per unit of value, so bands stay thin when few. */
+    maxScale?: number;
+    /** A gap per column, in place of `gap`. */
+    gaps?: number[];
+  },
+): FlowLayout<L> {
   const columns = [...new Set(nodes.map((node) => node.column))].sort(
     (a, b) => a - b,
   );
@@ -51,10 +66,12 @@ export function layoutFlow(
 
   // One scale for every column, set by the column that needs most room.
   const scale = Math.min(
+    size.maxScale ?? Infinity,
     ...columns.map((column) => {
       const own = nodes.filter((node) => node.column === column);
       const total = own.reduce((sum, node) => sum + node.value, 0);
-      return (size.height - size.gap * (own.length - 1)) / Math.max(total, 1);
+      const gap = size.gaps?.[columns.indexOf(column)] ?? size.gap;
+      return (size.height - gap * (own.length - 1)) / Math.max(total, 1);
     }),
   );
   const step =
@@ -63,9 +80,10 @@ export function layoutFlow(
   const placed = new Map<string, PlacedNode>();
   for (const [index, column] of columns.entries()) {
     const own = nodes.filter((node) => node.column === column);
+    const gap = size.gaps?.[index] ?? size.gap;
     const used =
       own.reduce((sum, node) => sum + node.value * scale, 0) +
-      size.gap * (own.length - 1);
+      gap * (own.length - 1);
     let y = (size.height - used) / 2;
     for (const node of own) {
       const height = node.value * scale;
@@ -76,7 +94,7 @@ export function layoutFlow(
         y,
         height,
       });
-      y += height + size.gap;
+      y += height + gap;
     }
   }
 
@@ -93,7 +111,7 @@ export function layoutFlow(
         order.get(a.target)! - order.get(b.target)!,
     );
 
-  const out: PlacedLink[] = [];
+  const out: (L & PlacedLink)[] = [];
   for (const link of sorted) {
     const source = placed.get(link.source)!;
     const target = placed.get(link.target)!;
@@ -108,6 +126,11 @@ export function layoutFlow(
     const n = (value: number) => Math.round(value * 100) / 100;
     out.push({
       ...link,
+      x0,
+      y0,
+      x1,
+      y1,
+      thickness,
       d: [
         `M${n(x0)} ${n(y0)}`,
         `C${n(mid)} ${n(y0)} ${n(mid)} ${n(y1)} ${n(x1)} ${n(y1)}`,

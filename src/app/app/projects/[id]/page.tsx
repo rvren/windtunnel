@@ -30,7 +30,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SOFTWARE_FACTORY } from "@/server/connectors/software-factory";
-import { getConnection, getProjectLink } from "@/server/connectors/store";
+import {
+  getConnection,
+  getProjectLink,
+  listDeliveries,
+} from "@/server/connectors/store";
 import { ensureDatabase } from "@/server/db/ready";
 import { localRepos } from "@/server/engine/repo/fetch";
 import { runStore } from "@/server/engine/registry";
@@ -106,6 +110,16 @@ async function ProjectPage({
     getConnection(SOFTWARE_FACTORY),
   ]);
   const connected = factory.status === "connected";
+  // Work orders of the cockpit's run that reached 8090, when it is linked.
+  const delivered =
+    link && cockpit
+      ? {
+          sent: (await listDeliveries(cockpit.runId, SOFTWARE_FACTORY)).filter(
+            (item) => item.status === "sent",
+          ).length,
+          total: cockpit.totals.workOrders,
+        }
+      : null;
   const status = await engineStatus();
   const blocked =
     !status.apiKey && !status.sampleMode
@@ -257,7 +271,7 @@ async function ProjectPage({
       ) : null}
 
       {cockpit ? (
-        <Cockpit cockpit={cockpit} earlier={earlier} />
+        <Cockpit cockpit={cockpit} earlier={earlier} delivered={delivered} />
       ) : count === 0 ? (
         <div
           className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"

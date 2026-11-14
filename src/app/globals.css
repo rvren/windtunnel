@@ -13,6 +13,7 @@
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-surface: var(--surface);
+  --color-canvas: var(--canvas);
   --color-surface-inset: var(--surface-inset);
   --color-surface-raised: var(--surface-raised);
   --color-positive: var(--positive);
@@ -126,7 +127,12 @@
   --positive: var(--ok);
   --negative: var(--sev-critical);
   --warning: var(--sev-high);
-  --glow: color-mix(in oklab, var(--brand) 45%, transparent);
+  /* Light: no glow; the cockpit canvas is a soft panel with quiet strands. */
+  --glow: transparent;
+  --canvas: #ffffff;
+  --canvas-node: #ffffff;
+  --canvas-ring: #d6d6de;
+  --strand-opacity: 0.5;
   --button: linear-gradient(0deg, #fff 0%, #e6e6e6 100%);
   --button-hover: linear-gradient(0deg, #fff 0%, #eeeeee 100%);
   --button-foreground: #111111;
@@ -183,6 +189,10 @@
   --negative: var(--sev-critical);
   --warning: var(--sev-high);
   --glow: color-mix(in oklab, var(--brand) 60%, transparent);
+  --canvas: #0b0b0e;
+  --canvas-node: #111114;
+  --canvas-ring: rgb(255 255 255 / 16%);
+  --strand-opacity: 0.78;
   --button: linear-gradient(0deg, #fff 0%, #ababab 100%);
   --button-hover: linear-gradient(0deg, #fff 0%, #c2c2c2 100%);
   --button-foreground: #111111;
@@ -222,6 +232,13 @@
 /* The glow on what is live: a running edge, the hot path, focus. */
 @utility glow {
   filter: drop-shadow(0 0 6px var(--glow));
+}
+
+/* A faint, always-on light, for the hubs of the cockpit canvas. */
+@utility glow-soft {
+  filter: drop-shadow(
+    0 0 3px color-mix(in oklab, var(--glow) 60%, transparent)
+  );
 }
 
 @layer base {

@@ -176,7 +176,7 @@ function NavList({
       {groups.map((group, index) => (
         <SidebarGroup
           key={group.label ?? index}
-          className="p-0 group-data-[collapsible=icon]:border-t group-data-[collapsible=icon]:pt-2 group-data-[collapsible=icon]:first:border-0 group-data-[collapsible=icon]:first:pt-0"
+          className="p-0 group-data-[collapsible=icon]:pt-2 group-data-[collapsible=icon]:first:pt-0"
         >
           {group.label ? (
             <SidebarGroupLabel className="mb-0.5 h-8 px-3 text-sm font-normal text-muted-foreground group-data-[collapsible=icon]:hidden">
@@ -381,7 +381,7 @@ export function AppSidebarFor({
   const own = inSettings(pathname) && !up;
   return (
     <Sidebar collapsible="icon" variant="floating">
-      <SidebarHeader className="gap-0 border-b px-3.5 pt-5 pb-4 group-data-[collapsible=icon]:px-1">
+      <SidebarHeader className="gap-0 px-3.5 pt-5 pb-2 group-data-[collapsible=icon]:px-1">
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
           <Link
             href="/app/projects"
@@ -406,7 +406,7 @@ export function AppSidebarFor({
             <>
               {/* One scope card: the project the page is about. Part of the
                   main menu, so it slides away with it in Settings. */}
-              <div className="mb-4 border-b pb-4 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+              <div className="mb-4 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
                 {switcher}
               </div>
               <NavList
@@ -444,7 +444,7 @@ export function AppSidebarFor({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <div className="mt-4 flex items-center gap-1 border-t pt-3 group-data-[collapsible=icon]:flex-col">
+        <div className="mt-3 flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
           <SidebarMenu className="min-w-0 flex-1 group-data-[collapsible=icon]:items-center">
             <SidebarMenuItem>
               <SidebarMenuButton

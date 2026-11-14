@@ -13,7 +13,7 @@ import type { RunRecord, StoredEvent } from "@/server/engine/schema";
 import { MemoryRunStore } from "@/server/engine/store";
 import { buildCockpit } from "@/server/projects/cockpit";
 
-import { cockpitStats } from "./project";
+import { dataFlowView, issueFlowView, securityView } from "./cockpit-views";
 import { patchCoverage, remediationFiles, traceSpans } from "./run";
 import { elapsedSeconds, stageSegments, stageSplits, timesFrom } from "./times";
 
@@ -149,26 +149,63 @@ describe("a run, as the widgets see it", () => {
   });
 });
 
-describe("a project, as the widgets see it", () => {
-  it("compares the headline numbers with the run before, and only then", () => {
+describe("the cockpit's canvas views", () => {
+  const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
+
+  it("draws the issue flow with every issue on both sides of each hub", () => {
     const cockpit = buildCockpit(run);
-    const first = cockpitStats(cockpit, []);
-    expect(first[0]).toMatchObject({ id: "issues", hint: "First run" });
-    expect(first[0].delta).toBeUndefined();
-    expect(first[0].trend).toBeUndefined();
-    const later = cockpitStats(cockpit, [{ issues: 10, workOrders: 5 }]);
-    // A plain difference, not a percentage: "+13", never "+130%".
-    const difference = cockpit.totals.issues - 10;
-    expect(later[0].delta).toBe(difference);
-    expect(later[0].change).toBe(
-      difference > 0 ? `+${difference}` : String(difference),
-    );
-    expect(later[0].trend).toEqual([10, cockpit.totals.issues]);
-    // Severities filter the issues; one with none cannot be picked.
-    for (const stat of later.slice(1, 5)) {
-      expect(stat.disabled).toBe(
-        cockpit.totals.bySeverity[stat.id as "low"] === 0,
-      );
+    const view = issueFlowView(cockpit)!;
+    expect(sum(view.sources.map((n) => n.value))).toBe(cockpit.totals.issues);
+    expect(sum(view.groups.map((n) => n.value))).toBe(cockpit.totals.issues);
+    for (const hub of view.hubs) {
+      const into = view.bands.filter((b) => b.target === hub.id);
+      const out = view.bands.filter((b) => b.source === hub.id);
+      expect(sum(into.map((b) => b.value))).toBe(hub.value);
+      expect(sum(out.map((b) => b.value))).toBe(hub.value);
     }
+    // A group lists its first issues, and counts the rest.
+    for (const group of view.groups) {
+      expect(group.leaves.length + group.more).toBe(group.value);
+      expect(group.leaves.length).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("files security issues under OWASP, patch and severity", () => {
+    const cockpit = buildCockpit(run);
+    const view = securityView(cockpit)!;
+    const security = cockpit.issues.filter(
+      (issue) => issue.type === "security_vulnerability",
+    );
+    expect(sum(view.sources.map((n) => n.value))).toBe(security.length);
+    expect(sum(view.hubs.map((n) => n.value))).toBe(security.length);
+    const ready = view.hubs.find((hub) => hub.id === "hub:yes")?.value ?? 0;
+    expect(ready).toBe(patchCoverage(run).patched);
+    expect(view.sources.every((source) => source.filter?.key === "owasp")).toBe(
+      true,
+    );
+  });
+
+  it("follows personal data to its sinks and workspaces", () => {
+    const cockpit = buildCockpit(run);
+    const view = dataFlowView(cockpit)!;
+    const total = sum(cockpit.privacy!.flows.map((flow) => flow.places));
+    expect(sum(view.hubs.map((n) => n.value))).toBe(total);
+    expect(sum(view.groups.map((n) => n.value))).toBe(total);
+    expect(
+      view.groups.every((group) =>
+        group.leaves.every((leaf) => leaf.tone === "var(--sev-critical)"),
+      ),
+    ).toBe(true);
+  });
+
+  it("leaves a view out when it has nothing to show", () => {
+    const empty = {
+      ...buildCockpit(run),
+      issues: [],
+      privacy: null,
+    };
+    expect(issueFlowView(empty)).toBeNull();
+    expect(securityView(empty)).toBeNull();
+    expect(dataFlowView(empty)).toBeNull();
   });
 });

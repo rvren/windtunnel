@@ -133,15 +133,21 @@ addressed as `workspace/path`. It always asks you to confirm first, because a
 run uses your API key, and a project run costs more than a run of one
 repository.
 
-The project page is its cockpit, built from the latest finished run:
+The project page is its cockpit, a command center built from the latest
+finished run:
 
-- the number of issues by severity, and of work orders;
-- a flow chart of the issues: workspace → kind → severity, where the width of
-  a band is the number of issues;
-- the architecture as the run read it from the code (frontends, services, data
-  and outside systems, and what calls what), with the issues in each part;
-- every accepted issue. A number, a name in the chart or a part of the
-  architecture filters the list.
+- one canvas with a switcher for four views: **Issue flow** (workspace →
+  kind → severity, as bundles of coloured strands, with the top issues of
+  each severity listed), **Architecture** (frontends, services, data and
+  outside systems, and what calls what), **Data flow** (personal data →
+  logs, outside calls, storage, responses → where in the code) and
+  **Security** (OWASP category → patch ready or not → severity). The view is
+  kept in the address (`?view=`);
+- four cards: issues by severity with the change against the last run, the
+  issues to fix first, issues over the project's runs, and readiness
+  (patches, work orders in 8090, personal data reaching logs);
+- every accepted issue. Anything picked on the canvas or a card filters the
+  list.
 
 With one workspace the cockpit adapts: the chart starts from the components
 inside it. Nothing is shown that a run did not produce. There is no sign-in

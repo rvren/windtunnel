@@ -81,9 +81,17 @@ take something away.
   change) over a chart.
 - **Tuffui widgets** live in `src/components/tuff/` (copied from
   tuffui.com, MIT, adapted: our tokens, read-only where Windtunnel never
-  acts). In use: `StatGrid` (cockpit numbers, with change against the last
-  run), `SegmentedBar` (time by stage), `RunTrace` (time and tokens),
-  `FileChanges` (a patch, read-only), `ProgressBar` (patched share). Feed
+  acts). In use: `SegmentedBar` (time by stage), `RunTrace` (time and
+  tokens), `FileChanges` (a patch, read-only), `ProgressBar`, `Segmented`
+  (the cockpit's view switcher).
+- **The cockpit is the one console-style screen** (after Palo Alto
+  Networks' Command Center, at the owner's request): a header with a centred
+  view switcher, one canvas (`components/project/command/flow-canvas.tsx`:
+  ringed sources, hubs with a ring of ticks, groups that list their top
+  items, bands as strands in severity colours), four cards
+  (`command/cards.tsx`), then the issues. Coloured strands and glow are
+  allowed there; light theme has no glow. A new canvas view is one pure
+  adapter in `src/lib/viz/cockpit-views.ts` plus one switcher entry. Feed
   them through the pure adapters in `src/lib/viz/`, with real numbers only.
 - **One white block per view.** The main action (`Button` default) is solid
   white on dark, ink on light. Every other button is `outline` or `ghost`.
@@ -94,8 +102,9 @@ take something away.
   fill, and on keyboard focus a thin outline only.
 - **The shell follows Plinth's console** (`~/Documents/GitHub/plinth`, the
   owner's other product). Sidebar: the mark and the collapse control in one
-  row, the project scope card under a hairline, quiet 40px rows, "New run"
-  as the one solid button at the bottom, then a hairline and the footer. Top
+  row, the project scope card, quiet 40px rows, "New run"
+  as the one solid button at the bottom, then the footer. No horizontal
+  lines in the sidebar: space separates its parts (the owner asked). Top
   bar: scope, then the trail parted by slashes, the last step in medium
   weight. Content: the full width of the page with 36px side padding; a form
   keeps its own reading measure.

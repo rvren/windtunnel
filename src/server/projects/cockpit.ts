@@ -53,6 +53,21 @@ export interface CockpitPrivacy {
     /** Places that reach a log, an outside call or a response first. */
     examples: { path: string; line: number; sinks: DataSink[] }[];
   }[];
+  /**
+   * Places by category, sink and workspace: how personal data moves. A place
+   * that reaches no sink is not in here.
+   */
+  flows: {
+    category: PiiCategory;
+    sink: DataSink;
+    /** Where in the code: a workspace, a component, or a top folder. */
+    area: string;
+    places: number;
+  }[];
+  /** How many places reach a log or an outside call (each counted once). */
+  exposedPlaces: number;
+  /** Up to three places per workspace that reach a log or an outside call. */
+  exposed: { area: string; path: string; line: number }[];
   secrets: {
     kind: string;
     path: string;
@@ -223,6 +238,17 @@ export function buildCockpit(run: RunRecord): Cockpit {
   }
 
   const inventory = run.inventory;
+  // Where a file is, in the words the run has: its workspace when there are
+  // several, else its component, else its top folder.
+  const areaOf = (path: string) => {
+    if (workspaces.length > 1) {
+      const workspace = workspaceOf(path, workspaces);
+      if (workspace) return workspace;
+    }
+    const component = componentOf(path, architecture);
+    if (component) return componentName.get(component) ?? component;
+    return path.includes("/") ? `${path.split("/")[0]}/` : "the root";
+  };
   const SINKS: DataSink[] = ["log", "outside", "storage", "response"];
   const privacy: CockpitPrivacy | null = inventory
     ? {
@@ -254,6 +280,47 @@ export function buildCockpit(run: RunRecord): Cockpit {
             };
           })
           .sort((a, b) => b.places - a.places),
+        flows: (() => {
+          const counted = new Map<string, CockpitPrivacy["flows"][number]>();
+          for (const item of inventory.pii) {
+            const area = areaOf(item.path);
+            for (const sink of item.sinks) {
+              const key = `${item.category}|${sink}|${area}`;
+              const flow = counted.get(key) ?? {
+                category: item.category,
+                sink,
+                area,
+                places: 0,
+              };
+              flow.places += 1;
+              counted.set(key, flow);
+            }
+          }
+          return [...counted.values()];
+        })(),
+        exposedPlaces: inventory.pii.filter((item) =>
+          item.sinks.some((sink) => sink === "log" || sink === "outside"),
+        ).length,
+        exposed: (() => {
+          const out: CockpitPrivacy["exposed"] = [];
+          for (const item of inventory.pii) {
+            if (
+              !item.sinks.some((sink) => sink === "log" || sink === "outside")
+            )
+              continue;
+            const area = areaOf(item.path);
+            if (out.filter((place) => place.area === area).length >= 3)
+              continue;
+            if (
+              out.some(
+                (place) => place.path === item.path && place.line === item.line,
+              )
+            )
+              continue;
+            out.push({ area, path: item.path, line: item.line });
+          }
+          return out;
+        })(),
         secrets: inventory.secrets.map(({ kind, path, line }) => ({
           kind,
           path,
