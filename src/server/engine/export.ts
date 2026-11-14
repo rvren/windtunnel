@@ -69,6 +69,12 @@ export function runToMarkdown(run: RunRecord): string {
   }
   if (run.error) out.push("", `> **Error:** ${run.error}`);
 
+  if (run.source) {
+    out.push(
+      "",
+      `Repository: ${run.source.label} (${run.source.origin.kind === "github" ? run.source.origin.url : "local folder"})`,
+    );
+  }
   out.push("", "## Requirement", "");
   out.push(...run.requirement.split("\n").map((line) => `> ${line}`));
   for (const document of run.documents) {
@@ -116,6 +122,16 @@ export function runToMarkdown(run: RunRecord): string {
           if (!scenario || !step) continue;
           out.push(
             `  - _${scenario.title}_, step ${item.step}: ${step.action} → ${OUTCOME_LABEL[step.outcome]}. ${step.detail}`,
+          );
+        }
+        if (finding.location) {
+          const { path, startLine, endLine, quote } = finding.location;
+          out.push(
+            `  - \`${path}:${startLine}${endLine > startLine ? `-${endLine}` : ""}\``,
+            "",
+            "    ```",
+            ...quote.split("\n").map((line) => `    ${line}`),
+            "    ```",
           );
         }
         if (finding.suggestion) {

@@ -173,6 +173,21 @@ export function FindingsTab({ run }: { run: RunRecord }) {
                             <p className="mt-1 max-w-3xl text-muted-foreground">
                               {finding.description}
                             </p>
+                            {finding.location ? (
+                              <figure className="mt-3 overflow-hidden rounded-md border">
+                                <figcaption className="border-b bg-muted/50 px-3 py-1.5 font-mono text-xs text-muted-foreground">
+                                  {finding.location.path}:
+                                  {finding.location.startLine}
+                                  {finding.location.endLine >
+                                  finding.location.startLine
+                                    ? `-${finding.location.endLine}`
+                                    : ""}
+                                </figcaption>
+                                <pre className="overflow-x-auto px-3 py-2 font-mono text-xs leading-relaxed">
+                                  {finding.location.quote}
+                                </pre>
+                              </figure>
+                            ) : null}
                             <ol className="mt-3 space-y-2">
                               {finding.evidence.map((item) => {
                                 const scenario = scenarios.get(

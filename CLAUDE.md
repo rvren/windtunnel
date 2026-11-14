@@ -127,6 +127,15 @@ orders`, run by
 - **Models:** Claude Opus 5.5 for the model, judge and work orders; Claude
   Sonnet 5.5 for the agents. Changed by the person who pays, through
   `WINDTUNNEL_MODEL_REASONING` and `WINDTUNNEL_MODEL_AGENTS`, not in code.
+- **Repository runs** (`repo/`) add a survey stage and give the model and the
+  agents three read-only tools. The engine never parses code, so it stays
+  language-agnostic: do not add a parser or a per-language rule. Nothing from
+  a repository is ever installed, built or run. Every path an agent gives is
+  untrusted and is confined in `repo/tools.ts`. Agents file findings one by
+  one through `report_finding`, which checks the cited file and lines and
+  announces the finding at once.
+- **Expertise** for each agent is Markdown in `expertise/`. Improve an
+  agent by editing its notes before you touch its prompt.
 - **A live run spends money on the user's key.** Ask before starting one.
 
 ## Rules

@@ -36,6 +36,7 @@ describe("applyEvent", () => {
       scenarios: ["One"],
       findings: 3,
       note: "1 dropped by the citation check",
+      reading: null,
     });
     expect(feed.ended).toBe(false);
   });
@@ -75,6 +76,29 @@ describe("applyEvent", () => {
     expect(feed.stages.judge.state).toBe("pending");
     expect(feed.agents.scale.status).toBe("failed");
     expect(feed.agents.chaos.status).toBe("done");
+  });
+
+  it("shows what an agent is reading and each finding as it is filed", () => {
+    const finding = {
+      uid: "chaos/f1",
+      type: "architecture_weakness" as const,
+      severity: "high" as const,
+      title: "No timeout",
+      path: "api/mail.go",
+      startLine: 12,
+    };
+    const feed = play([
+      { type: "agent.started", agentId: "chaos" },
+      { type: "agent.reading", agentId: "chaos", path: "api/mail.go" },
+      { type: "agent.finding", agentId: "chaos", finding },
+      // The same event again, as after a reconnect, must not count twice.
+      { type: "agent.finding", agentId: "chaos", finding },
+    ]);
+    expect(feed.agents.chaos).toMatchObject({
+      reading: "api/mail.go",
+      findings: 1,
+    });
+    expect(feed.live).toEqual([{ ...finding, agentId: "chaos" }]);
   });
 
   it("ends on completion", () => {

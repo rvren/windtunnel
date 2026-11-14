@@ -13,6 +13,7 @@ import { applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
 import type { RunRecord, StoredEvent } from "@/server/engine/schema";
 
 import { SampleBadge, StatusBadge } from "./badges";
+import { LiveFindings } from "./live-findings";
 import { AgentLanes, StageRail } from "./run-progress";
 import {
   FindingsTab,
@@ -173,7 +174,20 @@ export function RunView({ initial }: { initial: RunRecord }) {
         <h1 className="max-w-4xl text-2xl leading-tight font-normal tracking-[-0.02em] text-balance sm:text-3xl">
           {run.title}
         </h1>
-        {run.requirement !== run.title || run.documents.length > 0 ? (
+        {run.source ? (
+          <p
+            className="font-mono text-xs text-muted-foreground"
+            data-testid="run-source"
+          >
+            {run.source.origin.kind === "github" ? "GitHub" : "Local folder"} ·{" "}
+            {run.source.label}
+            {run.source.files !== null
+              ? ` · ${run.source.files.toLocaleString("en")} files · ${run.source.languages.join(" ")}`
+              : ""}
+          </p>
+        ) : null}
+        {run.requirement &&
+        (run.requirement !== run.title || run.documents.length > 0) ? (
           <details className="max-w-4xl text-sm">
             <summary
               className="cursor-pointer text-muted-foreground hover:text-foreground"
@@ -221,8 +235,9 @@ export function RunView({ initial }: { initial: RunRecord }) {
         </Alert>
       ) : null}
 
-      <StageRail feed={feed} />
+      <StageRail feed={feed} repository={Boolean(run.source)} />
       <AgentLanes feed={feed} />
+      {running ? <LiveFindings feed={feed} /> : null}
 
       {hasReport ? (
         <Tabs defaultValue="findings" className="gap-6">

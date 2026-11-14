@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { PageHeader, PageLoading } from "@/components/app/page-header";
 import { SampleBadge } from "@/components/run/badges";
 import { RunForm } from "@/components/run/run-form";
+import { localRepos } from "@/server/engine/repo/fetch";
 import { engineStatus } from "@/server/status";
 
 export const metadata: Metadata = { title: "New run" };
@@ -25,7 +26,11 @@ async function Form() {
           Sample mode is on. Runs replay sample data and do not call the model.
         </p>
       ) : null}
-      <RunForm blocked={blocked} />
+      <RunForm
+        blocked={blocked}
+        folders={await localRepos()}
+        githubToken={Boolean(process.env.GITHUB_TOKEN?.trim())}
+      />
     </>
   );
 }
@@ -35,7 +40,7 @@ export default function NewRunPage() {
     <div className="max-w-3xl">
       <PageHeader
         title="New run"
-        description="Describe what you want to build. Five agents will test the design and report what fails."
+        description="Describe what you want to build, or point at a repository. Five agents will test it and report what fails."
       />
       <Suspense fallback={<PageLoading label="Checking the engine" />}>
         <Form />

@@ -1,6 +1,11 @@
 import { AGENT_IDS, type AgentId } from "@/lib/agents";
 import { STAGE_ORDER } from "@/lib/labels";
-import type { AgentStatus, RunEvent, Stage } from "@/server/engine/schema";
+import type {
+  AgentStatus,
+  LiveFinding,
+  RunEvent,
+  Stage,
+} from "@/server/engine/schema";
 
 /*
  * The live picture of a run, built from its events alone. The run page
@@ -20,8 +25,12 @@ export interface Feed {
       scenarios: string[];
       findings: number;
       note: string | null;
+      /** In a repository run: the file the agent last opened. */
+      reading: string | null;
     }
   >;
+  /** Findings as they are filed, newest first, before the judge rules. */
+  live: (LiveFinding & { agentId: AgentId })[];
   /** True once the run has said its last word. */
   ended: boolean;
 }
@@ -33,9 +42,15 @@ export function emptyFeed(): Feed {
   }
   const agents = {} as Feed["agents"];
   for (const id of AGENT_IDS) {
-    agents[id] = { status: "pending", scenarios: [], findings: 0, note: null };
+    agents[id] = {
+      status: "pending",
+      scenarios: [],
+      findings: 0,
+      note: null,
+      reading: null,
+    };
   }
-  return { stages, agents, ended: false };
+  return { stages, agents, live: [], ended: false };
 }
 
 export function applyEvent(feed: Feed, event: RunEvent): Feed {
@@ -68,9 +83,22 @@ export function applyEvent(feed: Feed, event: RunEvent): Feed {
         scenarios: event.scenarios,
         findings: event.findings,
       });
+    case "agent.reading":
+      return agent(event.agentId, { reading: event.path });
+    case "agent.finding": {
+      if (feed.live.some((item) => item.uid === event.finding.uid)) return feed;
+      const next = agent(event.agentId, {
+        findings: feed.agents[event.agentId].findings + 1,
+      });
+      return {
+        ...next,
+        live: [{ ...event.finding, agentId: event.agentId }, ...feed.live],
+      };
+    }
     case "agent.completed":
       return agent(event.agentId, {
         status: "done",
+        reading: null,
         findings: event.findings,
         note:
           event.dropped > 0
@@ -105,7 +133,7 @@ export function applyEvent(feed: Feed, event: RunEvent): Feed {
           agents[id] = { ...agents[id], status: "failed" };
         }
       }
-      return { stages, agents, ended: true };
+      return { ...feed, stages, agents, ended: true };
     }
   }
 }

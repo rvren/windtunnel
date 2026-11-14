@@ -11,14 +11,14 @@ Done:
 
 - Name, logo and brand colour ([brand/](brand/README.md))
 - The home page, and the product app at `/app`
-- Tunnel run, version 1 (below)
+- Tunnel run, version 1 (below), on a written requirement or on a repository
 - Postgres for runs; Docker Compose to run everything locally
 
 ## 1. Tunnel run
 
 **Version 1 is built.** Still to do in this stage:
 
-- Run the same checks against the real code once it exists.
+- Check a repository against the findings of an earlier requirement run.
 - Sign-in, so more than one team can share a server.
 
 What version 1 does:

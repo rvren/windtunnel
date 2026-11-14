@@ -27,11 +27,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3300
 ENV HOSTNAME=0.0.0.0
 WORKDIR /app
+# git, to clone a repository a run is pointed at. Nothing cloned is ever run.
+RUN apk add --no-cache git
 RUN addgroup -S windtunnel && adduser -S windtunnel -G windtunnel
 COPY --from=build --chown=windtunnel:windtunnel /app/.next/standalone ./
 COPY --from=build --chown=windtunnel:windtunnel /app/.next/static ./.next/static
 # The SQL migrations. The server applies them when it starts.
 COPY --from=build --chown=windtunnel:windtunnel /app/drizzle ./drizzle
+# The notes that make each agent a specialist, read when a run starts.
+COPY --from=build --chown=windtunnel:windtunnel /app/src/server/engine/expertise ./src/server/engine/expertise
 USER windtunnel
 EXPOSE 3300
 CMD ["node", "server.js"]

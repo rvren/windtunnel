@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import type { z } from "zod";
+import { z } from "zod";
 
-import type { Stage, Usage } from "./schema";
+import { ZERO_USAGE, addUsage, type Stage, type Usage } from "./schema";
 
 /*
  * The one place the engine talks to a model. Everything else depends on the
@@ -35,8 +35,32 @@ export type LlmResult<T> =
   /** The model, and its fallback, declined on policy grounds. */
   | { kind: "declined"; category: string | null; usage: Usage };
 
+/** Something the model may call while it works. Runs on this server. */
+export interface LlmTool {
+  name: string;
+  description: string;
+  input: z.ZodType;
+  /**
+   * Does the work and returns what the model should see. Throw a ToolFailure
+   * to tell the model its request was wrong; it can then try again.
+   */
+  run: (input: never) => Promise<string>;
+}
+
+/** A tool's way of saying "no", with the reason the model should read. */
+export class ToolFailure extends Error {}
+
+export interface AgentCall<T> extends Omit<LlmCall<T>, "onText"> {
+  tools: LlmTool[];
+  /** How many times the model may come back with tool calls. */
+  maxTurns: number;
+}
+
 export interface LlmClient {
+  /** One question, one structured answer. */
   call<T>(request: LlmCall<T>): Promise<LlmResult<T>>;
+  /** Lets the model use tools over several turns, then answer. */
+  agent<T>(request: AgentCall<T>): Promise<LlmResult<T>>;
 }
 
 /** A problem with the run that the person can read and act on. */
@@ -128,6 +152,152 @@ export class AnthropicLlm implements LlmClient {
       // Whatever happened, anyone waiting on the first byte must not hang.
       if (!started) request.onStart?.();
     }
+  }
+
+  async agent<T>(request: AgentCall<T>): Promise<LlmResult<T>> {
+    let started = false;
+    let usage = ZERO_USAGE;
+    const tools = request.tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      input_schema: z.toJSONSchema(
+        tool.input,
+      ) as Anthropic.Beta.BetaTool.InputSchema,
+    }));
+    const byName = new Map(request.tools.map((tool) => [tool.name, tool]));
+    const messages: Anthropic.Beta.BetaMessageParam[] = [
+      {
+        role: "user",
+        content: [
+          ...(request.shared
+            ? [
+                {
+                  type: "text" as const,
+                  text: request.shared,
+                  cache_control: { type: "ephemeral" as const },
+                },
+              ]
+            : []),
+          { type: "text" as const, text: request.prompt },
+        ],
+      },
+    ];
+
+    try {
+      for (let turn = 0; ; turn += 1) {
+        // On the last turn the tools are switched off, so the model must
+        // answer with what it has.
+        const last = turn >= request.maxTurns;
+        const stream = this.client.beta.messages.stream({
+          model: request.model,
+          max_tokens: MAX_TOKENS,
+          betas: [FALLBACK_BETA],
+          fallbacks: "default",
+          system: request.system,
+          messages,
+          tools,
+          ...(last ? { tool_choice: { type: "none" as const } } : {}),
+          // Caches the conversation so far, so each turn re-reads it cheaply.
+          cache_control: { type: "ephemeral" },
+          output_config: {
+            effort: request.effort,
+            format: zodOutputFormat(request.schema),
+          },
+        });
+        stream.on("streamEvent", () => {
+          if (started) return;
+          started = true;
+          request.onStart?.();
+        });
+        const message = await stream.finalMessage();
+        usage = addUsage(usage, {
+          inputTokens: message.usage.input_tokens,
+          outputTokens: message.usage.output_tokens,
+          cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
+          cacheWriteTokens: message.usage.cache_creation_input_tokens ?? 0,
+        });
+
+        if (message.stop_reason === "refusal") {
+          return {
+            kind: "declined",
+            category: message.stop_details?.category ?? null,
+            usage,
+          };
+        }
+        if (message.stop_reason === "max_tokens") {
+          throw new RunError(
+            "The model's answer was cut off before it finished.",
+          );
+        }
+
+        messages.push({ role: "assistant", content: message.content });
+        if (message.stop_reason === "pause_turn") continue;
+
+        const calls = message.content.filter(
+          (block) => block.type === "tool_use",
+        );
+        if (message.stop_reason !== "tool_use" || calls.length === 0) {
+          if (message.parsed_output == null) {
+            throw new RunError(
+              "The model's answer did not match the expected shape.",
+            );
+          }
+          return { kind: "ok", value: message.parsed_output as T, usage };
+        }
+
+        // Every call gets an answer, all in one message, in the same order.
+        const results = await Promise.all(
+          calls.map(async (call) => {
+            const answer = await runTool(byName.get(call.name), call.input);
+            return {
+              type: "tool_result" as const,
+              tool_use_id: call.id,
+              content: answer.text,
+              is_error: answer.failed,
+            };
+          }),
+        );
+        messages.push({
+          role: "user",
+          content:
+            turn + 1 >= request.maxTurns
+              ? [
+                  ...results,
+                  {
+                    type: "text" as const,
+                    text: "You have used all your tool calls. Give your final answer now.",
+                  },
+                ]
+              : results,
+        });
+      }
+    } catch (error) {
+      throw readable(error);
+    } finally {
+      if (!started) request.onStart?.();
+    }
+  }
+}
+
+/** Runs one tool call. A bad request is answered, never thrown. */
+export async function runTool(
+  tool: LlmTool | undefined,
+  input: unknown,
+): Promise<{ text: string; failed: boolean }> {
+  if (!tool) return { text: "There is no such tool.", failed: true };
+  const parsed = tool.input.safeParse(input);
+  if (!parsed.success) {
+    return {
+      text: `The input is not valid: ${parsed.error.issues.map((issue) => `${issue.path.join(".")} ${issue.message}`).join("; ")}`,
+      failed: true,
+    };
+  }
+  try {
+    return { text: await tool.run(parsed.data as never), failed: false };
+  } catch (error) {
+    if (error instanceof ToolFailure)
+      return { text: error.message, failed: true };
+    throw error;
   }
 }
 

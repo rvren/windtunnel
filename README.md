@@ -94,6 +94,31 @@ Three things keep the report honest:
 The model, the judge and the work orders use Claude Opus 5.5; the five agents
 use Claude Sonnet 5.5. Both are settings (see `.env.example`).
 
+## Run it against a repository
+
+On the New run page choose "A repository". The same five agents then read
+real code, in any language, and file findings that point at the file and lines
+that show the flaw. Each finding appears on the run page the moment it is
+filed.
+
+- **From GitHub:** paste the repository address and, if you want, a branch.
+  Public repositories work straight away. For private ones, add
+  `GITHUB_TOKEN` to `.env.local` (read-only access to contents is enough) and
+  restart.
+- **A local folder:** put or link the repository into `repos/` in this
+  project, or set `WINDTUNNEL_REPOS_HOST_DIR` to the folder that holds your
+  code. Each subfolder can then be picked on the form.
+
+The engine never parses or runs the code. A model reads it through three
+read-only tools (list files, read a file, search), confined to the repository.
+Each agent carries notes that make it a specialist in its area; they are plain
+Markdown in `src/server/engine/expertise/`, so you can sharpen them with your
+own standards.
+
+Limits: about 6,000 text files or 40 MB per repository, and a reading budget
+per agent. A repository run costs more than a requirement run, because the
+agents take many turns to read code.
+
 ## Works on its own
 
 Windtunnel is a standalone product. This is a rule, not a preference:
@@ -163,6 +188,8 @@ src/app/api/           runs, their event stream and exports, health
 src/components/        brand/, app/ (shell), run/ (screens), ui/ (shadcn)
 src/lib/               the agents, labels, limits, the live-feed reducer
 src/server/engine/     the engine: stages, prompts, checks, scoring, export
+  expertise/           the notes that make each agent a specialist
+  repo/                fetch, survey and read-only tools for repository runs
 src/server/db/         tables, connection, migrations
 ```
 

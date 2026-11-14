@@ -3,6 +3,7 @@
 
 /** The stages of a run, in order. */
 export const STAGE_ORDER = [
+  "survey",
   "model",
   "coverage",
   "agents",
@@ -12,6 +13,7 @@ export const STAGE_ORDER = [
 ] as const;
 
 export const STAGE_LABEL = {
+  survey: "Survey",
   model: "Model",
   coverage: "Coverage",
   agents: "Agents",
@@ -21,6 +23,7 @@ export const STAGE_LABEL = {
 } as const;
 
 export const STAGE_DESCRIPTION = {
+  survey: "Fetching the repository and listing its files",
   model: "Writing the design model from the requirement",
   coverage: "Finding the gaps code can see",
   agents: "Five agents walking scenarios against the model",

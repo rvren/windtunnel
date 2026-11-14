@@ -1,6 +1,13 @@
 import { AGENTS, type AgentId } from "@/lib/agents";
 
-import { RunError, type LlmCall, type LlmClient, type LlmResult } from "./llm";
+import {
+  RunError,
+  runTool,
+  type AgentCall,
+  type LlmCall,
+  type LlmClient,
+  type LlmResult,
+} from "./llm";
 import type {
   AgentReport,
   Challenges,
@@ -29,6 +36,13 @@ type Scripted<T> =
 export interface Script {
   model: Scripted<DesignModel>;
   agents: Record<AgentId, Scripted<AgentReport>>;
+  /**
+   * For repository runs: the tool calls each tool-using stage makes before it
+   * answers, keyed by "model" or an agent id.
+   */
+  tools?: Partial<
+    Record<"model" | AgentId, { tool: string; input: unknown }[]>
+  >;
   /** What each agent says about the others' findings. Default: nothing. */
   challenges?: Partial<Record<AgentId, Scripted<Challenges>>>;
   judge: Scripted<Verdict>;
@@ -78,6 +92,52 @@ export class ScriptedLlm implements LlmClient {
       ];
     }
     return [agent.id, this.script.agents[agent.id]];
+  }
+
+  /** What each scripted tool call came back with, in order. */
+  readonly toolResults: {
+    key: string;
+    tool: string;
+    failed: boolean;
+    text: string;
+  }[] = [];
+
+  async agent<T>(request: AgentCall<T>): Promise<LlmResult<T>> {
+    const [key] = this.entryFor(request as LlmCall<unknown>);
+    const byName = new Map(request.tools.map((tool) => [tool.name, tool]));
+    const stepDelay = this.options.delayMs ?? 0;
+    // Make the scripted tool calls first, as a model would, then answer.
+    const answer = async () => {
+      for (const step of this.script.tools?.[key as "model" | AgentId] ?? []) {
+        if (stepDelay) await pause(stepDelay);
+        const result = await runTool(byName.get(step.tool), step.input);
+        this.toolResults.push({ key, tool: step.tool, ...result });
+      }
+    };
+    if (request.stage === "agents") {
+      this.calls.push(key);
+      await this.options.beforeStart?.(key);
+      request.onStart?.();
+      const entry = this.script.agents[key as AgentId];
+      if (entry.kind === "error") throw new RunError(entry.message);
+      if (entry.kind === "declined") {
+        return {
+          kind: "declined",
+          category: entry.category,
+          usage: SCRIPT_USAGE,
+        };
+      }
+      await answer();
+      return {
+        kind: "ok",
+        value: request.schema.parse({
+          summary: "Checked what the brief calls for.",
+        }),
+        usage: SCRIPT_USAGE,
+      };
+    }
+    await answer();
+    return this.call(request);
   }
 
   async call<T>(request: LlmCall<T>): Promise<LlmResult<T>> {

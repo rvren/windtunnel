@@ -37,7 +37,12 @@ services:
     env_file:
       - path: .env.local
         required: false
+    volumes:
+      # Local repositories a run may read. Each folder in here can be picked
+      # on the New run page. Mounted read-only.
+      - ${WINDTUNNEL_REPOS_HOST_DIR:-./repos}:/repos:ro
     environment:
+      WINDTUNNEL_REPOS_DIR: /repos
       # Inside Compose the database is the `db` service, whatever .env.local says.
       DATABASE_URL: postgres://windtunnel:windtunnel-dev-only@db:5432/windtunnel
       # Development only: `WINDTUNNEL_SAMPLE_RUN=1 docker compose up` replays

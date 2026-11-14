@@ -1,5 +1,6 @@
 import { DOCUMENT_EXTENSIONS, LIMITS } from "@/lib/limits";
 
+import { parseOrigin } from "./repo/fetch";
 import type { RunInput } from "./run";
 
 /*
@@ -13,9 +14,23 @@ export function parseRunInput(
   if (typeof body !== "object" || body === null) {
     return fail("Send a JSON object with a requirement.");
   }
-  const { requirement, documents = [] } = body as Record<string, unknown>;
+  const {
+    requirement: given,
+    documents = [],
+    repository,
+  } = body as Record<string, unknown>;
 
-  if (typeof requirement !== "string" || !requirement.trim()) {
+  // With a repository the written requirement is optional.
+  let origin: RunInput["repository"];
+  if (repository !== undefined && repository !== null) {
+    const parsed = parseOrigin(repository);
+    if (!parsed.ok) return fail(parsed.error);
+    origin = parsed.origin;
+  }
+  const requirement =
+    origin && (given === undefined || given === null) ? "" : given;
+
+  if (typeof requirement !== "string" || (!origin && !requirement.trim())) {
     return fail("Enter a requirement.");
   }
   if (requirement.length > LIMITS.requirementChars) {
@@ -56,5 +71,12 @@ export function parseRunInput(
     );
   }
 
-  return { ok: true, input: { requirement, documents: parsed } };
+  return {
+    ok: true,
+    input: {
+      requirement,
+      documents: parsed,
+      ...(origin ? { repository: origin } : {}),
+    },
+  };
 }

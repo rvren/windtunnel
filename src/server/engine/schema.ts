@@ -144,6 +144,11 @@ export type AgentReport = z.infer<typeof AgentReport>;
 export type Scenario = AgentReport["scenarios"][number];
 export type RawFinding = AgentReport["findings"][number];
 
+/** What an agent returns at the end of a repository run. Its findings were
+ * already filed one by one through a tool. */
+export const RepoAgentSummary = z.object({ summary: z.string() });
+export type RepoAgentSummary = z.infer<typeof RepoAgentSummary>;
+
 // ── Stage 4: the challenge round ────────────────────────────────────────────
 
 /** One agent's view of the findings the other agents reported. */
@@ -202,6 +207,7 @@ export const AgentId = z.enum(AGENT_IDS);
 export type AgentId = z.infer<typeof AgentId>;
 
 export const STAGES = [
+  "survey",
   "model",
   "coverage",
   "agents",
@@ -251,8 +257,31 @@ export interface Coverage {
   };
 }
 
+/** Where in a repository a finding points, with the code it cites. */
+export interface CodeLocation {
+  path: string;
+  startLine: number;
+  endLine: number;
+  quote: string;
+}
+
+/** Where a repository run's code came from. */
+export interface RunSource {
+  kind: "repository";
+  origin:
+    | { kind: "github"; url: string; branch: string | null }
+    | { kind: "local"; name: string };
+  /** A short name for people: "owner/name" or the folder. */
+  label: string;
+  files: number | null;
+  /** The most common file types, for example [".ts", ".go"]. */
+  languages: string[];
+}
+
 /** A finding that passed the citation checks, with its run-wide id. */
 export interface Finding extends RawFinding {
+  /** Set in a repository run: the code that shows the flaw. */
+  location?: CodeLocation;
   /** `<agentId>/<the agent's own id>`, unique in the run. */
   uid: string;
   agentId: AgentId;
@@ -323,6 +352,8 @@ export interface RunRecord {
   title: string;
   requirement: string;
   documents: RunDocument[];
+  /** Set when the run reads a repository. Absent on requirement runs. */
+  source?: RunSource;
   models: { reasoning: string; agents: string };
   /** True when the run replayed sample data and never called the model. */
   sample: boolean;
@@ -369,10 +400,22 @@ export type RunEvent =
       findings: number;
       dropped: number;
     }
+  | { type: "agent.reading"; agentId: AgentId; path: string }
+  | { type: "agent.finding"; agentId: AgentId; finding: LiveFinding }
   | { type: "agent.declined"; agentId: AgentId; category: string | null }
   | { type: "agent.failed"; agentId: AgentId; error: string }
   | { type: "run.completed" }
   | { type: "run.failed"; error: string };
+
+/** A finding as it is shown the moment it is filed, before the judge rules. */
+export interface LiveFinding {
+  uid: string;
+  type: FindingType;
+  severity: Severity;
+  title: string;
+  path: string | null;
+  startLine: number | null;
+}
 
 export interface StoredEvent {
   seq: number;

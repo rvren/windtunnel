@@ -36,13 +36,26 @@ function StageMark({ state, index }: { state: StageState; index: number }) {
 }
 
 /** The five stages in a row, each with what it is doing or what it found. */
-export function StageRail({ feed }: { feed: Feed }) {
+export function StageRail({
+  feed,
+  repository,
+}: {
+  feed: Feed;
+  /** A repository run has one more stage, the survey, at the start. */
+  repository: boolean;
+}) {
+  const stages = STAGE_ORDER.filter(
+    (stage) => repository || stage !== "survey",
+  );
   return (
     <ol
-      className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-3 lg:grid-cols-6"
+      className={cn(
+        "grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-3",
+        repository ? "lg:grid-cols-7" : "lg:grid-cols-6",
+      )}
       data-testid="run-stages"
     >
-      {STAGE_ORDER.map((stage, index) => {
+      {stages.map((stage, index) => {
         const { state, summary } = feed.stages[stage];
         return (
           <li
@@ -145,6 +158,14 @@ export function AgentLanes({ feed }: { feed: Feed }) {
                 <span className="text-muted-foreground">
                   {lane.findings === 1 ? "finding" : "findings"}
                 </span>
+              </p>
+            ) : null}
+            {lane.status === "running" && lane.reading ? (
+              <p
+                className="mt-3 truncate font-mono text-[11px] text-muted-foreground"
+                title={lane.reading}
+              >
+                {lane.reading}
               </p>
             ) : null}
             {lane.note ? (

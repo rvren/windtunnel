@@ -1,13 +1,25 @@
 import { AGENTS, type AgentDefinition } from "@/lib/agents";
 
 import { findCoverage, modelIds, normalizeModel } from "./coverage";
+import { loadExpertise } from "./expertise";
 import { RunError, type LlmClient } from "./llm";
 import { readProgress } from "./progress";
+import { readTools, reportFindingTool } from "./repo/agent-tools";
+import {
+  originLabel,
+  prepareRepo,
+  type PreparedRepo,
+  type RepoOrigin,
+} from "./repo/fetch";
+import { outline, surveyRepo, type Survey } from "./repo/survey";
+import { RepoReader } from "./repo/tools";
 import {
   AGENT_SYSTEM,
   CHALLENGE_SYSTEM,
   JUDGE_SYSTEM,
   MODEL_SYSTEM,
+  REPO_AGENT_SYSTEM,
+  REPO_MODEL_SYSTEM,
   WORK_ORDER_SYSTEM,
   agentPrompt,
   agentSharedContext,
@@ -15,12 +27,16 @@ import {
   challengeSharedContext,
   judgePrompt,
   modelPrompt,
+  repoAgentPrompt,
+  repoModelPrompt,
+  repoSharedContext,
   workOrderPrompt,
 } from "./prompts";
 import {
   AgentReport,
   Challenges,
   DesignModel,
+  RepoAgentSummary,
   Verdict,
   WorkOrders,
   ZERO_USAGE,
@@ -61,9 +77,16 @@ export interface EngineDeps {
 }
 
 export interface RunInput {
+  /** May be empty when a repository is given. */
   requirement: string;
   documents: RunDocument[];
+  /** Set to run against code instead of a written requirement alone. */
+  repository?: RepoOrigin;
 }
+
+/** How many times a model may come back with tool calls in one stage. */
+const MODEL_TURNS = 30;
+const AGENT_TURNS = 28;
 
 /** How often, at most, an agent's live progress is read from its stream. */
 const PROGRESS_EVERY_MS = 400;
@@ -81,6 +104,7 @@ export function newRun(
   sample: boolean,
 ): RunRecord {
   const at = now.toISOString();
+  const label = input.repository ? originLabel(input.repository) : null;
   return {
     id,
     createdAt: at,
@@ -88,7 +112,20 @@ export function newRun(
     status: "running",
     stage: null,
     error: null,
-    title: titleOf(input.requirement),
+    title: input.requirement.trim()
+      ? titleOf(input.requirement)
+      : (label ?? ""),
+    ...(input.repository && label
+      ? {
+          source: {
+            kind: "repository" as const,
+            origin: input.repository,
+            label,
+            files: null,
+            languages: [],
+          },
+        }
+      : {}),
     requirement: input.requirement.trim(),
     documents: input.documents,
     models,
@@ -165,28 +202,74 @@ export async function executeRun(
     await emit({ type: "stage.completed", stage: name, summary });
   };
 
+  // Set in a repository run, once the code is on disk and surveyed.
+  let prepared: PreparedRepo | null = null;
+  let repo: { reader: RepoReader; survey: Survey; outline: string } | null =
+    null;
+
   try {
     await save();
     await emit({ type: "run.started" });
+    const expertise = await loadExpertise();
 
-    // 1. Model: the requirement becomes an explicit design model.
-    await stage("model", async () => {
-      const result = await llm.call({
-        stage: "model",
-        model: run.models.reasoning,
-        effort: "high",
-        system: MODEL_SYSTEM,
-        prompt: modelPrompt(run),
-        schema: DesignModel,
+    // 0. Survey (repository runs only): fetch the code and list its files.
+    const source = run.source;
+    if (source) {
+      await stage("survey", async () => {
+        prepared = await prepareRepo(source.origin, run.id);
+        const survey = await surveyRepo(prepared.root);
+        repo = {
+          survey,
+          reader: new RepoReader(prepared.root, survey),
+          outline: outline(survey),
+        };
+        source.files = survey.files.length;
+        source.languages = survey.languages
+          .slice(0, 4)
+          .map((item) => item.extension);
+        return `${plural(survey.files.length, "file")}, mostly ${source.languages.slice(0, 2).join(" and ")}`;
       });
+    }
+    const code = repo as {
+      reader: RepoReader;
+      survey: Survey;
+      outline: string;
+    } | null;
+
+    // 1. Model: the requirement, or the code, becomes an explicit design model.
+    await stage("model", async () => {
+      const result = code
+        ? await llm.agent({
+            stage: "model",
+            model: run.models.reasoning,
+            effort: "high",
+            system: REPO_MODEL_SYSTEM,
+            prompt: repoModelPrompt(run, code.outline),
+            schema: DesignModel,
+            tools: readTools(code.reader.fork(), () => {}),
+            maxTurns: MODEL_TURNS,
+          })
+        : await llm.call({
+            stage: "model",
+            model: run.models.reasoning,
+            effort: "high",
+            system: MODEL_SYSTEM,
+            prompt: modelPrompt(run),
+            schema: DesignModel,
+          });
       run.usage.model = result.usage;
       if (result.kind === "declined") {
-        throw declined("analyse this requirement", result.category);
+        throw declined(
+          code ? "analyse this repository" : "analyse this requirement",
+          result.category,
+        );
       }
       const { model, warnings } = normalizeModel(result.value);
       if (model.roles.length === 0 || model.operations.length === 0) {
         throw new RunError(
-          "The design model came back with no roles or no operations. Give the requirement more detail and start again.",
+          code
+            ? "The design model came back with no roles or no operations. The repository may not hold an application."
+            : "The design model came back with no roles or no operations. Give the requirement more detail and start again.",
         );
       }
       run.designModel = model;
@@ -204,7 +287,9 @@ export async function executeRun(
 
     // 3. Agents: five in parallel over one shared, cached context.
     await stage("agents", async () => {
-      const shared = agentSharedContext(run, model, coverage);
+      const shared = code
+        ? repoSharedContext(run, model, coverage, code.outline)
+        : agentSharedContext(run, model, coverage);
       const knownIds = new Set([
         ...modelIds(model),
         ...coverage.gaps.map((gap) => gap.id),
@@ -229,31 +314,79 @@ export async function executeRun(
         let lastRead = 0;
         let lastSeen = "";
         try {
-          const result = await llm.call({
-            stage: "agents",
-            model: run.models.agents,
-            effort: "medium",
-            system: AGENT_SYSTEM,
-            shared,
-            prompt: agentPrompt(definition),
-            schema: AgentReport,
-            onStart: first ? release : undefined,
-            onText: (soFar) => {
-              const at = Date.now();
-              if (at - lastRead < PROGRESS_EVERY_MS) return;
-              lastRead = at;
-              const progress = readProgress(soFar);
-              const seen = `${progress.scenarios.length}/${progress.findings}`;
-              if (seen === lastSeen) return;
-              lastSeen = seen;
-              // Progress is best effort: losing one update is harmless.
-              emit({
-                type: "agent.progress",
-                agentId: agent.agentId,
-                ...progress,
-              }).catch(() => undefined);
-            },
-          });
+          let lastPath = "";
+          const result = code
+            ? await llm.agent({
+                stage: "agents",
+                model: run.models.agents,
+                effort: "medium",
+                system: REPO_AGENT_SYSTEM,
+                shared,
+                prompt: repoAgentPrompt(definition, expertise[definition.id]),
+                schema: RepoAgentSummary,
+                onStart: first ? release : undefined,
+                maxTurns: AGENT_TURNS,
+                tools: (() => {
+                  const reader = code.reader.fork();
+                  return [
+                    ...readTools(reader, (path) => {
+                      if (path === lastPath) return;
+                      lastPath = path;
+                      emit({
+                        type: "agent.reading",
+                        agentId: agent.agentId,
+                        path,
+                      }).catch(() => undefined);
+                    }),
+                    // A finding is saved on the agent and announced the
+                    // moment it is filed, so the page shows it at once.
+                    reportFindingTool(
+                      agent.agentId,
+                      reader,
+                      agent.findings,
+                      (finding) => {
+                        emit({
+                          type: "agent.finding",
+                          agentId: agent.agentId,
+                          finding: {
+                            uid: finding.uid,
+                            type: finding.type,
+                            severity: finding.severity,
+                            title: finding.title,
+                            path: finding.location?.path ?? null,
+                            startLine: finding.location?.startLine ?? null,
+                          },
+                        }).catch(() => undefined);
+                      },
+                    ),
+                  ];
+                })(),
+              })
+            : await llm.call({
+                stage: "agents",
+                model: run.models.agents,
+                effort: "medium",
+                system: AGENT_SYSTEM,
+                shared,
+                prompt: agentPrompt(definition, expertise[definition.id]),
+                schema: AgentReport,
+                onStart: first ? release : undefined,
+                onText: (soFar) => {
+                  const at = Date.now();
+                  if (at - lastRead < PROGRESS_EVERY_MS) return;
+                  lastRead = at;
+                  const progress = readProgress(soFar);
+                  const seen = `${progress.scenarios.length}/${progress.findings}`;
+                  if (seen === lastSeen) return;
+                  lastSeen = seen;
+                  // Progress is best effort: losing one update is harmless.
+                  emit({
+                    type: "agent.progress",
+                    agentId: agent.agentId,
+                    ...progress,
+                  }).catch(() => undefined);
+                },
+              });
           agent.usage = result.usage;
 
           if (result.kind === "declined") {
@@ -267,14 +400,19 @@ export async function executeRun(
             return;
           }
 
-          const checked = checkAgentReport(
-            agent.agentId,
-            result.value,
-            knownIds,
-          );
-          agent.scenarios = result.value.scenarios;
-          agent.findings = checked.findings;
-          agent.dropped = checked.dropped;
+          // In a repository run the findings were filed, and checked, one by
+          // one through a tool. In a requirement run they arrive together
+          // and are checked now.
+          if ("scenarios" in result.value) {
+            const checked = checkAgentReport(
+              agent.agentId,
+              result.value,
+              knownIds,
+            );
+            agent.scenarios = result.value.scenarios;
+            agent.findings = checked.findings;
+            agent.dropped = checked.dropped;
+          }
           agent.status = "done";
           await emit({
             type: "agent.completed",
@@ -461,6 +599,8 @@ export async function executeRun(
     }
   }
 
+  // A cloned repository is removed; the findings keep the lines they cite.
+  await (prepared as PreparedRepo | null)?.cleanup().catch(() => undefined);
   await queue.catch(() => undefined);
   return run;
 }
