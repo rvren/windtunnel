@@ -1,4 +1,9 @@
 import {
+  DeliveryStrip,
+  DeliveryTag,
+  useDeliveries,
+} from "@/components/connectors/deliveries";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -297,6 +302,14 @@ export function FindingsTab({ run }: { run: RunRecord }) {
 
 export function WorkOrdersTab({ run }: { run: RunRecord }) {
   const titles = new Map(run.groups.map((group) => [group.id, group.title]));
+  // What went to 8090 Software Factory, when the run's project is linked.
+  const deliveries = useDeliveries(
+    run.id,
+    run.status === "completed" && run.workOrders.length > 0,
+  );
+  const sentAs = new Map(
+    deliveries.state?.deliveries.map((item) => [item.workOrderId, item]) ?? [],
+  );
 
   if (run.workOrders.length === 0) {
     return (
@@ -310,6 +323,11 @@ export function WorkOrdersTab({ run }: { run: RunRecord }) {
 
   return (
     <div className="space-y-4">
+      <DeliveryStrip
+        total={run.workOrders.length}
+        sample={run.sample}
+        deliveries={deliveries}
+      />
       {run.workOrders.map((workOrder) => (
         <article
           key={workOrder.id}
@@ -324,6 +342,9 @@ export function WorkOrdersTab({ run }: { run: RunRecord }) {
             <h3 className="basis-full font-medium sm:basis-auto">
               {workOrder.title}
             </h3>
+            <span className="sm:ml-auto">
+              <DeliveryTag delivery={sentAs.get(workOrder.id)} />
+            </span>
           </header>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground">
             {workOrder.description}

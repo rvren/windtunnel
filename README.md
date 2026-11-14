@@ -178,6 +178,25 @@ is in `samples/storefront`, published by `scripts/publish-samples.sh`).
   else.
 - The repositories are private: set `GITHUB_TOKEN` in `.env.local` first.
 
+## Connectors: work orders into 8090 Software Factory
+
+Settings → Connectors lists the outside systems Windtunnel can send to. One
+works today, 8090 Software Factory; the rest of the catalog is marked
+"Coming soon".
+
+1. In 8090, copy the connector URL from Settings → MCP Server (one URL per
+   organization). Paste it on the 8090 card and save.
+2. Click **Connect** and sign in to 8090 in the browser.
+3. On a project's page, choose its 8090 project from the list.
+
+From then on, when a run of that project finishes, each of its work orders
+is created in the 8090 project through its MCP server: priority P0–P3 as
+Urgent to Low, type Fix or Requirements, status Backlog, and labels for
+`windtunnel` and each workspace its findings are in. A work order is never
+sent twice, and a failed send can be tried again from the run's Work orders
+tab. Sample runs are sent only when you ask, or when "Also send sample runs"
+is on. The sign-in's tokens stay in the database on the server.
+
 ## Works on its own
 
 Windtunnel is a standalone product. This is a rule, not a preference:

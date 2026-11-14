@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { deliverRun } from "../connectors/deliver";
 import { db } from "../db/client";
 import { engineConfig } from "./config";
 import { AnthropicLlm, RunError } from "./llm";
@@ -103,9 +104,14 @@ export async function startRun(input: RunInput): Promise<RunRecord> {
     : new AnthropicLlm();
 
   state().active.add(run.id);
-  void executeRun({ llm, store, publish, now: () => new Date() }, run).finally(
-    () => state().active.delete(run.id),
-  );
+  void executeRun({ llm, store, publish, now: () => new Date() }, run)
+    .then((done) =>
+      // The run is over. Its work orders go to the linked connector, if any.
+      deliverRun(done).catch((error) =>
+        console.error("[windtunnel] Work orders could not be sent:", error),
+      ),
+    )
+    .finally(() => state().active.delete(run.id));
 
   return run;
 }

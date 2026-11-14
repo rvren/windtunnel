@@ -1,4 +1,5 @@
 import { activeRunIds, runStore } from "../engine/registry";
+import { failStuckDeliveries } from "../connectors/store";
 import { adoptLooseRuns } from "../projects/adopt";
 import { migrateDatabase } from "./migrate";
 
@@ -16,6 +17,7 @@ export function ensureDatabase(): Promise<void> {
     await migrateDatabase();
     await runStore().markInterrupted(activeRunIds());
     await adoptLooseRuns();
+    await failStuckDeliveries();
   })().catch((error) => {
     globalForReady.windtunnelDatabaseReady = undefined;
     throw error;

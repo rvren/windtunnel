@@ -1,0 +1,46 @@
+import { describe, expect, it } from "vitest";
+
+import { parseConnectorUrl, projectsInText } from "./software-factory";
+
+describe("the Software Factory connector URL", () => {
+  it("takes 8090's own MCP address, with or without a trailing slash", () => {
+    const url =
+      "https://api.factory.8090.dev/v3/mcp/org/4d1ee88b-3c67-44ff-99af-bebdbeb6ae66";
+    expect(parseConnectorUrl(` ${url}/ `)).toBe(url);
+    expect(parseConnectorUrl("https://api.factory.8090.dev/v2/mcp")).toBe(
+      "https://api.factory.8090.dev/v2/mcp",
+    );
+  });
+
+  // The sign-in's tokens go to this address, so nothing else may pass.
+  it.each([
+    "http://api.factory.8090.dev/v3/mcp/org/x",
+    "https://evil.example/v3/mcp/org/x",
+    "https://api.factory.8090.dev.evil.example/v3/mcp",
+    "https://api.factory.8090.dev@evil.example/v3/mcp",
+    "https://api.factory.8090.dev/other",
+    "not a url",
+    "",
+    null,
+  ])("refuses %j", (value) => {
+    expect(parseConnectorUrl(value)).toBeNull();
+  });
+});
+
+describe("the list of projects, as Software Factory writes it", () => {
+  it("reads a name and an id from each line", () => {
+    const text = [
+      "Session project: none selected",
+      "",
+      "2 project(s), page 1 of 1",
+      "",
+      "test-project (7f301498-4422-4836-8fc4-73271746ac53); repositories: none",
+      "Shop (beta) (11111111-2222-4333-8444-555555555555); repositories: https://github.com/acme/shop",
+    ].join("\n");
+    expect(projectsInText(text)).toEqual([
+      { id: "7f301498-4422-4836-8fc4-73271746ac53", name: "test-project" },
+      { id: "11111111-2222-4333-8444-555555555555", name: "Shop (beta)" },
+    ]);
+    expect(projectsInText("No projects.")).toEqual([]);
+  });
+});

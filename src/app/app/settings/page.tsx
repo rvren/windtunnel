@@ -3,8 +3,12 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 
 import { PageHeader, PageLoading } from "@/components/app/page-header";
+import { Connectors } from "@/components/connectors/connectors";
+import { SettingsTabs } from "@/components/connectors/settings-tabs";
 import { SampleData } from "@/components/project/sample-data";
 import { cn } from "@/lib/utils";
+import { SOFTWARE_FACTORY } from "@/server/connectors/software-factory";
+import { getConnection } from "@/server/connectors/store";
 import { ensureDatabase } from "@/server/db/ready";
 import { hasDemoData } from "@/server/projects/demo";
 import { engineStatus } from "@/server/status";
@@ -111,20 +115,85 @@ async function Sample() {
   );
 }
 
-export default function SettingsPage() {
+async function ConnectorsTab({
+  outcome,
+}: {
+  outcome: "connected" | "failed" | null;
+}) {
+  await connection();
+  let current: Awaited<ReturnType<typeof getConnection>> | null = null;
+  try {
+    await ensureDatabase();
+    current = await getConnection(SOFTWARE_FACTORY);
+  } catch {
+    current = null;
+  }
+  if (!current) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        The database is not reachable.
+      </p>
+    );
+  }
   return (
-    <div className="max-w-3xl">
+    <Connectors
+      connection={{
+        provider: current.provider,
+        status: current.status,
+        account: current.account,
+        settings: current.settings,
+      }}
+      outcome={outcome}
+    />
+  );
+}
+
+async function Tabbed({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = await searchParams;
+  const outcome =
+    query.connected === SOFTWARE_FACTORY
+      ? "connected"
+      : query.failed === SOFTWARE_FACTORY
+        ? "failed"
+        : null;
+  return (
+    <SettingsTabs
+      initial={typeof query.tab === "string" ? query.tab : null}
+      engine={
+        <Suspense fallback={<PageLoading label="Checking the engine" />}>
+          <Status />
+        </Suspense>
+      }
+      connectors={
+        <Suspense fallback={<PageLoading label="Reading the connectors" />}>
+          <ConnectorsTab outcome={outcome} />
+        </Suspense>
+      }
+      sample={
+        <Suspense fallback={<PageLoading label="Looking for sample data" />}>
+          <Sample />
+        </Suspense>
+      }
+    />
+  );
+}
+
+export default function SettingsPage({
+  searchParams,
+}: PageProps<"/app/settings">) {
+  return (
+    <>
       <PageHeader
         title="Settings"
-        description="What the engine is set up with, read from the server's environment, and the sample data."
+        description="What the engine is set up with, the connectors, and the sample data."
       />
-      <Suspense fallback={<PageLoading label="Checking the engine" />}>
-        <Status />
+      <Suspense fallback={<PageLoading label="Reading the settings" />}>
+        <Tabbed searchParams={searchParams} />
       </Suspense>
-      <h2 className="mt-10 mb-4 text-lg font-medium">Sample data</h2>
-      <Suspense fallback={<PageLoading label="Looking for sample data" />}>
-        <Sample />
-      </Suspense>
-    </div>
+    </>
   );
 }

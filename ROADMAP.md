@@ -16,6 +16,8 @@ Done:
 - Projects and workspaces: one application made of several repositories, run
   together, with a cockpit (issue flow, architecture, issues) per project
 - Every run belongs to a project; runs filter by workspace
+- Connectors: work orders sent to 8090 Software Factory over its MCP server,
+  with a catalog of planned connectors
 - The live map of a run in progress, and Storefront, a sample application of
   seven services in private repositories, with scripted runs
 

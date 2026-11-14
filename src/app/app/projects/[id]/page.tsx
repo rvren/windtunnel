@@ -14,6 +14,7 @@ import {
   RemoveWorkspaceButton,
   RunProjectDialog,
 } from "@/components/project/project-dialogs";
+import { ProjectLink } from "@/components/connectors/project-link";
 import { ProjectLive } from "@/components/project/project-live";
 import { SampleBadge, StatusBadge } from "@/components/run/badges";
 import { RunFilters, WorkspaceChips } from "@/components/run/run-filters";
@@ -28,6 +29,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SOFTWARE_FACTORY } from "@/server/connectors/software-factory";
+import { getConnection, getProjectLink } from "@/server/connectors/store";
 import { ensureDatabase } from "@/server/db/ready";
 import { localRepos } from "@/server/engine/repo/fetch";
 import { runStore } from "@/server/engine/registry";
@@ -84,6 +87,11 @@ async function ProjectPage({
   }
   if (!project) notFound();
 
+  const [link, factory] = await Promise.all([
+    getProjectLink(project.id, SOFTWARE_FACTORY),
+    getConnection(SOFTWARE_FACTORY),
+  ]);
+  const connected = factory.status === "connected";
   const status = await engineStatus();
   const blocked =
     !status.apiKey && !status.sampleMode
@@ -212,6 +220,13 @@ async function ProjectPage({
           })}
           {count > 0 ? addWorkspace("Add workspace") : null}
         </div>
+
+        {/* Where this project's work orders go. */}
+        <ProjectLink
+          projectId={project.id}
+          externalId={link}
+          connected={connected}
+        />
       </header>
 
       {running ? (
