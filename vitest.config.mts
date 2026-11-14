@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "docs/**/*.test.ts"],
     exclude: ["src/**/*.db.test.ts"],
   },
 });

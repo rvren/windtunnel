@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { BookOpen } from "lucide-react";
 import { useParams, usePathname } from "next/navigation";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 /*
  * The top bar: where you are. It starts with the scope (the project the page
@@ -30,6 +32,7 @@ function trail(pathname: string | null): Step[] {
     ];
   if (pathname.startsWith("/app/settings"))
     return [{ label: "Settings", href: "/app/settings" }, { label: "Engine" }];
+  if (pathname.startsWith("/app/docs")) return [{ label: "Architecture" }];
   if (pathname === "/app/projects") return [{ label: "Projects" }];
   if (pathname.startsWith("/app/projects/"))
     return [{ label: "Projects", href: "/app/projects" }, { label: "Cockpit" }];
@@ -118,6 +121,19 @@ export function AppTopbarFor({
           );
         })}
       </nav>
+      {/* How Windtunnel is built: the architecture document. */}
+      <Link
+        href="/app/docs"
+        aria-label="Architecture docs"
+        title="Architecture docs"
+        data-testid="app-docs"
+        className={cn(
+          "ml-auto grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+          pathname?.startsWith("/app/docs") && "bg-accent text-foreground",
+        )}
+      >
+        <BookOpen className="size-[18px]" aria-hidden="true" />
+      </Link>
     </header>
   );
 }

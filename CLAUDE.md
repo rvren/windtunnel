@@ -207,6 +207,17 @@ orders`, run by
   will cost. Tests and screen work use `ScriptedLlm` or
   `WINDTUNNEL_SAMPLE_RUN=1`, which spend nothing.
 
+## Architecture document
+
+`docs/architecture.md` explains the whole app and the agents, with Mermaid
+diagrams, and is shown in the app at `/app/docs` (the book icon in the top
+bar). **Update it in the same change** whenever you add, remove or rename a
+stage, an agent, a table, an API route group, a connector, a top-level
+module or a file it names. `docs/architecture.test.ts` (part of `pnpm test`)
+fails when a file it names no longer exists, or a stage, agent or table is
+missing from it; it cannot see a changed flow, so read the diagrams against
+your change too.
+
 ## Rules
 
 1. **Standalone first.** Windtunnel must work with no other product. Input is a

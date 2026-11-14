@@ -364,8 +364,16 @@ export function AppSidebarFor({
     /^\/app\/projects\/([0-9a-f-]{36})/.exec(pathname ?? "")?.[1] ?? null;
   // On a Settings page the sidebar is Settings' own. "‹ Settings" goes up to
   // the main menu without leaving the page; any navigation resets it.
-  const [up, setUp] = useState<{ at: string | null } | null>(null);
-  const own = inSettings(pathname) && up?.at !== pathname;
+  const [up, setUp] = useState(false);
+  // Any navigation, including back to the same page later, starts in the
+  // section's own sidebar again. Reset while rendering, not in an effect, so
+  // the first frame after a navigation is already right.
+  const [seen, setSeen] = useState(pathname);
+  if (seen !== pathname) {
+    setSeen(pathname);
+    setUp(false);
+  }
+  const own = inSettings(pathname) && !up;
   return (
     <Sidebar collapsible="icon" variant="floating">
       <SidebarHeader className="gap-0 border-b px-3.5 pt-5 pb-4 group-data-[collapsible=icon]:px-1">
@@ -386,10 +394,7 @@ export function AppSidebarFor({
         <SidebarSwap view={own ? "settings" : "main"} depth={own ? 1 : 0}>
           {own ? (
             <>
-              <SectionHead
-                label="Settings"
-                onBack={() => setUp({ at: pathname })}
-              />
+              <SectionHead label="Settings" onBack={() => setUp(true)} />
               <NavList groups={SETTINGS} pathname={pathname} />
             </>
           ) : (
@@ -402,7 +407,7 @@ export function AppSidebarFor({
               <NavList
                 groups={MAIN}
                 pathname={pathname}
-                onEnter={() => setUp(null)}
+                onEnter={() => setUp(false)}
               />
             </>
           )}

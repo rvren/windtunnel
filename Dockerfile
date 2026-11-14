@@ -36,6 +36,8 @@ COPY --from=build --chown=windtunnel:windtunnel /app/.next/static ./.next/static
 COPY --from=build --chown=windtunnel:windtunnel /app/drizzle ./drizzle
 # The notes that make each agent a specialist, read when a run starts.
 COPY --from=build --chown=windtunnel:windtunnel /app/src/server/engine/expertise ./src/server/engine/expertise
+# The architecture page reads the document from the repository.
+COPY --from=build --chown=windtunnel:windtunnel /app/docs ./docs
 USER windtunnel
 EXPOSE 3300
 CMD ["node", "server.js"]

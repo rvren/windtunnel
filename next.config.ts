@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
   // The share-card route reads these two files when it runs. The build cannot
   // see that by itself, so they are named here to be copied into the image.
   outputFileTracingIncludes: {
+    // The architecture page reads the document from the repository.
+    "/app/docs": ["./docs/architecture.md"],
     "/opengraph-image": [
       "./brand/wordmark-dark.svg",
       "./node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff",
