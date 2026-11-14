@@ -288,7 +288,7 @@ flowchart LR
   run --> groups["Accepted findings"]
   arch & groups --> c["buildCockpit<br/>src/server/projects/cockpit.ts"]
   c --> v["Canvas views<br/>src/lib/viz/cockpit-views.ts"]
-  v --> s["Issue flow · Data flow · Security<br/>command/flow-canvas.tsx"]
+  v --> s["Issue flow · Security<br/>command/flow-canvas.tsx"]
   c --> d["Architecture diagram"]
   c --> i["Issues list"]
   c --> n["Card dock<br/>command/cards.tsx"]
@@ -297,12 +297,13 @@ flowchart LR
 
 The cockpit is a command center on one stage of fixed height
 (`src/components/project/command/stage.tsx`): a switcher picks the view
-(issue flow, architecture, data flow, security; `?view=` in the address),
+(issue flow, architecture, security; `?view=` in the address),
 and the bar, filters, legend and card dock float on top. Each flow view is a
 pure adapter in `src/lib/viz/cockpit-views.ts` that turns the cockpit into
 sources, hubs, groups, coloured bands, a note and a legend;
 `src/lib/viz/stage-layout.ts` fits it to the stage's box (even slots, rings
-sized to the room, "+N more" for what does not fit), and
+sized to the room, every node shown: a crowded column puts its names beside
+the rings), and
 `src/components/project/command/flow-canvas.tsx` draws it. The four cards
 (`src/components/project/command/cards.tsx`) read the change and trend from
 the project's earlier finished runs and the 8090 deliveries of this run.

@@ -21,7 +21,6 @@ import { cn } from "@/lib/utils";
 import {
   NOT_MAPPED,
   SEVERITY_TONE,
-  dataFlowView,
   issueFlowView,
   securityView,
   type FlowFilter,
@@ -46,7 +45,7 @@ import { SecurityView } from "./security";
 /*
  * The cockpit of one project, laid out as a command center: a header with a
  * view switcher, one canvas that shows the picked view (issue flow,
- * architecture, data flow, security), four summary cards, then the issues.
+ * architecture, security), the card dock, then the issues.
  * Anything picked on the canvas or a card filters the list. All from the
  * project's latest finished run.
  */
@@ -69,7 +68,7 @@ const NO_FILTER: Filter = {
   patched: null,
 };
 
-type ViewId = "flow" | "architecture" | "data" | "security";
+type ViewId = "flow" | "architecture" | "security";
 
 const SEVERITY_LEGEND = SEVERITY_ORDER.map((severity) => ({
   severity,
@@ -171,7 +170,6 @@ export function Cockpit({
   // The views this run can show, in the switcher's order.
   const flows: Record<Exclude<ViewId, "architecture">, FlowView | null> = {
     flow: issueFlowView(cockpit),
-    data: dataFlowView(cockpit),
     security: securityView(cockpit),
   };
   const views = (
@@ -182,7 +180,6 @@ export function Cockpit({
         label: "Architecture",
         on: cockpit.components.length > 0,
       },
-      { value: "data", label: "Data flow", on: Boolean(flows.data) },
       { value: "security", label: "Security", on: Boolean(flows.security) },
     ] as const
   ).filter((view) => view.on);
@@ -286,12 +283,6 @@ export function Cockpit({
   const secrets = cockpit.privacy?.secrets ?? [];
   const flowView = view && view !== "architecture" ? flows[view] : null;
   const onFlowPick = (choice: FlowFilter) => {
-    if (view === "data") {
-      document
-        .querySelector('[data-testid="cockpit-privacy"]')
-        ?.scrollIntoView({ behavior: "smooth" });
-      return;
-    }
     pick(choice);
   };
 
@@ -321,7 +312,7 @@ export function Cockpit({
             onRemoveChip={(key) => setFilter({ ...filter, [key]: null })}
             onClear={() => setFilter(NO_FILTER)}
             secrets={
-              view === "data" || view === "security" ? secrets.length : 0
+              view === "security" ? secrets.length : 0
             }
             onSecrets={() => toggle("severity", "critical")}
             runId={cockpit.runId}

@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { FlowView } from "./cockpit-views";
 import {
+  COMPACT_HALO,
+  COMPACT_MIN,
   HALO,
   LABEL,
   RING,
   TICKS,
-  foldColumn,
   layoutStage,
 } from "./stage-layout";
 
@@ -61,12 +62,18 @@ describe("a flow laid out to fit one box", () => {
       const layout = layoutStage(view(7), { width: 1100, height });
       // A ring, its halo or ticks, and its label all stay in the box.
       for (const node of [...layout.sources, ...layout.hubs]) {
-        const ring = node.column === 0 ? HALO : TICKS;
+        const ring = node.compact
+          ? COMPACT_HALO
+          : node.column === 0
+            ? HALO
+            : TICKS;
+        const below = node.compact ? node.r + ring : node.r + LABEL;
         expect(node.y - node.r - ring).toBeGreaterThanOrEqual(-0.001);
-        expect(node.y + node.r + LABEL).toBeLessThanOrEqual(height + 0.001);
+        expect(node.y + below).toBeLessThanOrEqual(height + 0.001);
         expect(node.r).toBeLessThanOrEqual(RING.max);
+        expect(node.r).toBeGreaterThanOrEqual(COMPACT_MIN);
       }
-      for (const node of layout.sources) {
+      for (const node of layout.sources.filter((n) => !n.compact)) {
         expect(node.r).toBeGreaterThanOrEqual(RING.min);
       }
     }
@@ -79,24 +86,15 @@ describe("a flow laid out to fit one box", () => {
     expect(new Set(steps.map((step) => step.toFixed(3))).size).toBe(1);
   });
 
-  it("folds what does not fit into one node, and keeps the totals", () => {
-    const tall = layoutStage(view(9), { width: 1100, height: 900 });
-    const short = layoutStage(view(9), { width: 1100, height: 360 });
-    expect(tall.sources.some((node) => node.folded)).toBe(false);
-    expect(short.sources.some((node) => node.folded)).toBe(true);
-    const total = (layout: typeof short) =>
-      layout.sources.reduce((sum, node) => sum + node.data.value, 0);
-    expect(total(short)).toBe(total(tall));
-    // Bands from folded places now leave from the fold, with the same sum.
-    const out = (layout: typeof short) =>
-      layout.bands
-        .filter(
-          (band) =>
-            band.source.startsWith("source:") ||
-            band.source.startsWith("more:0"),
-        )
-        .reduce((sum, band) => sum + band.value, 0);
-    expect(out(short)).toBe(out(tall));
+  it("shows every node however many there are, names beside when crowded", () => {
+    const roomy = layoutStage(view(4), { width: 1100, height: 900 });
+    const crowded = layoutStage(view(12), { width: 1100, height: 400 });
+    expect(roomy.sources).toHaveLength(4);
+    expect(roomy.sources.every((node) => !node.compact)).toBe(true);
+    expect(crowded.sources).toHaveLength(12);
+    expect(crowded.sources.every((node) => node.compact)).toBe(true);
+    // Every band still runs: none is merged away.
+    expect(crowded.bands).toHaveLength(view(12).bands.length);
   });
 
   it("fits each node's bands inside its ring", () => {
@@ -114,19 +112,22 @@ describe("a flow laid out to fit one box", () => {
     }
   });
 
-  it("drops listed items before it folds a group", () => {
+  it("drops listed items when a group is short of room", () => {
     const roomy = layoutStage(view(4), { width: 1100, height: 900 });
     const tight = layoutStage(view(4), { width: 1100, height: 300 });
     expect(roomy.groups.every((group) => group.leaves === 3)).toBe(true);
     expect(tight.groups.every((group) => group.leaves < 3)).toBe(true);
-    expect(tight.groups.some((group) => group.folded)).toBe(false);
+    expect(tight.groups).toHaveLength(4);
   });
 
-  it("folds a column to one node when even two do not fit", () => {
-    const nodes = [1, 2, 3].map((v) => ({ id: `n${v}`, label: "", value: v }));
-    const { nodes: kept, into } = foldColumn(nodes, 1, 0);
-    expect(kept).toHaveLength(1);
-    expect(kept[0].value).toBe(6);
-    expect(into.size).toBe(3);
+  it("keeps every group's words inside the box", () => {
+    for (const height of [300, 420, 640]) {
+      const layout = layoutStage(view(6), { width: 1100, height });
+      for (const group of layout.groups) {
+        const block = Math.min(height / 4, 42) + group.leaves * 16;
+        expect(group.top).toBeGreaterThanOrEqual(0);
+        expect(group.top + block).toBeLessThanOrEqual(height + 0.001);
+      }
+    }
   });
 });

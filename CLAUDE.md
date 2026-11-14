@@ -93,8 +93,11 @@ take something away.
   moves the page; everything else floats on it: the top bar (view name,
   switcher, way to the run), the filters and legend, and a glass card dock
   that folds away. Flow views are laid out to fit the box exactly by
-  `src/lib/viz/stage-layout.ts` (even slots, rings sized to the room, the
-  smallest nodes folded into "+N more"); Architecture fits by `FitBox`.
+  `src/lib/viz/stage-layout.ts` (even slots, rings sized to the room).
+  Every workspace and node is always shown; never fold them into "+N more"
+  (the owner asked): a crowded column puts names beside smaller rings.
+  Architecture fits by `FitBox`. There is no Data flow view (removed at the
+  owner's request); personal data stays in the table below.
   Coloured strands and glow are allowed there; light theme has no glow. A
   new view is one adapter in `src/lib/viz/cockpit-views.ts` (with its note
   and legend) plus one switcher entry.

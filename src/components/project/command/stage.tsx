@@ -235,7 +235,7 @@ export function Stage<V extends string>({
         <>
           {/* The view, in the box between the bar and the dock */}
           <div
-            className="absolute right-6 left-6 transition-[bottom] duration-500"
+            className="absolute right-6 left-6"
             style={{ top: TOP + 20, bottom: bottom + 8 }}
           >
             <AnimatePresence mode="wait" initial={false}>

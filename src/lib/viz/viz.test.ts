@@ -13,7 +13,7 @@ import type { RunRecord, StoredEvent } from "@/server/engine/schema";
 import { MemoryRunStore } from "@/server/engine/store";
 import { buildCockpit } from "@/server/projects/cockpit";
 
-import { dataFlowView, issueFlowView, securityView } from "./cockpit-views";
+import { issueFlowView, securityView } from "./cockpit-views";
 import { patchCoverage, remediationFiles, traceSpans } from "./run";
 import { elapsedSeconds, stageSegments, stageSplits, timesFrom } from "./times";
 
@@ -185,19 +185,6 @@ describe("the cockpit's canvas views", () => {
     );
   });
 
-  it("follows personal data to its sinks and workspaces", () => {
-    const cockpit = buildCockpit(run);
-    const view = dataFlowView(cockpit)!;
-    const total = sum(cockpit.privacy!.flows.map((flow) => flow.places));
-    expect(sum(view.hubs.map((n) => n.value))).toBe(total);
-    expect(sum(view.groups.map((n) => n.value))).toBe(total);
-    expect(
-      view.groups.every((group) =>
-        group.leaves.every((leaf) => leaf.tone === "var(--sev-critical)"),
-      ),
-    ).toBe(true);
-  });
-
   it("leaves a view out when it has nothing to show", () => {
     const empty = {
       ...buildCockpit(run),
@@ -206,6 +193,5 @@ describe("the cockpit's canvas views", () => {
     };
     expect(issueFlowView(empty)).toBeNull();
     expect(securityView(empty)).toBeNull();
-    expect(dataFlowView(empty)).toBeNull();
   });
 });

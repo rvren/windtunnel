@@ -4,7 +4,7 @@ import {
   SEVERITY_LABEL,
   SEVERITY_ORDER,
 } from "@/lib/labels";
-import type { DataSink, FindingType, Severity } from "@/server/engine/schema";
+import type { FindingType, Severity } from "@/server/engine/schema";
 import type { Cockpit, CockpitIssue } from "@/server/projects/cockpit";
 import { UNPLACED } from "@/server/projects/cockpit";
 
@@ -195,83 +195,6 @@ export function issueFlowView(cockpit: Cockpit): FlowView | null {
         : [];
     }),
     groups: severityGroups(cockpit.issues, cockpit.runId, (s) => `group:${s}`),
-    bands: bands.all(),
-  };
-}
-
-const SINKS: { id: DataSink; label: string; tone: string }[] = [
-  { id: "log", label: "Logs", tone: "var(--sev-critical)" },
-  { id: "outside", label: "Outside calls", tone: "var(--sev-high)" },
-  { id: "response", label: "Responses", tone: "var(--sev-medium)" },
-  { id: "storage", label: "Storage", tone: "var(--sev-low)" },
-];
-
-/** Personal data → where it goes → which workspace does it. */
-export function dataFlowView(cockpit: Cockpit): FlowView | null {
-  const privacy = cockpit.privacy;
-  if (!privacy || privacy.flows.length === 0) return null;
-  const tone = new Map(SINKS.map((sink) => [sink.id, sink.tone]));
-  const bands = counter();
-  for (const flow of privacy.flows) {
-    const color = tone.get(flow.sink)!;
-    bands.add(
-      `source:${flow.category}`,
-      `hub:${flow.sink}`,
-      color,
-      flow.places,
-    );
-    bands.add(`hub:${flow.sink}`, `group:${flow.area}`, color, flow.places);
-  }
-  const flows = privacy.flows;
-  const sum = (pick: (flow: (typeof flows)[number]) => boolean) =>
-    flows.filter(pick).reduce((total, flow) => total + flow.places, 0);
-  const workspaces = [...new Set(privacy.flows.map((flow) => flow.area))];
-  return {
-    heading: ["Personal data", "Where it goes", "Where in the code"],
-    note: "Where personal data goes, found by name in the code.",
-    legend: SINKS.filter((sink) =>
-      flows.some((flow) => flow.sink === sink.id),
-    ).map((sink) => ({ label: sink.label, tone: sink.tone })),
-    sources: privacy.categories
-      .filter((item) => privacy.flows.some((f) => f.category === item.category))
-      .map((item) => ({
-        id: `source:${item.category}`,
-        label: item.category,
-        // Sized by what reaches a sink, so its bands fill it.
-        value: sum((flow) => flow.category === item.category),
-        sub: `${plural(item.places, "place")} in the code`,
-      })),
-    hubs: SINKS.flatMap((sink) => {
-      const value = sum((flow) => flow.sink === sink.id);
-      return value
-        ? [
-            {
-              id: `hub:${sink.id}`,
-              label: sink.label,
-              value,
-              sub: plural(value, "place"),
-              tone: sink.tone,
-            },
-          ]
-        : [];
-    }),
-    groups: workspaces.map((key) => {
-      const value = sum((flow) => flow.area === key);
-      const places = privacy.exposed.filter((place) => place.area === key);
-      return {
-        id: `group:${key}`,
-        label: key,
-        value,
-        sub: plural(value, "place"),
-        leaves: places.map((place) => ({
-          id: `${place.path}:${place.line}`,
-          label: place.path.split("/").pop() ?? place.path,
-          meta: `line ${place.line}`,
-          tone: "var(--sev-critical)",
-        })),
-        more: 0,
-      };
-    }),
     bands: bands.all(),
   };
 }

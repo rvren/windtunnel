@@ -35,17 +35,9 @@ interface Props {
   onPick: (filter: FlowFilter) => void;
 }
 
-function Ticks({
-  cx,
-  cy,
-  r,
-  tone,
-}: {
-  cx: number;
-  cy: number;
-  r: number;
-  tone: string;
-}) {
+function Ticks({ r, tone }: { r: number; tone: string }) {
+  const cx = 0;
+  const cy = 0;
   return (
     <g aria-hidden="true">
       {Array.from({ length: TICKS }, (_, index) => {
@@ -130,26 +122,32 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
   const reduced = useReducedMotion();
   const [hovered, setHovered] = useState<string | null>(null);
   const layout = layoutStage(view, { width, height });
+  // Nodes glide to their new place when the box changes size.
+  const glide = reduced ? { duration: 0 } : { duration: 0.45, ease: EASE };
 
   // What is lit: the hovered node, else what filters the list.
   const lit = hovered ? [hovered] : selected;
   const touches = (band: { source: string; target: string }) =>
     lit.length === 0 || lit.includes(band.source) || lit.includes(band.target);
-  const pickable = (node: StageNode) =>
-    node.data.filter
+  const act = (node: StageNode) =>
+    node.data.filter ? () => onPick(node.data.filter!) : null;
+  const pickable = (node: StageNode) => {
+    const run = act(node);
+    return run
       ? {
           role: "button" as const,
           tabIndex: 0,
           "aria-pressed": selected.includes(node.id),
-          onClick: () => onPick(node.data.filter!),
+          onClick: run,
           onKeyDown: (event: React.KeyboardEvent) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
-              onPick(node.data.filter!);
+              run();
             }
           },
         }
       : {};
+  };
   const hover = (id: string) => ({
     onMouseEnter: () => setHovered(id),
     onMouseLeave: () => setHovered(null),
@@ -191,10 +189,10 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
                 const offset = (band.thickness * (strand + 0.5)) / strands;
                 const a = band.y0 + offset;
                 const b = band.y1 + offset;
+                const d = `M${band.x0} ${a}C${mid} ${a} ${mid} ${b} ${band.x1} ${b}`;
                 return (
                   <motion.path
                     key={strand}
-                    d={`M${band.x0} ${a}C${mid} ${a} ${mid} ${b} ${band.x1} ${b}`}
                     fill="none"
                     stroke={band.tone}
                     style={{ strokeOpacity: "var(--strand-opacity)" }}
@@ -203,12 +201,15 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
                       Math.max(1, (band.thickness / strands) * 0.5),
                     )}
                     strokeLinecap="round"
-                    initial={reduced ? false : { pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
+                    initial={reduced ? { d } : { d, pathLength: 0 }}
+                    animate={{ d, pathLength: 1 }}
                     transition={{
-                      duration: 0.9,
-                      ease: EASE,
-                      delay: 0.04 * (index % 12),
+                      d: glide,
+                      pathLength: {
+                        duration: reduced ? 0 : 0.9,
+                        ease: EASE,
+                        delay: 0.04 * (index % 12),
+                      },
                     }}
                   />
                 );
@@ -221,24 +222,30 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
         {layout.sources.map((node) => {
           const on = lit.includes(node.id);
           return (
-            <g key={node.id} className={cn(on && "glow")}>
-              <circle
-                cx={node.x}
-                cy={node.y}
-                r={node.r + 8}
+            <motion.g
+              key={node.id}
+              className={cn(on && "glow")}
+              initial={false}
+              animate={{ x: node.x, y: node.y }}
+              transition={glide}
+            >
+              <motion.circle
+                initial={false}
+                animate={{ r: node.r + (node.compact ? 4 : 8) }}
+                transition={glide}
                 fill="none"
                 stroke="var(--canvas-ring)"
                 strokeDasharray="2 5"
               />
-              <circle
-                cx={node.x}
-                cy={node.y}
-                r={node.r}
+              <motion.circle
+                initial={false}
+                animate={{ r: node.r }}
+                transition={glide}
                 fill="var(--canvas-node)"
                 stroke={on ? "var(--brand)" : "var(--canvas-ring)"}
                 strokeWidth={on ? 1.5 : 1}
               />
-            </g>
+            </motion.g>
           );
         })}
 
@@ -247,25 +254,30 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
           const on = lit.includes(node.id);
           const tone = node.data.tone ?? "var(--brand)";
           return (
-            <g key={node.id} className={cn("glow-soft", on && "glow")}>
-              <Ticks cx={node.x} cy={node.y} r={node.r} tone={tone} />
+            <motion.g
+              key={node.id}
+              className={cn("glow-soft", on && "glow")}
+              initial={false}
+              animate={{ x: node.x, y: node.y }}
+              transition={glide}
+            >
+              {node.compact ? null : <Ticks r={node.r} tone={tone} />}
               <circle
-                cx={node.x}
-                cy={node.y}
                 r={node.r}
                 fill="var(--canvas-node)"
                 stroke={on ? tone : "var(--canvas-ring)"}
               />
-            </g>
+            </motion.g>
           );
         })}
 
         {/* Groups: a dot where the bands land */}
         {layout.groups.map((node) => (
-          <circle
+          <motion.circle
             key={node.id}
-            cx={node.x}
-            cy={node.y}
+            initial={false}
+            animate={{ cx: node.x, cy: node.y }}
+            transition={glide}
             r={5}
             fill={node.data.tone ?? "var(--muted-foreground)"}
             className={cn(lit.includes(node.id) && "glow")}
@@ -275,79 +287,128 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
 
       {/* Column headings */}
       {layout.columns.map((x, index) => (
-        <p
+        <motion.p
           key={view.heading[index]}
+          initial={false}
+          animate={{ left: index === 2 ? x + 60 : x }}
+          transition={glide}
           className="absolute -top-5 -translate-x-1/2 text-[10px] tracking-[0.14em] whitespace-nowrap text-muted-foreground uppercase"
-          style={{ left: index === 2 ? x + 60 : x }}
         >
           {view.heading[index]}
-        </p>
+        </motion.p>
       ))}
 
       {/* Words on top */}
-      {layout.sources.map((node) => (
-        <div
-          key={node.id}
-          {...pickable(node)}
-          {...hover(node.id)}
-          data-testid="flow-source"
-          className="absolute flex w-36 -translate-x-1/2 flex-col items-center text-center outline-none focus-visible:outline-2 focus-visible:outline-ring"
-          style={{ left: node.x, top: node.y - node.r }}
-        >
-          <span
-            className={cn(
-              "flex items-center font-light tabular-nums",
-              node.r > 28 ? "text-xl" : "text-base",
-            )}
-            style={{ height: node.r * 2 }}
+      {layout.sources.map((node) =>
+        node.compact ? (
+          <motion.div
+            key={node.id}
+            {...pickable(node)}
+            {...hover(node.id)}
+            data-testid="flow-source"
+            initial={false}
+            animate={{ left: node.x - node.r - 12, top: node.y }}
+            transition={glide}
+            title={`${node.data.label}: ${node.data.sub ?? node.data.value}`}
+            className="absolute flex w-40 -translate-x-full -translate-y-1/2 items-baseline justify-end gap-2 text-right outline-none focus-visible:outline-2 focus-visible:outline-ring"
           >
-            {node.data.value}
-          </span>
-          <span className="mt-2.5 line-clamp-1 max-w-full rounded-sm bg-canvas/85 px-1.5 text-[11px] tracking-[0.1em] uppercase">
-            {node.data.label}
-          </span>
-          {node.data.sub ? (
-            <span className="text-[11px] text-muted-foreground">
-              {node.data.sub}
+            <span className="truncate text-[11px] tracking-[0.08em] uppercase">
+              {node.data.label}
             </span>
-          ) : null}
-        </div>
-      ))}
-      {layout.hubs.map((node) => (
-        <div
-          key={node.id}
-          {...pickable(node)}
-          {...hover(node.id)}
-          data-testid="flow-hub"
-          className="absolute flex w-48 -translate-x-1/2 flex-col items-center text-center outline-none focus-visible:outline-2 focus-visible:outline-ring"
-          style={{ left: node.x, top: node.y - node.r }}
-        >
-          <span
-            className={cn(
-              "flex items-center font-light tabular-nums",
-              node.r > 28 ? "text-2xl" : "text-lg",
-            )}
-            style={{ height: node.r * 2 }}
+            <span className="font-mono text-xs tabular-nums">
+              {node.data.value}
+            </span>
+          </motion.div>
+        ) : (
+          <motion.div
+            key={node.id}
+            {...pickable(node)}
+            {...hover(node.id)}
+            data-testid="flow-source"
+            initial={false}
+            animate={{ left: node.x, top: node.y - node.r }}
+            transition={glide}
+            className="absolute flex w-36 -translate-x-1/2 flex-col items-center text-center outline-none focus-visible:outline-2 focus-visible:outline-ring"
           >
-            {node.data.value}
-          </span>
-          <span className="mt-3.5 rounded-sm bg-canvas/85 px-1.5 text-sm font-medium">
-            {node.data.label}
-          </span>
-          {node.data.sub ? (
-            <span className="text-[11px] text-muted-foreground">
-              {node.data.sub}
+            <span
+              className={cn(
+                "flex items-center font-light tabular-nums",
+                node.r > 28 ? "text-xl" : "text-base",
+              )}
+              style={{ height: node.r * 2 }}
+            >
+              {node.data.value}
             </span>
-          ) : null}
-        </div>
-      ))}
+            <span className="mt-2.5 line-clamp-1 max-w-full rounded-sm bg-canvas/85 px-1.5 text-[11px] tracking-[0.1em] uppercase">
+              {node.data.label}
+            </span>
+            {node.data.sub ? (
+              <span className="text-[11px] text-muted-foreground">
+                {node.data.sub}
+              </span>
+            ) : null}
+          </motion.div>
+        ),
+      )}
+      {layout.hubs.map((node) =>
+        node.compact ? (
+          <motion.div
+            key={node.id}
+            {...pickable(node)}
+            {...hover(node.id)}
+            data-testid="flow-hub"
+            initial={false}
+            animate={{ left: node.x, top: node.y + node.r + 2 }}
+            transition={glide}
+            className="absolute flex w-48 -translate-x-1/2 items-baseline justify-center gap-1.5 text-center outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <span className="truncate rounded-sm bg-canvas/85 px-1 text-xs font-medium">
+              {node.data.label}
+            </span>
+            <span className="font-mono text-xs tabular-nums">
+              {node.data.value}
+            </span>
+          </motion.div>
+        ) : (
+          <motion.div
+            key={node.id}
+            {...pickable(node)}
+            {...hover(node.id)}
+            data-testid="flow-hub"
+            initial={false}
+            animate={{ left: node.x, top: node.y - node.r }}
+            transition={glide}
+            className="absolute flex w-48 -translate-x-1/2 flex-col items-center text-center outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <span
+              className={cn(
+                "flex items-center font-light tabular-nums",
+                node.r > 28 ? "text-2xl" : "text-lg",
+              )}
+              style={{ height: node.r * 2 }}
+            >
+              {node.data.value}
+            </span>
+            <span className="mt-3.5 rounded-sm bg-canvas/85 px-1.5 text-sm font-medium">
+              {node.data.label}
+            </span>
+            {node.data.sub ? (
+              <span className="text-[11px] text-muted-foreground">
+                {node.data.sub}
+              </span>
+            ) : null}
+          </motion.div>
+        ),
+      )}
       {layout.groups.map((node) => (
-        <div
+        <motion.div
           key={node.id}
           {...hover(node.id)}
           data-testid="flow-group"
+          initial={false}
+          animate={{ left: node.x + 14, top: node.top }}
+          transition={glide}
           className="absolute w-[244px]"
-          style={{ left: node.x + 14, top: node.y - 11 }}
         >
           <div
             {...pickable(node)}
@@ -362,7 +423,7 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
           </div>
           <ul className="mt-1.5 space-y-0.5">
             {(node.data.leaves ?? []).slice(0, node.leaves).map((leaf) => {
-              const body = (
+              const content = (
                 <>
                   <span
                     aria-hidden="true"
@@ -382,13 +443,14 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
                   {leaf.href ? (
                     <Link
                       href={leaf.href}
+                      title={leaf.label}
                       className="flex items-center gap-1.5 text-xs text-foreground/85 hover:text-foreground"
                     >
-                      {body}
+                      {content}
                     </Link>
                   ) : (
                     <span className="flex items-center gap-1.5 text-xs text-foreground/85">
-                      {body}
+                      {content}
                     </span>
                   )}
                 </li>
@@ -407,7 +469,7 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
               <ChevronRight className="size-3" aria-hidden="true" />
             </button>
           ) : null}
-        </div>
+        </motion.div>
       ))}
     </div>
   );

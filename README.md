@@ -140,9 +140,7 @@ finished run:
   a switcher for four views: **Issue flow** (workspace →
   kind → severity, as bundles of coloured strands, with the top issues of
   each severity listed), **Architecture** (frontends, services, data and
-  outside systems, and what calls what), **Data flow** (personal data →
-  logs, outside calls, storage, responses → where in the code) and
-  **Security** (OWASP category → patch ready or not → severity). The view is
+  outside systems, and what calls what), **Security** (OWASP category → patch ready or not → severity). The view is
   kept in the address (`?view=`);
 - four cards docked over the bottom of the stage (they fold away): issues by
   severity with the change against the last run, the issues to fix first,

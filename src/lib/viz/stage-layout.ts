@@ -7,26 +7,34 @@ import type {
 
 /*
  * Lays out a flow view to fit one box exactly, so every view of the cockpit
- * has the same height. Each column's nodes are spaced evenly; rings shrink
- * to the room; a column with more nodes than fit folds its smallest into
- * one "+N more" node; groups list as many items as fit. Pure, so it is
- * tested without a browser. Drawn by components/project/command/flow-canvas.
+ * has the same height. Each column's nodes are spaced evenly and every node
+ * is shown, however many there are: rings shrink to the room, and when a
+ * column is crowded its names move beside the rings ("compact"). Groups
+ * list as many items as fit. Pure, so it is tested without a browser.
+ * Drawn by components/project/command/flow-canvas.
  */
 
 export const RING = { min: 22, max: 34 } as const;
-/** Hubs may go a little smaller, so all four kinds fit. */
+/** The smallest ring in a crowded column. */
+export const COMPACT_MIN = 8;
+/** Hubs may go a little smaller before they turn compact. */
 const HUB_MIN = 18;
 /** Room under a ring for its name and second line. */
 export const LABEL = 36;
 /** The tick ring around a hub, and the dashed ring around a source. */
 export const TICKS = 13;
 export const HALO = 8;
+/** In a crowded column the halo and ticks are thinner. */
+export const COMPACT_HALO = 4;
 /** A group's first line, one listed item, and "View all". */
 const GROUP_HEAD = 24;
 const LEAF = 16;
 const VIEW_ALL = 18;
-/** Where the columns sit. */
+/** From the top of a group's block to its dot. */
+export const GROUP_DOT = 11;
+/** Where the columns sit; crowded sources move right, names on their left. */
 export const LEFT = 84;
+export const LEFT_COMPACT = 196;
 export const RIGHT_ROOM = 268;
 
 export interface StageNode<T extends FlowNodeData = FlowNodeData> {
@@ -37,8 +45,8 @@ export interface StageNode<T extends FlowNodeData = FlowNodeData> {
   /** The ring's radius; for a group, the dot's room. */
   r: number;
   data: T;
-  /** True for the node that holds the folded rest of a column. */
-  folded?: boolean;
+  /** Names beside the ring instead of under it: the column is crowded. */
+  compact: boolean;
 }
 
 export interface StageBand extends FlowBand {
@@ -53,110 +61,48 @@ export interface StageBand extends FlowBand {
 export interface StageLayout {
   sources: StageNode[];
   hubs: StageNode[];
-  groups: (StageNode<FlowGroup> & { leaves: number })[];
+  /**
+   * Groups, each with how many items it lists and where its block of words
+   * starts: the block is centred on its slot and never leaves the box.
+   */
+  groups: (StageNode<FlowGroup> & { leaves: number; top: number })[];
   bands: StageBand[];
   /** The x of each column: sources, hubs, groups. */
   columns: [number, number, number];
 }
 
-/** The fewest pixels a node of each column needs, with the smallest ring. */
-const MIN_SLOT = [
-  RING.min * 2 + HALO * 2 + LABEL,
-  HUB_MIN * 2 + TICKS * 2 + LABEL,
-  GROUP_HEAD + 6,
-] as const;
-
 const clamp = (value: number, low: number, high: number) =>
   Math.max(low, Math.min(high, value));
 
-/**
- * Keeps the largest nodes that fit and folds the rest into one. Returns the
- * kept nodes and a map from each folded id to the fold's id.
- */
-export function foldColumn<T extends FlowNodeData>(
-  nodes: T[],
-  room: number,
-  column: number,
-): { nodes: (T | FlowNodeData)[]; into: Map<string, string> } {
-  const into = new Map<string, string>();
-  if (nodes.length <= room || room < 2) {
-    if (nodes.length > room && room < 2) {
-      // Not even two fit: everything is one node.
-      const id = `more:${column}`;
-      for (const node of nodes) into.set(node.id, id);
-      return {
-        nodes: [
-          {
-            id,
-            label: `${nodes.length} more`,
-            value: nodes.reduce((sum, node) => sum + node.value, 0),
-          },
-        ],
-        into,
-      };
-    }
-    return { nodes, into };
-  }
-  const keep = [...nodes]
-    .sort((a, b) => b.value - a.value)
-    .slice(0, room - 1)
-    .map((node) => node.id);
-  const kept = nodes.filter((node) => keep.includes(node.id));
-  const rest = nodes.filter((node) => !keep.includes(node.id));
-  const id = `more:${column}`;
-  for (const node of rest) into.set(node.id, id);
-  const value = rest.reduce((sum, node) => sum + node.value, 0);
-  const fold: FlowNodeData | FlowGroup =
-    column === 2
-      ? ({
-          id,
-          label: `${rest.length} more`,
-          value,
-          sub: `${rest.length} groups`,
-          leaves: [],
-          more: 0,
-        } satisfies FlowGroup)
-      : { id, label: `${rest.length} more`, value, sub: `${rest.length} more` };
-  return { nodes: [...kept, fold], into };
-}
+/** The slot a ring with its label under it needs at the least. */
+const FULL_SLOT = {
+  source: RING.min * 2 + HALO * 2 + LABEL,
+  hub: HUB_MIN * 2 + TICKS * 2 + LABEL,
+};
 
 export function layoutStage(
   view: FlowView,
   box: { width: number; height: number },
 ): StageLayout {
   const { width, height } = box;
+  const sourceSlot = height / Math.max(1, view.sources.length);
+  const hubSlot = height / Math.max(1, view.hubs.length);
+  const sourcesCompact = sourceSlot < FULL_SLOT.source;
+  const hubsCompact = hubSlot < FULL_SLOT.hub;
+  const left = sourcesCompact ? LEFT_COMPACT : LEFT;
   const columns: [number, number, number] = [
-    LEFT,
-    LEFT + (width - RIGHT_ROOM - LEFT) / 2,
+    left,
+    left + (width - RIGHT_ROOM - left) / 2,
     width - RIGHT_ROOM,
   ];
 
-  // Fold what does not fit, column by column.
-  const room = MIN_SLOT.map((slot) => Math.max(1, Math.floor(height / slot)));
-  const folds = [
-    foldColumn(view.sources, room[0], 0),
-    foldColumn(view.hubs, room[1], 1),
-    foldColumn(view.groups, room[2], 2),
-  ];
-  const renamed = (id: string) =>
-    folds.reduce((name, fold) => fold.into.get(name) ?? name, id);
-  const merged = new Map<string, FlowBand>();
-  for (const band of view.bands) {
-    const source = renamed(band.source);
-    const target = renamed(band.target);
-    const key = `${source}>${target}>${band.tone}`;
-    const into = merged.get(key) ?? { ...band, source, target, value: 0 };
-    into.value += band.value;
-    merged.set(key, into);
-  }
-  const bands = [...merged.values()];
-
-  // Even slots; rings sized to the slot.
-  // A ring and its label are one unit, centred in its slot: the ring sits
-  // half a label above the slot's middle.
+  // Even slots. A full ring and its label are one unit centred in the slot
+  // (the ring sits half a label above the middle); a compact ring sits in
+  // the middle, its name beside it.
   const place = <T extends FlowNodeData>(
     nodes: T[],
     column: 0 | 1 | 2,
+    compact: boolean,
     radius: (slot: number) => number,
     lift: number,
   ): StageNode<T>[] => {
@@ -165,37 +111,45 @@ export function layoutStage(
       id: data.id,
       column,
       x: columns[column],
-      y: slot * (index + 0.5) - lift,
+      y: slot * (index + 0.5) - (compact ? 0 : lift),
       r: radius(slot),
       data,
-      ...(data.id.startsWith("more:") ? { folded: true } : {}),
+      compact,
     }));
   };
   const sources = place(
-    folds[0].nodes,
+    view.sources,
     0,
-    (slot) => clamp((slot - LABEL) / 2 - HALO, RING.min, RING.max),
+    sourcesCompact,
+    (slot) =>
+      sourcesCompact
+        ? clamp(slot / 2 - COMPACT_HALO - 2, COMPACT_MIN, RING.min)
+        : clamp((slot - LABEL) / 2 - HALO, RING.min, RING.max),
     LABEL / 2,
   );
   const hubs = place(
-    folds[1].nodes,
+    view.hubs,
     1,
-    (slot) => clamp((slot - LABEL) / 2 - TICKS, HUB_MIN, RING.max),
+    hubsCompact,
+    (slot) =>
+      hubsCompact
+        ? clamp(slot / 2 - COMPACT_HALO - 6, COMPACT_MIN, HUB_MIN)
+        : clamp((slot - LABEL) / 2 - TICKS, HUB_MIN, RING.max),
     LABEL / 2,
   );
-  const groupSlot = height / Math.max(1, folds[2].nodes.length);
-  const groups = place(folds[2].nodes as FlowGroup[], 2, () => 6, 0).map(
-    (node) => {
-      const fits = Math.floor((groupSlot - GROUP_HEAD - VIEW_ALL - 6) / LEAF);
-      return {
-        ...node,
-        leaves: clamp(fits, 0, Math.min(3, node.data.leaves?.length ?? 0)),
-      };
-    },
-  );
+  const groupSlot = height / Math.max(1, view.groups.length);
+  const groups = place(view.groups, 2, false, () => 6, 0).map((node) => {
+    const fits = Math.floor((groupSlot - GROUP_HEAD - VIEW_ALL - 6) / LEAF);
+    const leaves = clamp(fits, 0, Math.min(3, node.data.leaves?.length ?? 0));
+    const block = Math.min(groupSlot, GROUP_HEAD + VIEW_ALL) + leaves * LEAF;
+    const top = clamp(node.y - block / 2, 0, Math.max(0, height - block));
+    // The dot, where the bands land, sits on the block's first line.
+    return { ...node, leaves, top, y: top + GROUP_DOT };
+  });
 
   // One scale for every band: the busiest node's bands fit its ring.
   const all = [...sources, ...hubs, ...groups];
+  const bands = view.bands;
   const through = (id: string) =>
     Math.max(
       bands.filter((b) => b.source === id).reduce((s, b) => s + b.value, 0),
