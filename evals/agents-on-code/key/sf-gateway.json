@@ -1,0 +1,128 @@
+{
+  "case": "sf-gateway",
+  "version": 1,
+  "source": "human-verified pending: drafted by Claude from the code, to be reviewed by the owner",
+  "flaws": [
+    {
+      "id": "sf-gateway-01",
+      "title": "Orders route takes the user id from a client header",
+      "kind": "security_vulnerability",
+      "severity": "critical",
+      "cwe": "CWE-290",
+      "file": "main.go",
+      "lines": [12, 17],
+      "why": "withUser copies the caller's own X-User-Id header into X-Authenticated-User without checking any session, so any client can act as any user on /orders.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-gateway-02",
+      "title": "Client headers, including X-Authenticated-User, pass through unchanged",
+      "kind": "security_vulnerability",
+      "severity": "high",
+      "cwe": "CWE-290",
+      "file": "proxy.go",
+      "lines": [11, 11],
+      "why": "request.Header = r.Header forwards every client header, so on the /auth/ and /catalog/ routes (no withUser) a client can send its own X-Authenticated-User and hop-by-hop headers straight to the backend.",
+      "confidence": "likely"
+    },
+    {
+      "id": "sf-gateway-03",
+      "title": "Rate limit map is written from many goroutines with no lock",
+      "kind": "architecture_weakness",
+      "severity": "high",
+      "cwe": "CWE-362",
+      "file": "ratelimit.go",
+      "lines": [5, 10],
+      "why": "calls is a plain map updated by every request handler concurrently, so under load Go aborts the whole gateway with a concurrent map write.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-gateway-04",
+      "title": "Rate limit counts never reset and grow without bound",
+      "kind": "architecture_weakness",
+      "severity": "high",
+      "cwe": "CWE-770",
+      "file": "ratelimit.go",
+      "lines": [9, 13],
+      "why": "calls[r.RemoteAddr] only ever increments, so a client is blocked for good after 100 requests and the map keeps every address ever seen.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-gateway-05",
+      "title": "Rate limit keyed on RemoteAddr including the port",
+      "kind": "security_vulnerability",
+      "severity": "medium",
+      "cwe": "CWE-770",
+      "file": "ratelimit.go",
+      "lines": [9, 10],
+      "why": "r.RemoteAddr is ip:port, so a client opening new connections gets a fresh counter each time, while clients behind one proxy or load balancer share a single counter.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-gateway-06",
+      "title": "Proxy drops the query string",
+      "kind": "unhandled_journey",
+      "severity": "high",
+      "cwe": null,
+      "file": "proxy.go",
+      "lines": [10, 10],
+      "why": "The upstream URL is upstream+r.URL.Path with no RawQuery, so /catalog/search?q=... reaches catalog with no query and search never works.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-gateway-07",
+      "title": "Upstream status and headers are lost",
+      "kind": "unhandled_journey",
+      "severity": "high",
+      "cwe": null,
+      "file": "proxy.go",
+      "lines": [17, 18],
+      "why": "The proxy only io.Copy's the body, so every upstream 401, 404 or 500 reaches the client as 200 and Content-Type and other headers are dropped.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-gateway-08",
+      "title": "Upstream calls have no timeout",
+      "kind": "architecture_weakness",
+      "severity": "medium",
+      "cwe": "CWE-400",
+      "file": "proxy.go",
+      "lines": [12, 12],
+      "why": "http.DefaultClient has no timeout and the client's context is not passed, so one slow backend ties up gateway connections without limit.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-gateway-09",
+      "title": "Request build error ignored",
+      "kind": "unhandled_journey",
+      "severity": "low",
+      "cwe": "CWE-252",
+      "file": "proxy.go",
+      "lines": [10, 11],
+      "why": "The error from http.NewRequest is discarded, so a request that fails to build leaves request nil and the next line panics.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-gateway-10",
+      "title": "Only the exact /orders path is routed",
+      "kind": "unhandled_journey",
+      "severity": "low",
+      "cwe": null,
+      "file": "main.go",
+      "lines": [8, 8],
+      "why": "HandleFunc(\"/orders\", ...) has no trailing slash, so /orders/{id} and any other order path get a 404 from the gateway.",
+      "confidence": "likely"
+    },
+    {
+      "id": "sf-gateway-11",
+      "title": "Server has no timeouts and ignores its start error",
+      "kind": "architecture_weakness",
+      "severity": "low",
+      "cwe": "CWE-400",
+      "file": "main.go",
+      "lines": [9, 9],
+      "why": "http.ListenAndServe has no read or write timeouts, so slow clients can hold connections, and its returned error is dropped.",
+      "confidence": "certain"
+    }
+  ]
+}

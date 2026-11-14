@@ -13,7 +13,8 @@
     "db:up": "docker compose up -d --wait db",
     "test": "vitest run",
     "test:db": "vitest run --config vitest.db.config.mts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eval:agents": "tsx scripts/eval/agents-on-code.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

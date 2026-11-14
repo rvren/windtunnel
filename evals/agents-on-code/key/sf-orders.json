@@ -1,0 +1,84 @@
+{
+  "case": "sf-orders",
+  "version": 1,
+  "source": "human-verified pending: drafted by Claude from the code, to be reviewed by the owner",
+  "flaws": [
+    {
+      "id": "sf-orders-01",
+      "title": "Listing orders returns every user's orders",
+      "kind": "security_vulnerability",
+      "severity": "critical",
+      "cwe": "CWE-639",
+      "file": "orders.py",
+      "lines": [14, 15],
+      "why": "list_orders takes user_id but calls orders.find_all() with no filter, so every user sees all customers' orders.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-orders-02",
+      "title": "Order total comes from the client",
+      "kind": "security_vulnerability",
+      "severity": "high",
+      "cwe": "CWE-602",
+      "file": "orders.py",
+      "lines": [7, 9],
+      "why": "total = body[\"total\"] is charged and saved as sent, never priced from the items, so a buyer can pay any amount (zero or negative) for any cart.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-orders-03",
+      "title": "Failed charge still creates the order",
+      "kind": "unhandled_journey",
+      "severity": "high",
+      "cwe": "CWE-252",
+      "file": "orders.py",
+      "lines": [8, 9],
+      "why": "charge() returns the requests response even for a 4xx or 5xx and create_order ignores it, so a declined or failed charge still saves the order.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-orders-04",
+      "title": "Charge retried after a timeout with no idempotency key",
+      "kind": "architecture_weakness",
+      "severity": "high",
+      "cwe": null,
+      "file": "billing_client.py",
+      "lines": [7, 15],
+      "why": "On requests.Timeout the loop posts /charge again up to 3 times with no idempotency key; a charge that timed out may still have gone through, so the buyer can be charged more than once.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-orders-05",
+      "title": "Charge, save and announce are not one unit",
+      "kind": "architecture_weakness",
+      "severity": "high",
+      "cwe": null,
+      "file": "orders.py",
+      "lines": [8, 10],
+      "why": "The card is charged before orders.insert and announce run, with no rollback or refund, so a failed insert leaves a paid order that does not exist and a failed announce leaves no email.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-orders-06",
+      "title": "Order list is unbounded",
+      "kind": "architecture_weakness",
+      "severity": "low",
+      "cwe": "CWE-400",
+      "file": "orders.py",
+      "lines": [14, 15],
+      "why": "orders.find_all() has no paging, so the response grows with every order ever placed.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-orders-07",
+      "title": "Missing fields in the order body crash the request",
+      "kind": "unhandled_journey",
+      "severity": "low",
+      "cwe": "CWE-20",
+      "file": "orders.py",
+      "lines": [7, 9],
+      "why": "body[\"total\"] and body[\"items\"] are read with no validation, so a missing or wrong-typed field raises instead of returning a clear 400.",
+      "confidence": "certain"
+    }
+  ]
+}

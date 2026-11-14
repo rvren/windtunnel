@@ -267,6 +267,22 @@ describe("executeRun", () => {
   });
 });
 
+describe("an eval run", () => {
+  it("leaves out the stages it is told to skip", async () => {
+    const { deps, run, llm } = setup();
+    const done = await executeRun(
+      { ...deps, skip: ["remediation", "work_orders"] },
+      run,
+    );
+    expect(done.status).toBe("completed");
+    expect(done.groups.length).toBeGreaterThan(0);
+    expect(llm.calls).toContain("judge");
+    expect(llm.calls).not.toContain("work_orders");
+    expect(llm.calls).not.toContain("remediation");
+    expect(done.workOrders).toEqual([]);
+  });
+});
+
 describe("the challenge round", () => {
   it("ignores what an agent says about its own or unknown findings", async () => {
     const script = withScript((item) => {

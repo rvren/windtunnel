@@ -44,3 +44,9 @@ next-env.d.ts
 # local repositories to run against (see README)
 /repos/*
 !/repos/.gitkeep
+
+# eval output: runs, transcripts and scripted trials stay local
+/.claude/hillclimb/**/runs/
+/.claude/hillclimb/**/traces/
+/.claude/hillclimb/**/sample/
+/.claude/hillclimb/**/report.html

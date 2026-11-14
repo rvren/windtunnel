@@ -1,0 +1,62 @@
+{
+  "case": "sf-web",
+  "version": 1,
+  "source": "human-verified pending: drafted by Claude from the code, to be reviewed by the owner",
+  "flaws": [
+    {
+      "id": "sf-web-01",
+      "title": "Product names inserted as HTML",
+      "kind": "security_vulnerability",
+      "severity": "high",
+      "cwe": "CWE-79",
+      "file": "src/search.ts",
+      "lines": [8, 8],
+      "why": "row.innerHTML = product.name renders catalog data as markup, so a product name with a script runs in every buyer's browser and can read the session token.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-web-02",
+      "title": "Session token kept in localStorage",
+      "kind": "security_vulnerability",
+      "severity": "medium",
+      "cwe": "CWE-922",
+      "file": "src/session.ts",
+      "lines": [1, 7],
+      "why": "saveSession puts the token in localStorage, where any script on the page (such as the search XSS) can read and steal it; an HttpOnly cookie would not be readable.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-web-03",
+      "title": "Search text not URL-encoded",
+      "kind": "unhandled_journey",
+      "severity": "medium",
+      "cwe": "CWE-116",
+      "file": "src/search.ts",
+      "lines": [4, 4],
+      "why": "query is put into `/catalog/search?q=${query}` raw, so text with &, # or + breaks the search or adds extra parameters.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-web-04",
+      "title": "Checkout ignores failed responses and allows double submit",
+      "kind": "unhandled_journey",
+      "severity": "medium",
+      "cwe": null,
+      "file": "src/checkout.ts",
+      "lines": [3, 8],
+      "why": "placeOrder never checks response.ok and has no guard or idempotency key, so an error looks like success (or json() throws) and a second click places a second order.",
+      "confidence": "likely"
+    },
+    {
+      "id": "sf-web-05",
+      "title": "Search results pile up and race",
+      "kind": "unhandled_journey",
+      "severity": "low",
+      "cwe": null,
+      "file": "src/search.ts",
+      "lines": [3, 10],
+      "why": "showResults appends to list without clearing it and does not cancel earlier calls, so results from old searches stay and can arrive after newer ones; response.ok is also not checked.",
+      "confidence": "certain"
+    }
+  ]
+}

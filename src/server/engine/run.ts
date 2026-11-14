@@ -85,6 +85,11 @@ export interface EngineDeps {
   /** Hands a saved event to anyone following the run live. */
   publish: (runId: string, event: StoredEvent) => void;
   now: () => Date;
+  /**
+   * Stages left out of this run. Only an eval run sets it: the eval of the
+   * agents does not need fixes or work orders, which cost most of a run.
+   */
+  skip?: ("remediation" | "work_orders")[];
 }
 
 export interface RunInput {
@@ -223,6 +228,7 @@ export async function executeRun(
   run: RunRecord,
 ): Promise<RunRecord> {
   const { llm, store, publish, now } = deps;
+  const skipped = new Set(deps.skip ?? []);
 
   // Events are saved one after another so their order on disk and on the wire
   // is the order they happened in, even with five agents talking at once.
@@ -698,6 +704,7 @@ export async function executeRun(
     // 6. Remediation: how to fix each security finding, checked against the
     // code. Best effort: a remediation that fails never fails the run.
     await stage("remediation", async () => {
+      if (skipped.has("remediation")) return "Left out of this eval run";
       const security = run.groups.filter(
         (group) => group.type === "security_vulnerability",
       );
@@ -724,6 +731,7 @@ export async function executeRun(
 
     // 7. Work orders: what to do about each accepted finding.
     await stage("work_orders", async () => {
+      if (skipped.has("work_orders")) return "Left out of this eval run";
       if (run.groups.length === 0) return "No work orders needed";
       const result = await llm.call({
         stage: "work_orders",

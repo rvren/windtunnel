@@ -1,0 +1,44 @@
+{
+  "metrics": [
+    {
+      "id": "recall_reported",
+      "label": "Recall",
+      "kind": "continuous"
+    },
+    {
+      "id": "serious_reported",
+      "label": "Crit+high",
+      "kind": "continuous"
+    },
+    {
+      "id": "precision_reported",
+      "label": "Precision",
+      "kind": "continuous"
+    },
+    {
+      "id": "recall_any",
+      "label": "Found (any)",
+      "kind": "continuous"
+    },
+    {
+      "id": "judge_kept",
+      "label": "Judge kept",
+      "kind": "continuous"
+    },
+    {
+      "id": "judge_dropped",
+      "label": "Judge drop",
+      "kind": "continuous"
+    }
+  ],
+  "perf_fields": [
+    "latency_s",
+    "usage"
+  ],
+  "harness_paths": [
+    "scripts/eval/agents-on-code.ts",
+    "src/server/eval/grade.ts",
+    "src/server/eval/judge.ts",
+    "evals/agents-on-code/key/"
+  ]
+}

@@ -74,10 +74,37 @@ const MAX_TOKENS = 64_000;
 // request, the API retries it once on the model's default fallback.
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
+/** One answer from the API: which model was asked, and which answered. */
+export interface MessageRecord {
+  stage: Stage;
+  requested: string;
+  /** The model that answered; the server-side fallback can change it. */
+  served: string;
+  stopReason: string | null;
+  usage: Usage;
+}
+
 export class AnthropicLlm implements LlmClient {
   // Reads ANTHROPIC_API_KEY from the environment. The key never leaves the
   // server.
   private readonly client = new Anthropic();
+
+  /** `onMessage` sees every answer; the eval uses it, the app does not. */
+  constructor(private readonly onMessage?: (record: MessageRecord) => void) {}
+
+  private record(
+    request: { stage: Stage; model: string },
+    message: { model: string; stop_reason: string | null },
+    usage: Usage,
+  ) {
+    this.onMessage?.({
+      stage: request.stage,
+      requested: request.model,
+      served: message.model,
+      stopReason: message.stop_reason,
+      usage,
+    });
+  }
 
   async call<T>(request: LlmCall<T>): Promise<LlmResult<T>> {
     let started = false;
@@ -127,6 +154,7 @@ export class AnthropicLlm implements LlmClient {
         cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
         cacheWriteTokens: message.usage.cache_creation_input_tokens ?? 0,
       };
+      this.record(request, message, usage);
 
       if (message.stop_reason === "refusal") {
         return {
@@ -210,12 +238,14 @@ export class AnthropicLlm implements LlmClient {
           request.onStart?.();
         });
         const message = await stream.finalMessage();
-        usage = addUsage(usage, {
+        const answer: Usage = {
           inputTokens: message.usage.input_tokens,
           outputTokens: message.usage.output_tokens,
           cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
           cacheWriteTokens: message.usage.cache_creation_input_tokens ?? 0,
-        });
+        };
+        usage = addUsage(usage, answer);
+        this.record(request, message, answer);
 
         if (message.stop_reason === "refusal") {
           return {

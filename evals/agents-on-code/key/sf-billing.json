@@ -1,0 +1,106 @@
+{
+  "case": "sf-billing",
+  "version": 1,
+  "source": "human-verified pending: drafted by Claude from the code, to be reviewed by the owner",
+  "flaws": [
+    {
+      "id": "sf-billing-01",
+      "title": "The /charge endpoint has no authentication",
+      "kind": "security_vulnerability",
+      "severity": "critical",
+      "cwe": "CWE-306",
+      "file": "server.go",
+      "lines": [6, 11],
+      "why": "The /charge handler reads a card and amount and calls Charge with no check of who is calling, so anything that can reach the service can charge any card.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-billing-02",
+      "title": "Payment gateway password is hardcoded in source",
+      "kind": "security_vulnerability",
+      "severity": "high",
+      "cwe": "CWE-798",
+      "file": "charge.go",
+      "lines": [16, 17],
+      "why": "gatewayPassword is a string literal in the code, so everyone with repository access holds the payment gateway credential and it cannot be rotated without a deploy.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-billing-03",
+      "title": "Full card number written to the log",
+      "kind": "security_vulnerability",
+      "severity": "high",
+      "cwe": "CWE-532",
+      "file": "charge.go",
+      "lines": [11, 11],
+      "why": "log.Printf(\"charging card %s ...\", card) puts the card number in plain text in every log line, which breaks PCI rules and leaks cards to anyone who reads logs.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-billing-04",
+      "title": "A declined or failed charge is reported as success",
+      "kind": "unhandled_journey",
+      "severity": "high",
+      "cwe": "CWE-252",
+      "file": "charge.go",
+      "lines": [12, 13],
+      "why": "Charge discards the response from http.Post and returns only err, which is nil for a 4xx or 5xx, so a declined card reads as charged; the response body is also never closed.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-billing-05",
+      "title": "Payment gateway call has no timeout",
+      "kind": "architecture_weakness",
+      "severity": "high",
+      "cwe": "CWE-400",
+      "file": "charge.go",
+      "lines": [12, 12],
+      "why": "http.Post uses the default client with no timeout, so a slow payment gateway holds every /charge request open without limit.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-billing-06",
+      "title": "Charges take no idempotency key",
+      "kind": "architecture_weakness",
+      "severity": "medium",
+      "cwe": null,
+      "file": "charge.go",
+      "lines": [10, 14],
+      "why": "Charge(card, amount) has no request id and sends none to the gateway, so a retried request charges the card again.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-billing-07",
+      "title": "Amount is not validated",
+      "kind": "security_vulnerability",
+      "severity": "medium",
+      "cwe": "CWE-20",
+      "file": "server.go",
+      "lines": [7, 8],
+      "why": "The amount from read(r) goes straight to Charge with no check for zero, negative or absurd values.",
+      "confidence": "likely"
+    },
+    {
+      "id": "sf-billing-08",
+      "title": "The gateway credential is never sent",
+      "kind": "unhandled_journey",
+      "severity": "low",
+      "cwe": null,
+      "file": "charge.go",
+      "lines": [12, 17],
+      "why": "gatewayPassword is declared but the http.Post call sends no credentials, so the payment gateway either rejects every charge or accepts unauthenticated ones.",
+      "confidence": "likely"
+    },
+    {
+      "id": "sf-billing-09",
+      "title": "Server has no timeouts and ignores its start error",
+      "kind": "architecture_weakness",
+      "severity": "low",
+      "cwe": "CWE-400",
+      "file": "server.go",
+      "lines": [12, 12],
+      "why": "http.ListenAndServe runs with no read or write timeouts (slow clients hold connections) and its returned error is dropped, so a failed bind exits silently.",
+      "confidence": "certain"
+    }
+  ]
+}

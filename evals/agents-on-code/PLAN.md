@@ -122,10 +122,39 @@ change, we add repeats or cases before tuning anything.
 3. **Full baseline, paid, asked first:** 9 cases × 3 repeats = 27 runs,
    priced from the pilot's measured use, before it starts.
 
+## Where it stands (14 November)
+
+Built, all free so far:
+
+- **Answer keys** in `key/`: 54 Storefront flaws over 8 cases and 44 DVNA
+  flaws at commit `9ba473a`. Drafted from the code and DVNA's own list;
+  **not yet reviewed by you** (entries marked `"confidence": "likely"` need
+  a look first).
+- **Grader** (`src/server/eval/grade.ts`, `judge.ts`, with tests). Code
+  matches a finding only when the choice is clear: one flaw fits, or one
+  fits clearly best. Small files put several flaws on the same lines (31
+  overlapping pairs in the keys), so the rest go to the judge.
+- **Runner** `pnpm eval:agents`: `--check` (every key line exists; the key
+  grades itself; no findings grade 0%), `--sample` (the whole harness on
+  the scripted model), then paid runs with `--cases`, `--reps`, `--variant`.
+  Paid runs need `--approve-harness` first, and again after any change to
+  the runner, the grader or a key.
+- **Engine:** an eval run skips the fix and work-order stages (`skip` in
+  `EngineDeps`), and the API client reports which model answered each call,
+  so a fallback model is counted (`fallbacks` in each row).
+
+What one live DVNA run (14 November, with DVNA's "deliberately insecure"
+description) showed, scored in code only: the judge kept every security
+finding (the earlier run that lost 11 is fixed), but the agents filed 15
+findings, and code alone places 5 known flaws (3 of 16 critical and high).
+Missed: SQL injection, XSS, CSRF, XXE, vulnerable dependencies,
+misconfiguration. The Attacker's notes and the code agents' prompt were
+changed for that (see the first variant below); the baseline measures the version with those changes; to measure the version before, check out the commit before them and run it as its own `--variant`.
+
 ## Order of work
 
 1. Draft the answer key (free) → **your review, sign-off 1**.
-2. Runner and grader, with tests; grader check (free).
+2. Runner and grader, with tests; grader check (free). Done.
 3. Five graded examples from the pilot in the report → **your review of
    the grading, sign-off 2**.
 4. Full baseline → the report, and the interval next to the change you

@@ -1,0 +1,101 @@
+{
+  "case": "sf-project",
+  "version": 1,
+  "source": "human-verified pending: drafted by Claude from the code, to be reviewed by the owner",
+  "flaws": [
+    {
+      "id": "sf-project-01",
+      "title": "No service checks the session token; the gateway trusts a header auth never sets",
+      "kind": "security_vulnerability",
+      "severity": "critical",
+      "cwe": "CWE-290",
+      "file": "gateway/main.go",
+      "lines": [12, 17],
+      "files": [
+        { "file": "web/src/api.ts", "lines": [7, 7] },
+        { "file": "gateway/main.go", "lines": [12, 17] },
+        { "file": "auth/src/session.ts", "lines": [11, 14] }
+      ],
+      "why": "web sends the token in Authorization, but the gateway ignores it and copies the client's X-User-Id into X-Authenticated-User; auth's userOf is never called, so anyone can place and read orders as any user.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-project-02",
+      "title": "Orders calls billing with no credentials and billing checks none",
+      "kind": "security_vulnerability",
+      "severity": "high",
+      "cwe": "CWE-306",
+      "file": "orders/billing_client.py",
+      "lines": [9, 13],
+      "files": [
+        { "file": "orders/billing_client.py", "lines": [9, 13] },
+        { "file": "billing/server.go", "lines": [6, 11] }
+      ],
+      "why": "requests.post to BILLING + \"/charge\" sends no token, and the billing /charge handler accepts any caller, so any workload on the internal network can charge cards.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-project-03",
+      "title": "Slow payment gateway turns into double charges",
+      "kind": "architecture_weakness",
+      "severity": "high",
+      "cwe": null,
+      "file": "orders/billing_client.py",
+      "lines": [7, 15],
+      "files": [
+        { "file": "orders/billing_client.py", "lines": [7, 15] },
+        { "file": "billing/charge.go", "lines": [10, 14] }
+      ],
+      "why": "billing's http.Post to the payment gateway has no timeout and no idempotency key, while orders gives up after timeout=2 and posts again up to 3 times, so one slow gateway response can charge the card three times.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-project-04",
+      "title": "No card ever reaches billing",
+      "kind": "missing_requirement",
+      "severity": "high",
+      "cwe": null,
+      "file": "orders/billing_client.py",
+      "lines": [11, 11],
+      "files": [
+        { "file": "web/src/checkout.ts", "lines": [4, 7] },
+        { "file": "orders/billing_client.py", "lines": [11, 11] },
+        { "file": "billing/server.go", "lines": [7, 8] },
+        { "file": "billing/charge.go", "lines": [10, 10] }
+      ],
+      "why": "billing's Charge(card, amount) needs a card, but checkout sends only items and total and orders posts {\"user\", \"amount\"}, so the contract between the three cannot charge anything.",
+      "confidence": "likely"
+    },
+    {
+      "id": "sf-project-05",
+      "title": "Order events carry no buyer to email",
+      "kind": "missing_requirement",
+      "severity": "high",
+      "cwe": null,
+      "file": "orders/events.py",
+      "lines": [6, 7],
+      "files": [
+        { "file": "orders/events.py", "lines": [6, 7] },
+        { "file": "orders/orders.py", "lines": [10, 10] },
+        { "file": "notifications/src/worker.ts", "lines": [8, 9] }
+      ],
+      "why": "announce publishes only {\"kind\", \"order\"}, with no user id or email, and notifications has nothing else to look the buyer up by, so the order email has no one to go to.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-project-06",
+      "title": "Notifications ignores the event kind",
+      "kind": "unhandled_journey",
+      "severity": "medium",
+      "cwe": null,
+      "file": "notifications/src/worker.ts",
+      "lines": [8, 9],
+      "files": [
+        { "file": "orders/events.py", "lines": [6, 7] },
+        { "file": "notifications/src/worker.ts", "lines": [8, 9] }
+      ],
+      "why": "orders publishes every kind on the \"orders\" topic, but the worker sends orderCreated for each message without reading event.kind, so any future event (cancel, refund) emails the buyer that the order was placed.",
+      "confidence": "likely"
+    }
+  ]
+}

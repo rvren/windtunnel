@@ -1,0 +1,73 @@
+{
+  "case": "sf-catalog",
+  "version": 1,
+  "source": "human-verified pending: drafted by Claude from the code, to be reviewed by the owner",
+  "flaws": [
+    {
+      "id": "sf-catalog-01",
+      "title": "Search joins the query text into SQL",
+      "kind": "security_vulnerability",
+      "severity": "critical",
+      "cwe": "CWE-89",
+      "file": "search.py",
+      "lines": [4, 6],
+      "why": "search builds sql by concatenating query into the LIKE clause, so a crafted search reads or changes any table in the catalog database.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-catalog-02",
+      "title": "Price changes never reach the cache",
+      "kind": "architecture_weakness",
+      "severity": "high",
+      "cwe": null,
+      "file": "products.py",
+      "lines": [20, 23],
+      "why": "set_price updates the database but never deletes or updates price_cache, and cached prices have no expiry, so old prices are served (and charged) forever.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-catalog-03",
+      "title": "Unknown product id crashes price lookup",
+      "kind": "unhandled_journey",
+      "severity": "medium",
+      "cwe": "CWE-476",
+      "file": "products.py",
+      "lines": [13, 17],
+      "why": "fetchone() returns None for a missing id and row.price then raises, so a bad or deleted product id gives a server error instead of a not-found.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-catalog-04",
+      "title": "Product list and search return every row",
+      "kind": "architecture_weakness",
+      "severity": "medium",
+      "cwe": "CWE-400",
+      "file": "products.py",
+      "lines": [5, 6],
+      "why": "list_products (and search, with a leading-wildcard LIKE) fetchall() with no LIMIT or paging, so load and response size grow with the whole catalog.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-catalog-05",
+      "title": "Price lookup fails when the cache is down",
+      "kind": "architecture_weakness",
+      "severity": "medium",
+      "cwe": null,
+      "file": "products.py",
+      "lines": [10, 16],
+      "why": "price_cache.get and price_cache.set are not guarded, so a Redis outage turns every price lookup into an error instead of falling back to the database.",
+      "confidence": "likely"
+    },
+    {
+      "id": "sf-catalog-06",
+      "title": "Cached and database prices have different types",
+      "kind": "unhandled_journey",
+      "severity": "low",
+      "cwe": null,
+      "file": "products.py",
+      "lines": [10, 17],
+      "why": "price_of returns raw bytes from Redis on a hit but the database value on a miss, so callers get b\"9.99\" one time and a number the next.",
+      "confidence": "likely"
+    }
+  ]
+}

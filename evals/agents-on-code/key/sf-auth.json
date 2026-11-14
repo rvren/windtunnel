@@ -1,0 +1,62 @@
+{
+  "case": "sf-auth",
+  "version": 1,
+  "source": "human-verified pending: drafted by Claude from the code, to be reviewed by the owner",
+  "flaws": [
+    {
+      "id": "sf-auth-01",
+      "title": "Passwords are stored as unsalted MD5",
+      "kind": "security_vulnerability",
+      "severity": "high",
+      "cwe": "CWE-916",
+      "file": "src/password.ts",
+      "lines": [3, 5],
+      "why": "hashPassword uses createHash(\"md5\") with no salt and no work factor, so a leaked users table is cracked in minutes and equal passwords share a hash.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-auth-02",
+      "title": "No limit on failed sign-in attempts",
+      "kind": "security_vulnerability",
+      "severity": "medium",
+      "cwe": "CWE-307",
+      "file": "src/login.ts",
+      "lines": [5, 9],
+      "why": "login returns 401 on a wrong password and counts nothing, so an attacker can guess passwords for any email without lockout or delay.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-auth-03",
+      "title": "Sessions never expire",
+      "kind": "security_vulnerability",
+      "severity": "medium",
+      "cwe": "CWE-613",
+      "file": "src/session.ts",
+      "lines": [5, 14],
+      "why": "openSession stores only { token, userId } and userOf accepts any stored token forever, so a stolen token works for good.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-auth-04",
+      "title": "No way to sign out or revoke a session",
+      "kind": "missing_requirement",
+      "severity": "low",
+      "cwe": null,
+      "file": "src/session.ts",
+      "lines": [5, 14],
+      "why": "The sessions store has only insert and findByToken; there is no delete, so a user cannot sign out and a leaked token cannot be revoked.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-auth-05",
+      "title": "Password hash compared with a non-constant-time check",
+      "kind": "security_vulnerability",
+      "severity": "low",
+      "cwe": "CWE-208",
+      "file": "src/login.ts",
+      "lines": [7, 7],
+      "why": "user.passwordHash !== hashPassword(password) uses an ordinary string compare instead of timingSafeEqual; the timing leak is small but a careful reviewer flags it.",
+      "confidence": "likely"
+    }
+  ]
+}

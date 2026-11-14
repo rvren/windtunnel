@@ -1,0 +1,62 @@
+{
+  "case": "sf-notifications",
+  "version": 1,
+  "source": "human-verified pending: drafted by Claude from the code, to be reviewed by the owner",
+  "flaws": [
+    {
+      "id": "sf-notifications-01",
+      "title": "Message acknowledged before the email is sent",
+      "kind": "architecture_weakness",
+      "severity": "high",
+      "cwe": null,
+      "file": "src/worker.ts",
+      "lines": [7, 9],
+      "why": "message.ack() runs before JSON.parse and emailProvider.send, so any failure after it loses the message and the buyer never gets the email.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-notifications-02",
+      "title": "One bad message stops the worker",
+      "kind": "unhandled_journey",
+      "severity": "high",
+      "cwe": "CWE-755",
+      "file": "src/worker.ts",
+      "lines": [6, 10],
+      "why": "Nothing catches errors in the for-await loop, so one malformed body (JSON.parse throws) or one provider error ends run() and no further emails go out.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-notifications-03",
+      "title": "Emails have no recipient",
+      "kind": "missing_requirement",
+      "severity": "high",
+      "cwe": null,
+      "file": "src/worker.ts",
+      "lines": [9, 9],
+      "why": "emailProvider.send gets only { subject, body } from orderCreated; no buyer address is looked up or passed, so the email cannot reach the buyer.",
+      "confidence": "certain"
+    },
+    {
+      "id": "sf-notifications-04",
+      "title": "A slow email provider stalls the whole queue",
+      "kind": "architecture_weakness",
+      "severity": "medium",
+      "cwe": "CWE-400",
+      "file": "src/worker.ts",
+      "lines": [9, 9],
+      "why": "Messages are handled one at a time and emailProvider.send is awaited with no timeout or retry, so one hung call blocks every email behind it.",
+      "confidence": "likely"
+    },
+    {
+      "id": "sf-notifications-05",
+      "title": "Subject says shipped when the order was only placed",
+      "kind": "unhandled_journey",
+      "severity": "low",
+      "cwe": null,
+      "file": "src/templates.ts",
+      "lines": [3, 4],
+      "why": "orderCreated uses the subject \"Your order is on its way\" for an order that has only been placed, which misleads the buyer.",
+      "confidence": "certain"
+    }
+  ]
+}

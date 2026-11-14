@@ -282,6 +282,11 @@ orders`, run by
   server into a rebuild loop that reloads every page. Stop the server first.
 - **Expertise** for each agent is Markdown in `expertise/`. Improve an
   agent by editing its notes before you touch its prompt.
+- **Evals.** `pnpm eval:agents` scores the agents on code against reviewed
+  answer keys (`evals/agents-on-code/`, plan and status in its `PLAN.md`).
+  `--check` and `--sample` are free; anything else bills the key, so ask
+  first, as for any run. Change an agent's prompt or notes, then run a new
+  `--variant` and compare; never edit a key to make a score go up.
 - **Never start a live run without the owner's permission for that run.**
   Every run bills their Claude API key. Ask each time and say roughly what it
   will cost. In the app, every way to start a run asks first
