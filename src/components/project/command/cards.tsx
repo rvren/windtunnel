@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
+import { InfoTip } from "@/components/info-tip";
 import { ProgressBar } from "@/components/tuff/progress-bar";
 import { RollingNumber } from "@/components/tuff/rolling-number";
 import { SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { SEVERITY_TONE, type FlowFilter } from "@/lib/viz/cockpit-views";
+import type { ExplainKey } from "@/lib/explain";
 import type { RunPoint } from "@/lib/viz/project";
 import type { Severity } from "@/server/engine/schema";
-import type { Cockpit } from "@/server/projects/cockpit";
+import type { Cockpit, CockpitIssue } from "@/server/projects/cockpit";
 
 /*
  * The four cards under the cockpit's canvas. Each answers one question,
@@ -24,11 +26,13 @@ export interface Delivered {
 
 function Card({
   title,
+  about,
   action,
   children,
   testId,
 }: {
   title: string;
+  about: ExplainKey;
   action?: React.ReactNode;
   children: React.ReactNode;
   testId: string;
@@ -39,7 +43,10 @@ function Card({
       data-testid={testId}
     >
       <header className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-medium">{title}</h3>
+        <h3 className="flex items-center gap-1.5 text-sm font-medium">
+          {title}
+          <InfoTip about={about} label={title} />
+        </h3>
         {action}
       </header>
       {children}
@@ -132,7 +139,7 @@ export function SummaryCards({
       data-testid="cockpit-cards"
     >
       {/* 1. How many, how bad, better or worse */}
-      <Card title="Issues" testId="card-issues">
+      <Card title="Issues" about="issues" testId="card-issues">
         <div className="flex items-baseline gap-3">
           <RollingNumber
             value={String(totals.issues)}
@@ -193,6 +200,7 @@ export function SummaryCards({
       {/* 2. What to do first */}
       <Card
         title="Fix first"
+        about="fixFirst"
         testId="card-fix-first"
         action={
           fixFirst.length > 0 ? (
@@ -249,7 +257,7 @@ export function SummaryCards({
       </Card>
 
       {/* 3. Better or worse over time */}
-      <Card title="Issues over runs" testId="card-history">
+      <Card title="Issues over runs" about="history" testId="card-history">
         {history.length > 1 ? (
           <>
             <div className="flex items-baseline justify-between text-xs text-muted-foreground">
@@ -278,7 +286,7 @@ export function SummaryCards({
       </Card>
 
       {/* 4. How ready the fixes are */}
-      <Card title="Readiness" testId="card-readiness">
+      <Card title="Readiness" about="readiness" testId="card-readiness">
         <div className="space-y-4">
           {security.length > 0 ? (
             <Meter
@@ -357,12 +365,15 @@ export function DockCards({
   delivered,
   selectedSeverity,
   onPick,
+  onOpenIssue,
 }: {
   cockpit: Cockpit;
   earlier: RunPoint[];
   delivered: Delivered | null;
   selectedSeverity: Severity | null;
   onPick: (filter: FlowFilter) => void;
+  /** When set, an issue opens here (focus mode's drawer), not in the run. */
+  onOpenIssue?: (issue: CockpitIssue) => void;
 }) {
   const { totals } = cockpit;
   const previous = earlier.at(-1);
@@ -387,12 +398,15 @@ export function DockCards({
   const glass =
     "flex h-full min-w-0 flex-col overflow-hidden rounded-tile bg-card/80 p-3 ring-1 ring-foreground/10 backdrop-blur-md";
   const title =
-    "mb-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase";
+    "mb-1.5 flex items-center gap-1 text-[11px] tracking-[0.1em] text-muted-foreground uppercase";
 
   return (
     <div className="grid h-full grid-cols-4 gap-2" data-testid="cockpit-dock">
       <section className={glass} data-testid="dock-issues">
-        <h3 className={title}>Issues</h3>
+        <h3 className={title}>
+          Issues
+          <InfoTip about="issues" label="Issues" className="size-3.5" />
+        </h3>
         <div className="flex items-baseline gap-2">
           <RollingNumber
             value={String(totals.issues)}
@@ -442,13 +456,24 @@ export function DockCards({
       </section>
 
       <section className={glass} data-testid="dock-fix-first">
-        <h3 className={title}>Fix first</h3>
+        <h3 className={title}>
+          Fix first
+          <InfoTip about="fixFirst" label="Fix first" className="size-3.5" />
+        </h3>
         {fixFirst.length > 0 ? (
           <ul className="space-y-1">
             {fixFirst.map((issue) => (
               <li key={issue.id}>
                 <Link
                   href={`/app/runs/${cockpit.runId}`}
+                  onClick={
+                    onOpenIssue
+                      ? (event) => {
+                          event.preventDefault();
+                          onOpenIssue(issue);
+                        }
+                      : undefined
+                  }
                   className="group flex items-center gap-2 text-xs hover:text-foreground"
                 >
                   <span
@@ -475,7 +500,14 @@ export function DockCards({
       </section>
 
       <section className={glass} data-testid="dock-history">
-        <h3 className={title}>Issues over runs</h3>
+        <h3 className={title}>
+          Issues over runs
+          <InfoTip
+            about="history"
+            label="Issues over runs"
+            className="size-3.5"
+          />
+        </h3>
         {history.length > 1 ? (
           <>
             <p className="font-mono text-[11px] text-muted-foreground tabular-nums">
@@ -493,7 +525,10 @@ export function DockCards({
       </section>
 
       <section className={glass} data-testid="dock-readiness">
-        <h3 className={title}>Readiness</h3>
+        <h3 className={title}>
+          Readiness
+          <InfoTip about="readiness" label="Readiness" className="size-3.5" />
+        </h3>
         <div className="space-y-1.5">
           {security.length > 0 ? (
             <DockMeter

@@ -4,6 +4,7 @@ import { LayoutGroup, motion } from "motion/react";
 import { Check, FolderGit2, LoaderCircle } from "lucide-react";
 
 import { EASE } from "@/components/motion";
+import { InfoTip } from "@/components/info-tip";
 import { Panel } from "@/components/panel";
 import { AGENTS } from "@/lib/agents";
 import { STAGE_DESCRIPTION, STAGE_LABEL, STAGE_ORDER } from "@/lib/labels";
@@ -63,6 +64,7 @@ export function LiveMap({
             <span className="truncate text-muted-foreground">
               {stage ? STAGE_DESCRIPTION[stage] : ""}
             </span>
+            <InfoTip about="liveMap" label="The live map" />
           </p>
           <p className="flex items-baseline gap-2 text-sm text-muted-foreground">
             <CountUp

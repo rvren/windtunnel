@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -8,11 +9,15 @@ import {
   ChevronDown,
   ChevronUp,
   KeyRound,
+  Maximize2,
+  Minimize2,
   X,
 } from "lucide-react";
 
+import { InfoTip } from "@/components/info-tip";
 import { EASE } from "@/components/motion";
 import { Segmented } from "@/components/tuff/segmented-control";
+import type { ExplainKey } from "@/lib/explain";
 import { cn } from "@/lib/utils";
 
 /*
@@ -27,6 +32,8 @@ const DOCK_OPEN = 136;
 const DOCK_SHUT = 0;
 const TOP = 104;
 const DOCK_KEY = "windtunnel:cockpit-dock";
+/** The width of focus mode's widget column. */
+const RAIL = 320;
 
 /** The size of an element, kept current. Zero until measured. */
 function useSize<T extends HTMLElement>() {
@@ -56,6 +63,7 @@ export function Stage<V extends string>({
   view,
   onView,
   title,
+  about,
   note,
   legend,
   chips,
@@ -67,11 +75,17 @@ export function Stage<V extends string>({
   dock,
   renderView,
   renderNarrow,
+  focus = false,
+  onFocus,
+  onExit,
+  rail,
 }: {
   views: { value: V; label: string }[];
   view: V;
   onView: (view: V) => void;
   title: string;
+  /** Which explanation the "i" beside the title shows. */
+  about?: ExplainKey;
   note: string;
   legend: { label: string; tone: string }[];
   chips: StageChip[];
@@ -86,6 +100,12 @@ export function Stage<V extends string>({
   renderView: (box: { width: number; height: number }) => React.ReactNode;
   /** The picked view and the cards, stacked, for narrow screens. */
   renderNarrow: () => React.ReactNode;
+  /** Focus mode: the stage fills the screen, over everything else. */
+  focus?: boolean;
+  onFocus?: () => void;
+  onExit?: () => void;
+  /** Widgets down the right side, in focus mode. */
+  rail?: React.ReactNode;
 }) {
   const [ref, size] = useSize<HTMLElement>();
   // Read once on the client. Safe: nothing of the dock renders until the
@@ -108,17 +128,38 @@ export function Stage<V extends string>({
     });
   };
 
+  useEffect(() => {
+    if (!focus) return;
+    const before = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (event: KeyboardEvent) => {
+      // A drawer open on top closes first; Esc leaves focus only after.
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector('[data-slot="sheet-content"]')) return;
+      onExit?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = before;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [focus, onExit]);
+
   const narrow = size.width > 0 && size.width < 768;
+  const railWidth = rail && !narrow ? RAIL : 0;
   const bottom = docked ? DOCK_OPEN : DOCK_SHUT;
   const box = {
-    width: Math.max(0, size.width - 48),
+    width: Math.max(0, size.width - 48 - railWidth),
     height: Math.max(0, size.height - TOP - bottom - 28),
   };
 
   const bar = (
     <div className="flex flex-wrap items-start gap-3 md:grid md:grid-cols-[1fr_auto_1fr]">
       <div className="min-w-0">
-        <h2 className="text-sm font-medium">{title}</h2>
+        <h2 className="flex items-center gap-1.5 text-sm font-medium">
+          {title}
+          {about ? <InfoTip about={about} label={title} /> : null}
+        </h2>
         <p className="truncate text-xs text-muted-foreground">{note}</p>
       </div>
       {views.length > 1 ? (
@@ -132,14 +173,40 @@ export function Stage<V extends string>({
       ) : (
         <span />
       )}
-      <Link
-        href={`/app/runs/${runId}`}
-        className="flex items-center gap-1 text-xs text-link hover:underline md:justify-self-end"
-        data-testid="cockpit-open-run"
-      >
-        Open the run
-        <ArrowUpRight className="size-3.5" aria-hidden="true" />
-      </Link>
+      <div className="flex items-center gap-3 md:justify-self-end">
+        <Link
+          href={`/app/runs/${runId}`}
+          className="flex items-center gap-1 text-xs text-link hover:underline"
+          data-testid="cockpit-open-run"
+        >
+          Open the run
+          <ArrowUpRight className="size-3.5" aria-hidden="true" />
+        </Link>
+        {focus ? (
+          <button
+            type="button"
+            onClick={onExit}
+            data-testid="cockpit-focus-exit"
+            className="flex items-center gap-1 rounded-md bg-card/80 px-2 py-1 text-xs ring-1 ring-foreground/10 hover:bg-muted"
+          >
+            <Minimize2 className="size-3.5" aria-hidden="true" />
+            Exit focus
+            <kbd className="ml-1 font-mono text-[10px] text-muted-foreground">
+              Esc
+            </kbd>
+          </button>
+        ) : onFocus ? (
+          <button
+            type="button"
+            onClick={onFocus}
+            data-testid="cockpit-focus"
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground ring-1 ring-foreground/10 hover:text-foreground"
+          >
+            <Maximize2 className="size-3.5" aria-hidden="true" />
+            Focus
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 
@@ -215,14 +282,19 @@ export function Stage<V extends string>({
     </div>
   );
 
-  return (
+  const frame = (
     <section
       ref={ref}
       className={cn(
-        "relative overflow-hidden rounded-card bg-canvas bg-grid-dots",
-        !narrow && "h-[640px] xl:h-[700px]",
+        "overflow-hidden bg-canvas dot-grid",
+        focus ? "fixed inset-0 z-50 overflow-y-auto" : "relative rounded-card",
+        !focus && !narrow && "h-[640px] xl:h-[700px]",
       )}
       data-testid="cockpit-stage"
+      data-focus={focus ? "on" : undefined}
+      role={focus ? "dialog" : undefined}
+      aria-modal={focus ? true : undefined}
+      aria-label={focus ? "Cockpit, focus mode" : undefined}
       data-view={view}
     >
       {narrow ? (
@@ -235,8 +307,8 @@ export function Stage<V extends string>({
         <>
           {/* The view, in the box between the bar and the dock */}
           <div
-            className="absolute right-6 left-6"
-            style={{ top: TOP + 20, bottom: bottom + 8 }}
+            className="absolute left-6"
+            style={{ top: TOP + 20, bottom: bottom + 8, right: 24 + railWidth }}
           >
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
@@ -251,6 +323,19 @@ export function Stage<V extends string>({
               </motion.div>
             </AnimatePresence>
           </div>
+
+          {railWidth ? (
+            <div
+              className="absolute right-4"
+              style={{
+                top: TOP + 4,
+                bottom: bottom + 8,
+                width: railWidth - 16,
+              }}
+            >
+              {rail}
+            </div>
+          ) : null}
 
           {/* Overlays: bar and filters on top, fading into the canvas */}
           <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-canvas via-canvas/90 to-transparent px-5 pt-4 pb-6">
@@ -277,5 +362,19 @@ export function Stage<V extends string>({
         </>
       )}
     </section>
+  );
+  // In focus mode the stage is drawn into the body, so no parent's motion
+  // or overflow can move or clip it.
+  // A placeholder keeps the page's height while the stage is out of it.
+  return focus ? (
+    <>
+      <div
+        aria-hidden="true"
+        className="h-[640px] rounded-card bg-canvas/40 xl:h-[700px]"
+      />
+      {createPortal(frame, document.body)}
+    </>
+  ) : (
+    frame
   );
 }

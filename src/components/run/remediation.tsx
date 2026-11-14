@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Copy, ShieldCheck } from "lucide-react";
 
+import { InfoTip } from "@/components/info-tip";
 import { FileChanges } from "@/components/tuff/file-changes";
 import { Button } from "@/components/ui/button";
 import { toUnifiedDiff } from "@/lib/patch";
@@ -50,7 +51,10 @@ export function Remediation({ record }: { record: RemediationRecord }) {
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <ShieldCheck className="size-4 text-ok" aria-hidden="true" />
-        <h4 className="text-sm font-medium text-foreground">Remediation</h4>
+        <h4 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          Remediation
+          <InfoTip about="remediation" label="Remediation" />
+        </h4>
         {record.cwe ? (
           <a
             href={record.cwe.url}

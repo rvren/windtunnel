@@ -1,5 +1,6 @@
 "use client";
 
+import { InfoTip } from "@/components/info-tip";
 import { SegmentedBar } from "@/components/tuff/progress-bar";
 import { stageSegments, type RunTimes } from "@/lib/viz/times";
 
@@ -27,7 +28,10 @@ export function StageTime({ times }: { times: RunTimes }) {
       data-testid="stage-time"
     >
       <div className="mb-3 flex items-baseline justify-between gap-4">
-        <h2 className="text-sm font-medium">Time by stage</h2>
+        <h2 className="flex items-center gap-1.5 text-sm font-medium">
+          Time by stage
+          <InfoTip about="stageTime" label="Time by stage" />
+        </h2>
         <p className="font-mono text-sm tabular-nums">{seconds(total)}</p>
       </div>
       <SegmentedBar

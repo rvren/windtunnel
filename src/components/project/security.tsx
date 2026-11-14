@@ -1,5 +1,6 @@
 "use client";
 
+import { InfoTip } from "@/components/info-tip";
 import { useState } from "react";
 
 import { Panel } from "@/components/panel";
@@ -45,7 +46,10 @@ export function SecurityView({ issues }: { issues: CockpitIssue[] }) {
   return (
     <section data-testid="cockpit-security">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="text-lg font-medium">Security</h2>
+        <h2 className="flex items-center gap-1.5 text-lg font-medium">
+          Security
+          <InfoTip about="securitySection" label="Security" />
+        </h2>
         <div
           className="flex w-full items-center gap-3 sm:w-72"
           data-testid="cockpit-security-patched"

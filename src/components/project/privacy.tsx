@@ -1,3 +1,4 @@
+import { InfoTip } from "@/components/info-tip";
 import { KeyRound } from "lucide-react";
 
 import { Panel } from "@/components/panel";
@@ -34,7 +35,10 @@ export function PrivacyView({ privacy }: { privacy: CockpitPrivacy }) {
   return (
     <section data-testid="cockpit-privacy">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="text-lg font-medium">Data and privacy</h2>
+        <h2 className="flex items-center gap-1.5 text-lg font-medium">
+          Data and privacy
+          <InfoTip about="privacy" label="Data and privacy" />
+        </h2>
         <p className="text-xs text-muted-foreground">
           Found by name in {privacy.filesScanned} files
           {privacy.truncated ? " (stopped at the limit)" : ""}. It may include

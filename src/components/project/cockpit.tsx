@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 
 import { FadeIn, FadeInItem } from "@/components/motion";
+import { InfoTip } from "@/components/info-tip";
 import { Panel } from "@/components/panel";
 import { AgentIcon, SeverityBadge } from "@/components/run/badges";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   SEVERITY_LABEL,
   SEVERITY_ORDER,
 } from "@/lib/labels";
+import type { ExplainKey } from "@/lib/explain";
 import { cn } from "@/lib/utils";
 import {
   NOT_MAPPED,
@@ -36,6 +38,8 @@ import {
 
 import { ArchitectureDiagram } from "./architecture-diagram";
 import { DockCards, SummaryCards, type Delivered } from "./command/cards";
+import { CockpitDrawer, type Drill } from "./command/drawer";
+import { FocusRail } from "./command/rail";
 import { FlowCanvas, FlowLists } from "./command/flow-canvas";
 import { FitBox } from "./command/fit-box";
 import { Stage } from "./command/stage";
@@ -76,6 +80,8 @@ const SEVERITY_LEGEND = SEVERITY_ORDER.map((severity) => ({
   tone: SEVERITY_TONE[severity],
 }));
 
+const noSubscribe = () => () => undefined;
+
 const DOT: Record<Severity, string> = {
   critical: "bg-sev-critical",
   high: "bg-sev-high",
@@ -87,10 +93,21 @@ const AGENT_NAME = Object.fromEntries(
   AGENTS.map((agent) => [agent.id, agent.name]),
 );
 
-function SectionTitle({ title, note }: { title: string; note?: string }) {
+function SectionTitle({
+  title,
+  note,
+  about,
+}: {
+  title: string;
+  note?: string;
+  about?: ExplainKey;
+}) {
   return (
     <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-      <h2 className="text-lg font-medium">{title}</h2>
+      <h2 className="flex items-center gap-1.5 text-lg font-medium">
+        {title}
+        {about ? <InfoTip about={about} label={title} /> : null}
+      </h2>
       {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
     </div>
   );
@@ -188,11 +205,24 @@ export function Cockpit({
     views.find((item) => item.value === asked)?.value ??
     views[0]?.value ??
     null;
-  const setView = (next: ViewId) => {
+  const setQuery = (key: string, value: string | null) => {
     const query = new URLSearchParams(params.toString());
-    query.set("view", next);
-    router.replace(`${pathname}?${query.toString()}`, { scroll: false });
+    if (value === null) query.delete(key);
+    else query.set(key, value);
+    const text = query.toString();
+    router.replace(text ? `${pathname}?${text}` : pathname, { scroll: false });
   };
+  const setView = (next: ViewId) => setQuery("view", next);
+
+  // Focus mode lives in the address (?focus=1) so a link opens it. It only
+  // turns on in the browser: the full-screen stage is drawn into the body.
+  const mounted = useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  );
+  const focus = mounted && params.get("focus") === "1";
+  const [drill, setDrill] = useState<Drill | null>(null);
 
   const byWorkspace = cockpit.groupedBy === "workspace";
   const componentName = new Map(
@@ -226,6 +256,22 @@ export function Cockpit({
     filter.owasp ? `source:${filter.owasp}` : null,
     filter.patched ? `hub:${filter.patched}` : null,
   ].filter((id): id is string => id !== null);
+
+  function chipLabel(key: FlowFilter["key"], value: string): string {
+    if (key === "severity") return SEVERITY_LABEL[value as Severity];
+    if (key === "type") return FINDING_TYPE_LABEL[value as FindingType];
+    if (key === "workspace")
+      return value === UNPLACED ? "No one workspace" : value;
+    if (key === "component")
+      return value === UNPLACED
+        ? "No one component"
+        : (componentName.get(value) ?? value);
+    if (key === "owasp")
+      return value === NOT_MAPPED
+        ? "Not mapped to OWASP"
+        : `OWASP ${value.slice(0, 3)}`;
+    return value === "yes" ? "Patch ready" : "No patch";
+  }
 
   const chips = [
     filter.severity
@@ -282,8 +328,33 @@ export function Cockpit({
 
   const secrets = cockpit.privacy?.secrets ?? [];
   const flowView = view && view !== "architecture" ? flows[view] : null;
+  // The issues one pick on the canvas stands for, for focus mode's drawer.
+  const issuesFor = (choice: FlowFilter) =>
+    cockpit.issues.filter((issue) =>
+      choice.key === "severity"
+        ? issue.severity === choice.value
+        : choice.key === "type"
+          ? issue.type === choice.value
+          : choice.key === "workspace"
+            ? placed(issue.workspace) === choice.value
+            : choice.key === "component"
+              ? placed(issue.component) === choice.value
+              : choice.key === "owasp"
+                ? issue.type === "security_vulnerability" &&
+                  owaspOf(issue) === choice.value
+                : issue.type === "security_vulnerability" &&
+                  hasPatch(issue) === (choice.value === "yes"),
+    );
   const onFlowPick = (choice: FlowFilter) => {
     pick(choice);
+    if (focus) {
+      const matched = issuesFor(choice);
+      setDrill({
+        kind: "issues",
+        title: chipLabel(choice.key, choice.value),
+        issues: matched,
+      });
+    }
   };
 
   return (
@@ -296,6 +367,13 @@ export function Cockpit({
             view={view}
             onView={setView}
             title={views.find((item) => item.value === view)?.label ?? ""}
+            about={
+              view === "architecture"
+                ? "architecture"
+                : view === "security"
+                  ? "security"
+                  : "issueFlow"
+            }
             note={
               view === "architecture"
                 ? "The parts of the application as the run read them, and what calls what."
@@ -311,11 +389,25 @@ export function Cockpit({
             chips={chips}
             onRemoveChip={(key) => setFilter({ ...filter, [key]: null })}
             onClear={() => setFilter(NO_FILTER)}
-            secrets={
-              view === "security" ? secrets.length : 0
-            }
+            secrets={view === "security" ? secrets.length : 0}
             onSecrets={() => toggle("severity", "critical")}
             runId={cockpit.runId}
+            focus={focus}
+            onFocus={() => setQuery("focus", "1")}
+            onExit={() => {
+              setDrill(null);
+              setQuery("focus", null);
+            }}
+            rail={
+              focus ? (
+                <FocusRail
+                  cockpit={cockpit}
+                  shown={shown}
+                  filtered={chips.length > 0}
+                  onDrill={setDrill}
+                />
+              ) : undefined
+            }
             dock={
               <DockCards
                 cockpit={cockpit}
@@ -323,6 +415,11 @@ export function Cockpit({
                 delivered={delivered}
                 selectedSeverity={filter.severity}
                 onPick={pick}
+                onOpenIssue={
+                  focus
+                    ? (issue) => setDrill({ kind: "issue", issue })
+                    : undefined
+                }
               />
             }
             renderView={(box) =>
@@ -379,6 +476,7 @@ export function Cockpit({
       <FadeIn delay={0.15} className="pt-4">
         <SectionTitle
           title="Issues"
+          about="issuesList"
           note={
             shown.length === cockpit.issues.length
               ? `${cockpit.issues.length} accepted by the judge`
@@ -455,6 +553,12 @@ export function Cockpit({
       </FadeIn>
       <SecurityView issues={cockpit.issues} />
       {cockpit.privacy ? <PrivacyView privacy={cockpit.privacy} /> : null}
+      <CockpitDrawer
+        drill={drill}
+        cockpit={cockpit}
+        onDrill={setDrill}
+        onClose={() => setDrill(null)}
+      />
     </div>
   );
 }

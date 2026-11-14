@@ -221,7 +221,7 @@
 }
 
 /* A quiet grid of dots, the ground of every chart panel. */
-@utility bg-grid-dots {
+@utility dot-grid {
   background-image: radial-gradient(
     color-mix(in oklab, var(--foreground) 9%, transparent) 1px,
     transparent 1.2px

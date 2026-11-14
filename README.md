@@ -74,13 +74,13 @@ requirement (+ Markdown files)
  report: findings by type, work orders, the design model, a scoreboard
 ```
 
-| Agent            | What it does                                                             |
-| ---------------- | ------------------------------------------------------------------------ |
-| Normal user      | Walks the expected path, the way a real user would                       |
-| Adversarial user | Tries privilege escalation and unauthorized access                       |
-| Chaos            | Brings API failures, network timeouts and partial failures               |
-| Scale            | Pushes to large organizations, thousands of users and performance limits |
-| Product critic   | Finds ambiguous requirements and missing workflows                       |
+| Agent            | What it does                                         |
+| ---------------- | ---------------------------------------------------- |
+| Everyday user    | Walks the normal path, like a real customer          |
+| Attacker         | Tries to get in where they should not                |
+| Outage tester    | Breaks things: timeouts, retries, half-done steps    |
+| Load tester      | Pushes to huge teams, lots of data and heavy traffic |
+| Product reviewer | Spots unclear rules and missing steps                |
 
 Three things keep the report honest:
 
@@ -149,7 +149,13 @@ finished run:
 - the workspaces, the description and the 8090 link under "Setup" at the
   end of the page, so the diagrams come first;
 - every accepted issue. Anything picked on the canvas or a card filters the
-  list.
+  list;
+- **Focus**: the stage over the whole screen, with the cards and a column of
+  widgets (issues, security, data and privacy) on top. Selecting a widget,
+  an issue or a name opens the full detail in a wide drawer. Esc leaves.
+
+Every card and widget has an "i": hover it to read what it shows and how
+its numbers are worked out.
 
 With one workspace the cockpit adapts: the chart starts from the components
 inside it. Nothing is shown that a run did not produce. There is no sign-in

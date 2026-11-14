@@ -1,5 +1,6 @@
 "use client";
 
+import { InfoTip } from "@/components/info-tip";
 import { AnimatePresence } from "motion/react";
 
 import { FadeInItem } from "@/components/motion";
@@ -23,6 +24,11 @@ export function LiveFindings({ feed }: { feed: Feed }) {
         <span className="font-mono text-xs text-muted-foreground">
           {feed.live.length}
         </span>
+        <InfoTip
+          about="liveFindings"
+          label="Findings so far"
+          className="self-center"
+        />
         <span className="ml-auto text-xs font-normal text-muted-foreground">
           Not judged yet
         </span>

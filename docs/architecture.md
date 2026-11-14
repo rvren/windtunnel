@@ -150,11 +150,11 @@ agent found them.
 
 | Agent            | id                 | Looks for                                                    | Expertise                                         |
 | ---------------- | ------------------ | ------------------------------------------------------------ | ------------------------------------------------- |
-| Normal user      | `normal_user`      | Everyday journeys that the design leaves undefined           | `src/server/engine/expertise/normal-user.md`      |
-| Adversarial user | `adversarial_user` | Abuse: permissions, tenancy, injection, secrets              | `src/server/engine/expertise/adversarial-user.md` |
-| Chaos            | `chaos`            | Failure part-way: retries, timeouts, ordering, lost messages | `src/server/engine/expertise/chaos.md`            |
-| Scale            | `scale`            | Growth: unbounded lists, hot paths, limits, cost             | `src/server/engine/expertise/scale.md`            |
-| Product critic   | `product_critic`   | What the product must decide but has not                     | `src/server/engine/expertise/product-critic.md`   |
+| Everyday user    | `normal_user`      | Everyday journeys that the design leaves undefined           | `src/server/engine/expertise/normal-user.md`      |
+| Attacker         | `adversarial_user` | Abuse: permissions, tenancy, injection, secrets              | `src/server/engine/expertise/adversarial-user.md` |
+| Outage tester    | `chaos`            | Failure part-way: retries, timeouts, ordering, lost messages | `src/server/engine/expertise/chaos.md`            |
+| Load tester      | `scale`            | Growth: unbounded lists, hot paths, limits, cost             | `src/server/engine/expertise/scale.md`            |
+| Product reviewer | `product_critic`   | What the product must decide but has not                     | `src/server/engine/expertise/product-critic.md`   |
 
 The briefs are `AGENTS` in `src/lib/agents.ts`; the expertise notes are
 loaded by `src/server/engine/expertise.ts`.
@@ -307,7 +307,11 @@ the rings), and
 `src/components/project/command/flow-canvas.tsx` draws it. The four cards
 (`src/components/project/command/cards.tsx`) read the change and trend from
 the project's earlier finished runs and the 8090 deliveries of this run.
-The widgets come from `src/components/tuff/` (from tuffui.com, MIT).
+Focus mode (`?focus=1`) draws the stage over the whole screen through a
+portal, adds the widget column (`src/components/project/command/rail.tsx`)
+and opens details in a drawer (`src/components/project/command/drawer.tsx`).
+The words behind every "i" tooltip are in `src/lib/explain.ts`. The widgets
+come from `src/components/tuff/` (from tuffui.com, MIT).
 
 Projects and workspaces: `src/server/projects/store.ts`. Older runs with no
 project are gathered under "Demo project" by `src/server/projects/adopt.ts`.

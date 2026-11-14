@@ -1,4 +1,5 @@
 import { Remediation } from "@/components/run/remediation";
+import { InfoTip } from "@/components/info-tip";
 import { RunTrace } from "@/components/tuff/run-trace";
 import {
   DeliveryStrip,
@@ -29,6 +30,7 @@ import {
   STAGE_LABEL,
   STAGE_ORDER,
 } from "@/lib/labels";
+import type { ExplainKey } from "@/lib/explain";
 import { cn } from "@/lib/utils";
 import { traceSpans } from "@/lib/viz/run";
 import type { RunTimes } from "@/lib/viz/times";
@@ -63,15 +65,24 @@ function Empty({ children }: { children: React.ReactNode }) {
 function SectionTitle({
   children,
   count,
+  about,
 }: {
   children: React.ReactNode;
   count?: number;
+  /** Which explanation the "i" beside the title shows. */
+  about?: ExplainKey;
 }) {
   return (
-    <h3 className="flex items-baseline gap-2 text-sm font-medium">
+    <h3 className="flex items-center gap-2 text-sm font-medium">
       {children}
       {count !== undefined ? (
         <span className="font-mono text-xs text-muted-foreground">{count}</span>
+      ) : null}
+      {about ? (
+        <InfoTip
+          about={about}
+          label={typeof children === "string" ? children : "this section"}
+        />
       ) : null}
     </h3>
   );
@@ -122,7 +133,7 @@ export function FindingsTab({ run }: { run: RunRecord }) {
         if (groups.length === 0) return null;
         return (
           <section key={type} data-testid={`findings-${type}`}>
-            <SectionTitle count={groups.length}>
+            <SectionTitle count={groups.length} about="findings">
               {FINDING_TYPE_LABEL[type]}
             </SectionTitle>
             <Accordion className="mt-3 rounded-card border bg-card px-4">
@@ -282,7 +293,10 @@ export function FindingsTab({ run }: { run: RunRecord }) {
 
       {run.rejected.length + dropped.length > 0 ? (
         <section>
-          <SectionTitle count={run.rejected.length + dropped.length}>
+          <SectionTitle
+            count={run.rejected.length + dropped.length}
+            about="rejected"
+          >
             Not accepted
           </SectionTitle>
           <ul className="mt-3 divide-y rounded-card border bg-card px-4 text-sm">
@@ -341,6 +355,9 @@ export function WorkOrdersTab({ run }: { run: RunRecord }) {
 
   return (
     <div className="space-y-4">
+      <SectionTitle count={run.workOrders.length} about="workOrders">
+        Work orders
+      </SectionTitle>
       <DeliveryStrip
         total={run.workOrders.length}
         sample={run.sample}
@@ -463,7 +480,7 @@ function PermissionMatrix({ model }: { model: DesignModel }) {
   );
   return (
     <section>
-      <SectionTitle>Permissions</SectionTitle>
+      <SectionTitle about="permissions">Permissions</SectionTitle>
       <p className="mt-1 text-sm text-muted-foreground">
         Who may do what. A dash means the requirement does not say.
       </p>
@@ -605,7 +622,7 @@ export function ModelTab({ run }: { run: RunRecord }) {
 
       {coverage && coverage.gaps.length > 0 ? (
         <section>
-          <SectionTitle count={coverage.gaps.length}>
+          <SectionTitle count={coverage.gaps.length} about="gaps">
             Gaps found by code
           </SectionTitle>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -649,7 +666,7 @@ export function ScoreboardTab({
   return (
     <div className="space-y-10">
       <section>
-        <SectionTitle>Scoreboard</SectionTitle>
+        <SectionTitle about="scoreboard">Scoreboard</SectionTitle>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           An agent scores for each accepted finding it contributed to: 8 for
           critical, 5 for high, 3 for medium, 1 for low. Agents that found the
@@ -704,7 +721,7 @@ export function ScoreboardTab({
       </section>
 
       <section>
-        <SectionTitle>Time and tokens</SectionTitle>
+        <SectionTitle about="timeAndTokens">Time and tokens</SectionTitle>
         <p className="mt-1 text-sm text-muted-foreground">
           {run.sample
             ? "This is a sample run. It did not call the model, so it used no tokens."
