@@ -285,6 +285,23 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
         ))}
       </svg>
 
+      {/* The count inside each small ring of a crowded column */}
+      {[...layout.sources, ...layout.hubs]
+        .filter((node) => node.compact)
+        .map((node) => (
+          <motion.span
+            key={`count:${node.id}`}
+            aria-hidden="true"
+            initial={false}
+            animate={{ left: node.x, top: node.y }}
+            transition={glide}
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 font-light tabular-nums"
+            style={{ fontSize: Math.max(10, Math.min(16, node.r * 0.9)) }}
+          >
+            {node.data.value}
+          </motion.span>
+        ))}
+
       {/* Column headings */}
       {layout.columns.map((x, index) => (
         <motion.p
@@ -314,9 +331,6 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
           >
             <span className="truncate text-[11px] tracking-[0.08em] uppercase">
               {node.data.label}
-            </span>
-            <span className="font-mono text-xs tabular-nums">
-              {node.data.value}
             </span>
           </motion.div>
         ) : (
@@ -364,9 +378,6 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
           >
             <span className="truncate rounded-sm bg-canvas/85 px-1 text-xs font-medium">
               {node.data.label}
-            </span>
-            <span className="font-mono text-xs tabular-nums">
-              {node.data.value}
             </span>
           </motion.div>
         ) : (
