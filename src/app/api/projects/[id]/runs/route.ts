@@ -27,6 +27,7 @@ export async function POST(
         project: {
           id: project.id,
           name: project.name,
+          demo: project.demo,
           workspaces: project.workspaces.map(({ name, origin }) => ({
             name,
             origin,

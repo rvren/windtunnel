@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 
 import { PageHeader, PageLoading } from "@/components/app/page-header";
+import { SampleData } from "@/components/project/sample-data";
 import { cn } from "@/lib/utils";
+import { ensureDatabase } from "@/server/db/ready";
+import { hasDemoData } from "@/server/projects/demo";
 import { engineStatus } from "@/server/status";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -87,15 +90,40 @@ async function Status() {
   );
 }
 
+async function Sample() {
+  await connection();
+  let present = false;
+  try {
+    await ensureDatabase();
+    present = await hasDemoData();
+  } catch {
+    return (
+      <p className="text-sm text-muted-foreground">
+        The database is not reachable.
+      </p>
+    );
+  }
+  return (
+    <SampleData
+      present={present}
+      githubToken={Boolean(process.env.GITHUB_TOKEN?.trim())}
+    />
+  );
+}
+
 export default function SettingsPage() {
   return (
     <div className="max-w-3xl">
       <PageHeader
         title="Settings"
-        description="What the engine is set up with. These are read from the server's environment and cannot be changed here."
+        description="What the engine is set up with, read from the server's environment, and the sample data."
       />
       <Suspense fallback={<PageLoading label="Checking the engine" />}>
         <Status />
+      </Suspense>
+      <h2 className="mt-10 mb-4 text-lg font-medium">Sample data</h2>
+      <Suspense fallback={<PageLoading label="Looking for sample data" />}>
+        <Sample />
       </Suspense>
     </div>
   );

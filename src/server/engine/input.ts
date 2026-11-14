@@ -9,6 +9,8 @@ import type { RunInput } from "./run";
  */
 export function parseRunInput(
   body: unknown,
+  /** True when the run reads code, so the written requirement may be empty. */
+  readsCode = false,
 ): { ok: true; input: RunInput } | { ok: false; error: string } {
   const fail = (error: string) => ({ ok: false as const, error });
   if (typeof body !== "object" || body === null) {
@@ -27,10 +29,11 @@ export function parseRunInput(
     if (!parsed.ok) return fail(parsed.error);
     origin = parsed.origin;
   }
+  const optional = Boolean(origin) || readsCode;
   const requirement =
-    origin && (given === undefined || given === null) ? "" : given;
+    optional && (given === undefined || given === null) ? "" : given;
 
-  if (typeof requirement !== "string" || (!origin && !requirement.trim())) {
+  if (typeof requirement !== "string" || (!optional && !requirement.trim())) {
     return fail("Enter a requirement.");
   }
   if (requirement.length > LIMITS.requirementChars) {

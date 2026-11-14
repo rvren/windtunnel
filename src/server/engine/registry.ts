@@ -5,7 +5,7 @@ import { engineConfig } from "./config";
 import { AnthropicLlm, RunError } from "./llm";
 import { executeRun, newRun, type RunInput } from "./run";
 import { SAMPLE_SCRIPT, ScriptedLlm } from "./sample";
-import { sampleProjectScript } from "./sample-project";
+import { sampleProjectScript, sampleServiceOf } from "./sample-project";
 import type { RunRecord, StoredEvent } from "./schema";
 import { PgRunStore, type RunStore } from "./store";
 
@@ -71,30 +71,34 @@ function publish(runId: string, event: StoredEvent) {
  */
 export async function startRun(input: RunInput): Promise<RunRecord> {
   const config = engineConfig();
-  if (!config.sampleMode && !config.hasApiKey) {
+  // A demo project's runs, and every run in sample mode, replay a script.
+  // They never reach the Claude API.
+  const scripted =
+    config.sampleMode ||
+    input.project?.demo === true ||
+    input.projectRef?.demo === true;
+  if (!scripted && !config.hasApiKey) {
     throw new RunError(
       "No API key is set. Add ANTHROPIC_API_KEY to .env.local and restart the server.",
     );
   }
 
   const store = runStore();
-  const run = newRun(
-    randomUUID(),
-    input,
-    config.models,
-    new Date(),
-    config.sampleMode,
-  );
+  const run = newRun(randomUUID(), input, config.models, new Date(), scripted);
   await store.save(run);
 
-  const llm = config.sampleMode
+  const llm = scripted
     ? new ScriptedLlm(
         input.project
           ? sampleProjectScript(
-              input.project.workspaces.map((item) => item.name),
+              input.project.workspaces.map((item) => ({
+                name: item.name,
+                service: sampleServiceOf(item.origin),
+              })),
             )
           : SAMPLE_SCRIPT,
-        { delayMs: input.project ? 350 : 900 },
+        // Paced so the live view has something to show.
+        { delayMs: input.project ? 700 : 900 },
       )
     : new AnthropicLlm();
 

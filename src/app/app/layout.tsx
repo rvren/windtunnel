@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 
@@ -13,25 +13,34 @@ export const metadata: Metadata = {
   title: { default: "Runs", template: "%s · Windtunnel" },
 };
 
-/** The project switcher, with the list of projects read for it. */
-async function Switcher() {
+/** The projects, read once per request for the switcher and the top bar. */
+const projectList = cache(async () => {
   await connection();
-  let projects: { id: string; name: string; workspaces: number }[] = [];
   try {
     await ensureDatabase();
-    projects = (await listProjects()).map((project) => ({
+    return (await listProjects()).map((project) => ({
       id: project.id,
       name: project.name,
       workspaces: project.workspaces.length,
+      demo: project.demo,
     }));
   } catch {
     // With no database the pages say so; the switcher is shown empty.
+    return [];
   }
-  return <ProjectSwitcher projects={projects} />;
+});
+
+async function Switcher() {
+  return <ProjectSwitcher projects={await projectList()} />;
 }
 
-// The product shell: a sidebar, a top bar and the page. The marketing header
-// is not part of this area.
+async function Topbar() {
+  return <AppTopbar projects={await projectList()} />;
+}
+
+// The product shell: a floating sidebar, a top bar that says where you are,
+// and the page on the canvas itself. The marketing header is not part of
+// this area.
 export default function AppLayout({ children }: LayoutProps<"/app">) {
   // Read on the server and handed to the sidebar, which is a client component.
   const switcher = (
@@ -49,11 +58,14 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
       >
         <AppSidebar switcher={switcher} />
       </Suspense>
-      <SidebarInset>
+      {/* min-w-0: a wide chart scrolls inside itself, never the page. */}
+      <SidebarInset className="min-w-0">
         <Suspense fallback={<AppTopbarFor pathname={null} />}>
-          <AppTopbar />
+          <Topbar />
         </Suspense>
-        <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+        {/* The full width of the page: tables, charts and the cockpit use it.
+            A form keeps its own reading measure. */}
+        <div className="w-full min-w-0 flex-1 px-4 pt-4 pb-12 md:px-9 md:pt-7 md:pb-18">
           {children}
         </div>
       </SidebarInset>

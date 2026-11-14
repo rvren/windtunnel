@@ -15,6 +15,13 @@
       "when": 1794642290714,
       "tag": "0001_quiet_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794645013524,
+      "tag": "0002_tan_retro_girl",
+      "breakpoints": true
     }
   ]
 }

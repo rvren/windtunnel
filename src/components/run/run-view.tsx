@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocalTime } from "@/components/local-time";
+import { LiveMap } from "@/components/project/live-map";
 import { FadeIn } from "@/components/motion";
 import { applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
 import type { RunRecord, StoredEvent } from "@/server/engine/schema";
@@ -83,6 +84,13 @@ function useRun(initial: RunRecord) {
 }
 
 /** Starts a new run with the same requirement and files, and opens it. */
+/** "owner/name" for GitHub, the folder for a local one. */
+const originText = (source: NonNullable<RunRecord["source"]>) =>
+  source.origin.kind === "github"
+    ? (/github\.com\/([^/]+\/[^/.]+)/.exec(source.origin.url)?.[1] ??
+      source.origin.url)
+    : source.origin.name;
+
 function RunAgain({ run }: { run: RunRecord }) {
   const router = useRouter();
   const [starting, setStarting] = useState(false);
@@ -96,8 +104,11 @@ function RunAgain({ run }: { run: RunRecord }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          projectId: run.projectId,
           requirement: run.requirement,
           documents: run.documents,
+          // A run of code reads the same workspaces again.
+          ...(run.source ? { workspaces: run.workspaces } : {}),
         }),
       });
       const body = (await response.json()) as { id?: string; error?: string };
@@ -151,17 +162,21 @@ export function RunView({ initial }: { initial: RunRecord }) {
           {!running ? (
             <span className="ml-auto flex gap-2">
               {run.projectId ? (
-                <Link
-                  href={`/app/projects/${run.projectId}`}
-                  data-testid="run-open-project"
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  <FolderKanban />
-                  Project cockpit
-                </Link>
-              ) : (
-                <RunAgain run={run} />
-              )}
+                <>
+                  <Link
+                    href={`/app/projects/${run.projectId}`}
+                    data-testid="run-open-project"
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                    })}
+                  >
+                    <FolderKanban />
+                    Project cockpit
+                  </Link>
+                  <RunAgain run={run} />
+                </>
+              ) : null}
               <a
                 href={`/api/runs/${run.id}/export?format=md`}
                 download
@@ -183,7 +198,7 @@ export function RunView({ initial }: { initial: RunRecord }) {
             </span>
           ) : null}
         </div>
-        <h1 className="max-w-4xl text-2xl leading-tight font-normal tracking-[-0.02em] text-balance sm:text-3xl">
+        <h1 className="max-w-4xl text-2xl leading-tight font-semibold tracking-[-0.03em] text-balance sm:text-3xl">
           {run.title}
         </h1>
         {run.source ? (
@@ -192,8 +207,8 @@ export function RunView({ initial }: { initial: RunRecord }) {
             data-testid="run-source"
           >
             {run.source.workspaces
-              ? `Project · ${run.source.workspaces.map((item) => item.name).join(", ")}`
-              : `${run.source.origin.kind === "github" ? "GitHub" : "Local folder"} · ${run.source.label}`}
+              ? `${run.source.workspaces.length} workspaces · ${run.source.workspaces.map((item) => item.name).join(", ")}`
+              : `${run.workspaces?.[0] ? `${run.workspaces[0]} · ` : ""}${originText(run.source)}`}
             {run.source.files !== null
               ? ` · ${run.source.files.toLocaleString("en")} files · ${run.source.languages.join(" ")}`
               : ""}
@@ -248,6 +263,20 @@ export function RunView({ initial }: { initial: RunRecord }) {
         </Alert>
       ) : null}
 
+      {/* A run of a project's code, in progress: the application being read. */}
+      {running && run.source && run.projectId ? (
+        <LiveMap
+          feed={feed}
+          expected={
+            run.source.workspaces ?? [
+              {
+                name: run.workspaces?.[0] ?? run.source.label,
+                label: originText(run.source),
+              },
+            ]
+          }
+        />
+      ) : null}
       <StageRail feed={feed} repository={Boolean(run.source)} />
       <AgentLanes feed={feed} />
       {running ? <LiveFindings feed={feed} /> : null}

@@ -15,6 +15,9 @@ Done:
 - Postgres for runs; Docker Compose to run everything locally
 - Projects and workspaces: one application made of several repositories, run
   together, with a cockpit (issue flow, architecture, issues) per project
+- Every run belongs to a project; runs filter by workspace
+- The live map of a run in progress, and Storefront, a sample application of
+  seven services in private repositories, with scripted runs
 
 ## 1. Tunnel run
 

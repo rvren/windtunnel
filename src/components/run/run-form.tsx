@@ -2,17 +2,26 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, LoaderCircle, Paperclip, Play, X } from "lucide-react";
+import {
+  Check,
+  FileText,
+  LoaderCircle,
+  Paperclip,
+  Play,
+  X,
+} from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  RepoSourceFields,
-  emptyRepoSource,
-  toOrigin,
-} from "./repo-source-fields";
 import { DOCUMENT_EXTENSIONS, EXAMPLE_REQUIREMENT, LIMITS } from "@/lib/limits";
 
 interface Attached {
@@ -22,29 +31,47 @@ interface Attached {
 
 const count = (n: number) => n.toLocaleString("en");
 
+export interface FormProject {
+  id: string;
+  name: string;
+  /** A sample project: its runs replay a script and never call the model. */
+  demo: boolean;
+  workspaces: { name: string; label: string }[];
+}
+
 export function RunForm({
   blocked,
-  folders,
-  githubToken,
+  projects,
+  initialProjectId,
 }: {
-  /** Why a run cannot start right now, or null when it can. */
+  /** Why a run on the model cannot start right now, or null when it can. */
   blocked: string | null;
-  /** The local folders that may be run against. */
-  folders: string[];
-  /** Whether the server has a GitHub token, for private repositories. */
-  githubToken: boolean;
+  /** Every run belongs to one of these. */
+  projects: FormProject[];
+  /** The project to start with, when the page was opened from one. */
+  initialProjectId: string | null;
 }) {
-  // What the agents test: a written requirement, or a repository's code.
-  const [subject, setSubject] = useState<"requirement" | "repository">(
-    "requirement",
+  const [projectId, setProjectId] = useState(
+    projects.find((item) => item.id === initialProjectId)?.id ??
+      projects[0]?.id ??
+      "",
   );
-  const [source, setSource] = useState(() => emptyRepoSource(folders));
+  const project = projects.find((item) => item.id === projectId) ?? null;
+  // What the agents test: a written requirement, or the project's code.
+  const [subject, setSubject] = useState<"requirement" | "code">("requirement");
+  // The workspaces left out of a code run. All are read unless unticked.
+  const [skipped, setSkipped] = useState<string[]>([]);
+  const chosen = (project?.workspaces ?? [])
+    .map((item) => item.name)
+    .filter((name) => !skipped.includes(name));
   const router = useRouter();
   const picker = useRef<HTMLInputElement>(null);
   const [requirement, setRequirement] = useState("");
   const [documents, setDocuments] = useState<Attached[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  // A sample project's runs never reach the model, so nothing blocks them.
+  const stopped = project?.demo ? null : blocked;
 
   async function attach(files: FileList | null) {
     if (!files) return;
@@ -82,13 +109,16 @@ export function RunForm({
 
   async function start(event: React.FormEvent) {
     event.preventDefault();
-    const picked = subject === "repository" ? toOrigin(source) : null;
-    if (picked && !picked.ok) {
-      setError(picked.error);
+    if (!project) {
+      setError("Choose a project.");
       return;
     }
-    const repository = picked?.ok ? picked.origin : undefined;
-    if (!repository && !requirement.trim()) {
+    const code = subject === "code";
+    if (code && chosen.length === 0) {
+      setError("Choose at least one workspace.");
+      return;
+    }
+    if (!code && !requirement.trim()) {
       setError("Enter a requirement.");
       return;
     }
@@ -98,7 +128,12 @@ export function RunForm({
       const response = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requirement, documents, repository }),
+        body: JSON.stringify({
+          projectId: project.id,
+          requirement,
+          documents,
+          ...(code ? { workspaces: chosen } : {}),
+        }),
       });
       const body = (await response.json()) as { id?: string; error?: string };
       if (!response.ok || !body.id) {
@@ -117,12 +152,48 @@ export function RunForm({
 
   return (
     <form onSubmit={start} className="space-y-6" data-testid="run-form">
-      {blocked ? (
+      {stopped ? (
         <Alert data-testid="run-form-blocked">
           <AlertTitle>A run cannot start yet</AlertTitle>
-          <AlertDescription>{blocked}</AlertDescription>
+          <AlertDescription>{stopped}</AlertDescription>
         </Alert>
       ) : null}
+
+      <div className="max-w-sm space-y-2">
+        <label htmlFor="run-project" className="text-sm font-medium">
+          Project
+        </label>
+        <Select
+          value={projectId}
+          onValueChange={(value) => {
+            setProjectId(String(value ?? ""));
+            setSkipped([]);
+            setError(null);
+          }}
+        >
+          <SelectTrigger
+            id="run-project"
+            className="w-full"
+            data-testid="run-form-project"
+          >
+            <SelectValue placeholder="Choose a project">
+              {project?.name}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {projects.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {project?.demo
+            ? "A sample project. Its runs replay a script and do not call the model."
+            : "Every run belongs to a project."}
+        </p>
+      </div>
 
       <Tabs
         value={subject}
@@ -138,39 +209,66 @@ export function RunForm({
           >
             A requirement
           </TabsTrigger>
-          <TabsTrigger
-            value="repository"
-            data-testid="run-form-subject-repository"
-          >
-            A repository
+          <TabsTrigger value="code" data-testid="run-form-subject-code">
+            The code
           </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {subject === "repository" ? (
-        <div className="space-y-4">
+      {subject === "code" ? (
+        <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            The agents read the code, in any language, and report flaws with the
-            file and lines that show them. Nothing in the repository is ever
-            run.
+            The agents read the workspaces you choose, together, and report
+            flaws with the file and lines that show them. Nothing in a
+            repository is ever run.
           </p>
-          <RepoSourceFields
-            value={source}
-            onChange={(next) => {
-              setSource(next);
-              setError(null);
-            }}
-            folders={folders}
-            githubToken={githubToken}
-            idPrefix="run-form"
-          />
+          {project && project.workspaces.length > 0 ? (
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Workspaces to read"
+            >
+              {project.workspaces.map((workspace) => {
+                const on = !skipped.includes(workspace.name);
+                return (
+                  <Button
+                    key={workspace.name}
+                    type="button"
+                    size="sm"
+                    variant={on ? "secondary" : "outline"}
+                    aria-pressed={on}
+                    data-testid="run-form-workspace"
+                    onClick={() => {
+                      setSkipped(
+                        on
+                          ? [...skipped, workspace.name]
+                          : skipped.filter((name) => name !== workspace.name),
+                      );
+                      setError(null);
+                    }}
+                  >
+                    {on ? <Check /> : null}
+                    {workspace.name}
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {workspace.label}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">
+              This project has no workspaces yet. Add a repository on the
+              project&apos;s page first.
+            </p>
+          )}
         </div>
       ) : null}
 
       <div className="space-y-2">
         <div className="flex items-baseline justify-between gap-4">
           <label htmlFor="requirement" className="text-sm font-medium">
-            {subject === "repository"
+            {subject === "code"
               ? "What it is meant to do (optional)"
               : "Requirement"}
           </label>
@@ -286,7 +384,7 @@ export function RunForm({
           size="lg"
           className="h-10 px-4"
           data-testid="run-form-start"
-          disabled={Boolean(blocked) || starting || over}
+          disabled={Boolean(stopped) || starting || over || !project}
         >
           {starting ? <LoaderCircle className="animate-spin" /> : <Play />}
           {starting ? "Starting" : "Start run"}

@@ -1,10 +1,18 @@
-# Storefront: a sample project
+# Storefront: a sample application
 
-Three small folders that stand for the repositories of one application. They
-exist so the project cockpit can be worked on without calling the model:
-`pnpm dev:sample` points Windtunnel at this folder and replays a scripted run
-against these files. The flaws in them are deliberate.
+Seven small services that stand for the repositories of one application: a
+shop. They exist so Windtunnel's project cockpit has something believable to
+read. The flaws in them are deliberate, and nothing here is meant to be run.
 
-- `web`: the shop's frontend
-- `api`: the orders service
-- `billing`: the service that charges cards
+| Folder          | Repository                       | What it is               |
+| --------------- | -------------------------------- | ------------------------ |
+| `web`           | `rvren/storefront-web`           | The shop frontend        |
+| `gateway`       | `rvren/storefront-gateway`       | The API gateway          |
+| `auth`          | `rvren/storefront-auth`          | Sign-in and sessions     |
+| `catalog`       | `rvren/storefront-catalog`       | Products and search      |
+| `orders`        | `rvren/storefront-orders`        | Orders and checkout      |
+| `billing`       | `rvren/storefront-billing`       | Card charges             |
+| `notifications` | `rvren/storefront-notifications` | The email worker         |
+
+This folder is the source of truth. `scripts/publish-samples.sh` pushes each
+folder to its private repository.

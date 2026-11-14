@@ -147,6 +147,37 @@ With one workspace the cockpit adapts: the chart starts from the components
 inside it. Nothing is shown that a run did not produce. There is no sign-in
 yet, so everyone who can reach the server sees every project.
 
+## Every run belongs to a project
+
+A run is started in a project: on a written requirement, or on the code of
+the workspaces you choose. Runs made before this rule are gathered, at start,
+under a project called "Demo project" in a workspace called "demo".
+
+The Runs page and each project's Runs table can be narrowed by workspace (and
+the Runs page by project). The filter is in the address, so it can be linked.
+
+## The live map
+
+While a project's code is being read, the run page and the project page show
+the application itself: the workspaces arrive, settle into the architecture,
+and the five agents move over it. Each sits on the part it is reading, and a
+finding lands on its part. When the run ends the map gives way to the cockpit.
+
+## Sample data
+
+Settings has a "Sample data" panel. It adds Storefront, a shop of seven small
+services, each a private repository (`rvren/storefront-<service>`; the source
+is in `samples/storefront`, published by `scripts/publish-samples.sh`).
+
+- A sample project's runs replay a script and never call the model. Everything
+  else is real: the repositories are fetched from GitHub, read through the
+  tools, and each scripted finding is checked against the real file and lines.
+- "Add sample project" makes it empty, so you can add its repositories one by
+  one and run after each. "Add complete sample and run it" does it in one step.
+- "Remove sample data" deletes every sample project with its runs, and nothing
+  else.
+- The repositories are private: set `GITHUB_TOKEN` in `.env.local` first.
+
 ## Works on its own
 
 Windtunnel is a standalone product. This is a rule, not a preference:
@@ -192,8 +223,8 @@ The app is on <http://localhost:3300> and Postgres on port 5433.
 
 Migrations in `drizzle/` are applied by the app when it starts.
 
-To work on the screens without spending on the model, start the app with
-`pnpm dev:sample`. Runs then replay a small hand-written sample and are marked
+To work on the screens without spending on the model, add the sample data
+(above), or start the app with `pnpm dev:sample`. Runs then replay a small hand-written sample and are marked
 "Sample run" everywhere. It also points the local folders at
 `samples/storefront`: make a project with the workspaces `web`, `api` and
 `billing` from the folders of the same names, run it, and the cockpit fills

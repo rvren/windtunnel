@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -10,7 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-// Three tables. Structured results are JSONB: their shape is owned by the Zod
+// Five tables. Structured results are JSONB: their shape is owned by the Zod
 // schemas in src/server/engine/schema.ts and will still change. The plain
 // columns are what the Runs table sorts and filters on.
 
@@ -19,6 +20,8 @@ export const projects = pgTable("projects", {
   id: uuid("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
+  /** A demo project: its runs replay a script and never call the model. */
+  demo: boolean("demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 
@@ -56,6 +59,11 @@ export const runs = pgTable(
     findingCount: integer("finding_count").notNull().default(0),
     workOrderCount: integer("work_order_count").notNull().default(0),
     error: text("error"),
+    /**
+     * What the run read, for filtering: the names of the project's
+     * workspaces, or the repository's label for a run of one repository.
+     */
+    workspaces: jsonb("workspaces").notNull().default([]),
     /** Everything else about the run: see RunRecord in the engine schema. */
     data: jsonb("data").notNull(),
   },

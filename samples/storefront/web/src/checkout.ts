@@ -1,10 +1,9 @@
-import { API } from "./config";
+import { call } from "./api";
 
-export async function placeOrder(cart, token) {
-  const response = await fetch(`${API}/orders`, {
-    method: "POST",
-    headers: { Authorization: token },
-    body: JSON.stringify({ items: cart.items, total: cart.total }),
+export async function placeOrder(cart: { items: unknown[]; total: number }) {
+  const response = await call("/orders", {
+    items: cart.items,
+    total: cart.total,
   });
   return response.json();
 }

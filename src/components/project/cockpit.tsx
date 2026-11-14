@@ -26,6 +26,7 @@ import {
 } from "@/server/projects/cockpit";
 
 import { ArchitectureDiagram } from "./architecture-diagram";
+import { CountUp } from "./count-up";
 import { Sankey } from "./sankey";
 
 /*
@@ -199,7 +200,7 @@ export function Cockpit({ cockpit }: { cockpit: CockpitData }) {
             className="mt-1 text-3xl font-light tracking-[-0.02em]"
             data-testid="cockpit-total"
           >
-            {cockpit.totals.issues}
+            <CountUp value={cockpit.totals.issues} />
           </p>
         </div>
         {SEVERITY_ORDER.map((severity) => {
@@ -229,7 +230,7 @@ export function Cockpit({ cockpit }: { cockpit: CockpitData }) {
                   count === 0 && "text-muted-foreground",
                 )}
               >
-                {count}
+                <CountUp value={count} />
               </span>
             </Button>
           );
@@ -237,7 +238,7 @@ export function Cockpit({ cockpit }: { cockpit: CockpitData }) {
         <div className="bg-card px-4 py-4">
           <p className="text-xs text-muted-foreground">Work orders</p>
           <p className="mt-1 text-3xl font-light tracking-[-0.02em]">
-            {cockpit.totals.workOrders}
+            <CountUp value={cockpit.totals.workOrders} />
           </p>
         </div>
       </FadeIn>

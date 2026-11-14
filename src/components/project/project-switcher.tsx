@@ -26,6 +26,8 @@ export interface SwitcherProject {
   id: string;
   name: string;
   workspaces: number;
+  /** A sample project: its runs replay a script. */
+  demo: boolean;
 }
 
 const plural = (count: number, word: string) =>
@@ -64,8 +66,8 @@ export function ProjectSwitcher({ projects }: { projects: SwitcherProject[] }) {
         data-testid="project-switcher"
         aria-label={`Project: ${current?.name ?? "all projects"}. Switch project`}
         className={cn(
-          "flex w-full min-w-0 items-center gap-3 rounded-md bg-sidebar-accent px-2.5 py-2 text-left outline-none transition-[background-color,transform] duration-200 hover:bg-sidebar-accent/70 focus-visible:ring-2 focus-visible:ring-sidebar-ring active:scale-[0.98] data-popup-open:bg-sidebar-accent/70",
-          "group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0",
+          "flex w-full min-w-0 items-center gap-3 rounded-md bg-sidebar-accent px-3 py-2.5 text-left outline-none transition-[background-color,transform] duration-200 hover:bg-sidebar-accent/70 focus-visible:ring-2 focus-visible:ring-sidebar-ring active:scale-[0.98] data-popup-open:bg-sidebar-accent/70",
+          "group-data-[collapsible=icon]:size-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0",
         )}
       >
         <Tile>
@@ -76,12 +78,12 @@ export function ProjectSwitcher({ projects }: { projects: SwitcherProject[] }) {
           )}
         </Tile>
         <span className="flex min-w-0 flex-1 flex-col leading-tight group-data-[collapsible=icon]:hidden">
-          <span className="truncate text-sm font-medium">
+          <span className="truncate text-[15px] font-medium">
             {current?.name ?? "All projects"}
           </span>
           <span className="truncate text-xs text-muted-foreground">
             {current
-              ? plural(current.workspaces, "workspace")
+              ? `${plural(current.workspaces, "workspace")}${current.demo ? " · Sample" : ""}`
               : plural(projects.length, "project")}
           </span>
         </span>
@@ -123,6 +125,7 @@ export function ProjectSwitcher({ projects }: { projects: SwitcherProject[] }) {
                   <span className="truncate">{project.name}</span>
                   <span className="truncate text-xs text-muted-foreground">
                     {plural(project.workspaces, "workspace")}
+                    {project.demo ? " · Sample" : ""}
                   </span>
                 </span>
                 {project.id === currentId ? (

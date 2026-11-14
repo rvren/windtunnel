@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
 
 import { AGENT_IDS } from "@/lib/agents";
 
@@ -20,8 +20,10 @@ export interface RunStore {
   /** Inserts or replaces the run and its agent reports. */
   save(run: RunRecord): Promise<void>;
   get(id: string): Promise<RunRecord | null>;
-  /** Newest first. With a project id, only that project's runs. */
-  list(projectId?: string): Promise<RunSummary[]>;
+  /** Newest first, narrowed by the filter. */
+  list(filter?: RunFilter): Promise<RunSummary[]>;
+  /** Removes runs, with their agent reports and events. */
+  remove(ids: string[]): Promise<void>;
   appendEvent(runId: string, event: StoredEvent): Promise<void>;
   /** The run's events in order, optionally only those after `afterSeq`. */
   events(runId: string, afterSeq?: number): Promise<StoredEvent[]>;
@@ -30,6 +32,13 @@ export interface RunStore {
    * `activeIds`. Called at server start, when nothing can be running.
    */
   markInterrupted(activeIds: string[]): Promise<number>;
+}
+
+export interface RunFilter {
+  /** Only this project's runs. */
+  projectId?: string;
+  /** Only runs that read every one of these workspaces. */
+  workspaces?: string[];
 }
 
 function summarize(run: RunRecord): RunSummary {
@@ -42,6 +51,7 @@ function summarize(run: RunRecord): RunSummary {
     title: run.title,
     findingCount: run.groups.length,
     workOrderCount: run.workOrders.length,
+    workspaces: run.workspaces ?? [],
   };
 }
 
@@ -60,11 +70,24 @@ export class MemoryRunStore implements RunStore {
     return run ? structuredClone(run) : null;
   }
 
-  async list(projectId?: string) {
+  async list(filter: RunFilter = {}) {
     return [...this.runs.values()]
-      .filter((run) => !projectId || run.projectId === projectId)
+      .filter(
+        (run) =>
+          (!filter.projectId || run.projectId === filter.projectId) &&
+          (filter.workspaces ?? []).every((name) =>
+            (run.workspaces ?? []).includes(name),
+          ),
+      )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map(summarize);
+  }
+
+  async remove(ids: string[]) {
+    for (const id of ids) {
+      this.runs.delete(id);
+      this.log.delete(id);
+    }
   }
 
   async appendEvent(runId: string, event: StoredEvent) {
@@ -110,6 +133,7 @@ export class PgRunStore implements RunStore {
       findingCount: run.groups.length,
       workOrderCount: run.workOrders.length,
       error: run.error,
+      workspaces: run.workspaces ?? [],
       data,
     };
     await this.db.transaction(async (tx) => {
@@ -150,6 +174,7 @@ export class PgRunStore implements RunStore {
       ...(row.data as RunData),
       // The columns are the truth for what they hold.
       projectId: row.projectId ?? undefined,
+      ...(row.projectId ? { workspaces: row.workspaces as string[] } : {}),
       status: row.status as RunRecord["status"],
       stage: row.stage as RunRecord["stage"],
       error: row.error,
@@ -157,7 +182,14 @@ export class PgRunStore implements RunStore {
     };
   }
 
-  async list(projectId?: string) {
+  async remove(ids: string[]) {
+    if (ids.length === 0) return;
+    // Agent reports and events go with the run (on delete cascade).
+    await this.db.delete(runs).where(inArray(runs.id, ids));
+  }
+
+  async list(filter: RunFilter = {}) {
+    const wanted = filter.workspaces ?? [];
     const rows = await this.db
       .select({
         id: runs.id,
@@ -168,14 +200,23 @@ export class PgRunStore implements RunStore {
         title: runs.title,
         findingCount: runs.findingCount,
         workOrderCount: runs.workOrderCount,
+        workspaces: runs.workspaces,
       })
       .from(runs)
-      .where(projectId ? eq(runs.projectId, projectId) : undefined)
+      .where(
+        and(
+          filter.projectId ? eq(runs.projectId, filter.projectId) : undefined,
+          wanted.length > 0
+            ? sql`${runs.workspaces} @> ${JSON.stringify(wanted)}::jsonb`
+            : undefined,
+        ),
+      )
       .orderBy(desc(runs.createdAt))
       .limit(200);
     return rows.map((row) => ({
       ...row,
       createdAt: row.createdAt.toISOString(),
+      workspaces: row.workspaces as string[],
       status: row.status as RunSummary["status"],
       stage: row.stage as RunSummary["stage"],
     }));

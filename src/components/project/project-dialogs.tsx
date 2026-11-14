@@ -183,11 +183,14 @@ export function AddWorkspaceDialog({
   projectId,
   folders,
   githubToken,
+  sampleRepos = [],
   children,
 }: {
   projectId: string;
   folders: string[];
   githubToken: boolean;
+  /** In a sample project: the sample repositories not added yet. */
+  sampleRepos?: { name: string; url: string }[];
   children: React.ReactElement;
 }) {
   const router = useRouter();
@@ -236,6 +239,34 @@ export function AddWorkspaceDialog({
               service, a shared library. Nothing in it is ever run.
             </DialogDescription>
           </DialogHeader>
+          {sampleRepos.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Sample repositories</p>
+              <div className="flex flex-wrap gap-2">
+                {sampleRepos.map((repo) => (
+                  <Button
+                    key={repo.name}
+                    type="button"
+                    size="sm"
+                    variant={name === repo.name ? "secondary" : "outline"}
+                    data-testid="workspace-form-sample"
+                    onClick={() => {
+                      setName(repo.name);
+                      setSource({
+                        ...source,
+                        origin: "github",
+                        url: repo.url,
+                        branch: "",
+                      });
+                      setError(null);
+                    }}
+                  >
+                    {repo.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="max-w-xs space-y-2">
             <label htmlFor="workspace-name" className="text-sm font-medium">
               Name

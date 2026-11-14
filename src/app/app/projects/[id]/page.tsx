@@ -14,8 +14,11 @@ import {
   RemoveWorkspaceButton,
   RunProjectDialog,
 } from "@/components/project/project-dialogs";
+import { ProjectLive } from "@/components/project/project-live";
 import { SampleBadge, StatusBadge } from "@/components/run/badges";
+import { RunFilters, WorkspaceChips } from "@/components/run/run-filters";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Table,
@@ -28,11 +31,13 @@ import {
 import { ensureDatabase } from "@/server/db/ready";
 import { localRepos } from "@/server/engine/repo/fetch";
 import { runStore } from "@/server/engine/registry";
+import { sampleServiceOf } from "@/server/engine/sample-project";
 import type { RunSummary } from "@/server/engine/schema";
 import {
   buildCockpit,
   type Cockpit as CockpitData,
 } from "@/server/projects/cockpit";
+import { DEMO_REPOSITORIES } from "@/server/projects/demo";
 import { getProject, type Project } from "@/server/projects/store";
 import { engineStatus } from "@/server/status";
 
@@ -40,17 +45,29 @@ export const metadata: Metadata = { title: "Project" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
+async function ProjectPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  const picked = [(await searchParams).workspace ?? []].flat();
   if (!UUID.test(id)) notFound();
 
   let project: Project | null;
   let runs: RunSummary[];
+  let shownRuns: RunSummary[];
   let cockpit: CockpitData | null = null;
   try {
     await ensureDatabase();
     project = await getProject(id);
-    runs = project ? await runStore().list(id) : [];
+    runs = project ? await runStore().list({ projectId: id }) : [];
+    shownRuns =
+      project && picked.length > 0
+        ? await runStore().list({ projectId: id, workspaces: picked })
+        : runs;
     // The cockpit shows the latest run that finished.
     const finished = runs.find((run) => run.status === "completed");
     const record = finished ? await runStore().get(finished.id) : null;
@@ -82,6 +99,16 @@ async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
       projectId={project.id}
       folders={folders}
       githubToken={githubToken}
+      sampleRepos={
+        project.demo
+          ? DEMO_REPOSITORIES.filter(
+              (repo) =>
+                !project.workspaces.some(
+                  (item) => sampleServiceOf(item.origin) === repo.name,
+                ),
+            )
+          : []
+      }
     >
       <Button
         variant={primary ? "default" : "outline"}
@@ -97,8 +124,8 @@ async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
     <RunProjectDialog
       projectId={project.id}
       workspaces={count}
-      blocked={blocked}
-      sampleMode={status.sampleMode}
+      blocked={project.demo ? null : blocked}
+      sampleMode={status.sampleMode || project.demo}
     >
       <Button
         variant={primary ? "default" : "outline"}
@@ -116,11 +143,12 @@ async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
       <header className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-3xl font-normal tracking-[-0.02em]">
+            <h1 className="flex flex-wrap items-center gap-3 text-4xl font-semibold tracking-[-0.03em]">
               {project.name}
+              {project.demo ? <Badge variant="secondary">Sample</Badge> : null}
             </h1>
             {project.description ? (
-              <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
+              <p className="mt-2 max-w-3xl text-[15px] text-muted-foreground">
                 {project.description}
               </p>
             ) : null}
@@ -186,18 +214,16 @@ async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
       </header>
 
       {running ? (
-        <Alert data-testid="project-running">
-          <AlertTitle>A run is in progress</AlertTitle>
-          <AlertDescription>
-            <Link
-              href={`/app/runs/${running.id}`}
-              className="text-link underline-offset-4 hover:underline"
-            >
-              Watch it live
-            </Link>
-            . The cockpit updates when it finishes.
-          </AlertDescription>
-        </Alert>
+        <ProjectLive
+          runId={running.id}
+          expected={project.workspaces
+            .filter(
+              (item) =>
+                running.workspaces.length === 0 ||
+                running.workspaces.includes(item.name),
+            )
+            .map(({ name, label }) => ({ name, label }))}
+        />
       ) : null}
 
       {cockpit ? (
@@ -237,11 +263,15 @@ async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
       {runs.length > 0 ? (
         <section>
           <h2 className="mb-4 text-lg font-medium">Runs</h2>
+          <RunFilters
+            workspaces={project.workspaces.map((item) => item.name)}
+          />
           <Panel className="overflow-hidden">
             <Table data-testid="project-runs">
               <TableHeader>
                 <TableRow>
                   <TableHead>Started</TableHead>
+                  <TableHead>Workspaces</TableHead>
                   <TableHead>State</TableHead>
                   <TableHead className="text-right">Issues</TableHead>
                   <TableHead className="text-right">Work orders</TableHead>
@@ -249,10 +279,28 @@ async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {runs.map((run) => (
+                {shownRuns.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="py-8 text-center text-muted-foreground"
+                      data-testid="project-runs-none-match"
+                    >
+                      No run read{" "}
+                      {picked.length === 1
+                        ? "that workspace"
+                        : "all of those workspaces"}
+                      .
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+                {shownRuns.map((run) => (
                   <TableRow key={run.id}>
                     <TableCell>
                       <LocalTime iso={run.createdAt} />
+                    </TableCell>
+                    <TableCell>
+                      <WorkspaceChips names={run.workspaces} />
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={run.status} />
@@ -286,10 +334,13 @@ async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   );
 }
 
-export default function Page({ params }: PageProps<"/app/projects/[id]">) {
+export default function Page({
+  params,
+  searchParams,
+}: PageProps<"/app/projects/[id]">) {
   return (
     <Suspense fallback={<PageLoading label="Reading the project" />}>
-      <ProjectPage params={params} />
+      <ProjectPage params={params} searchParams={searchParams} />
     </Suspense>
   );
 }

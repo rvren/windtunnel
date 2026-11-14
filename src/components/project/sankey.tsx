@@ -95,13 +95,17 @@ export function Sankey({
               return (
                 <motion.path
                   key={`${link.source}>${link.target}`}
-                  d={link.d}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  // A band keeps its place and changes shape, so a new run
+                  // or a wider window never redraws the chart.
+                  initial={{ d: link.d, opacity: 0 }}
+                  animate={{ d: link.d, opacity: 1 }}
                   transition={{
-                    duration: 0.7,
-                    ease: EASE,
-                    delay: 0.05 + index * 0.025,
+                    d: { duration: 0.7, ease: EASE },
+                    opacity: {
+                      duration: 0.7,
+                      ease: EASE,
+                      delay: 0.05 + index * 0.025,
+                    },
                   }}
                   style={
                     severity ? { fill: SEVERITY_VAR[severity] } : undefined
@@ -148,12 +152,16 @@ export function Sankey({
                     height={Math.max(placed.height + 8, 22)}
                     fill="transparent"
                   />
-                  <rect
+                  <motion.rect
                     x={placed.x}
-                    y={placed.y}
                     width={NODE_WIDTH}
-                    height={Math.max(placed.height, 2)}
                     rx={1.5}
+                    initial={{ y: placed.y + placed.height / 2, height: 0 }}
+                    animate={{
+                      y: placed.y,
+                      height: Math.max(placed.height, 2),
+                    }}
+                    transition={{ duration: 0.7, ease: EASE }}
                     style={
                       node.severity
                         ? { fill: SEVERITY_VAR[node.severity] }

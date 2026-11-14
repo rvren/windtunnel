@@ -10,17 +10,17 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-3xl font-normal tracking-[-0.02em]">{title}</h1>
-        {description ? (
-          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-            {description}
-          </p>
+    <header className="mb-7 flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <h1 className="text-4xl font-semibold tracking-[-0.03em]">{title}</h1>
+        {children ? (
+          <div className="flex flex-wrap items-center gap-2">{children}</div>
         ) : null}
       </div>
-      {children}
-    </div>
+      {description ? (
+        <p className="text-[15px] text-muted-foreground">{description}</p>
+      ) : null}
+    </header>
   );
 }
 

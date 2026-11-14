@@ -10,6 +10,7 @@ import { LocalTime } from "@/components/local-time";
 import { NewProjectDialog } from "@/components/project/project-dialogs";
 import { StatusBadge } from "@/components/run/badges";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -98,6 +99,11 @@ async function ProjectsTable() {
                   >
                     {project.name}
                   </Link>
+                  {project.demo ? (
+                    <Badge variant="secondary" className="ml-2">
+                      Sample
+                    </Badge>
+                  ) : null}
                   {project.description ? (
                     <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
                       {project.description}

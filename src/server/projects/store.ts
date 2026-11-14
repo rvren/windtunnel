@@ -27,6 +27,8 @@ export interface Project {
   id: string;
   name: string;
   description: string;
+  /** A demo project: its runs replay a script and never call the model. */
+  demo: boolean;
   createdAt: string;
   workspaces: Workspace[];
 }
@@ -97,6 +99,7 @@ export async function listProjects(): Promise<Project[]> {
     id: row.id,
     name: row.name,
     description: row.description,
+    demo: row.demo,
     createdAt: row.createdAt.toISOString(),
     workspaces: workspaceRows
       .filter((item) => item.projectId === row.id)
@@ -116,6 +119,7 @@ export async function getProject(id: string): Promise<Project | null> {
     id: row.id,
     name: row.name,
     description: row.description,
+    demo: row.demo,
     createdAt: row.createdAt.toISOString(),
     workspaces: rows.map(toWorkspace),
   };
@@ -124,8 +128,15 @@ export async function getProject(id: string): Promise<Project | null> {
 export async function createProject(input: {
   name: string;
   description: string;
+  demo?: boolean;
 }): Promise<Project> {
-  const row = { id: randomUUID(), ...input, createdAt: new Date() };
+  const row = {
+    id: randomUUID(),
+    name: input.name,
+    description: input.description,
+    demo: input.demo ?? false,
+    createdAt: new Date(),
+  };
   await db().insert(projects).values(row);
   return { ...row, createdAt: row.createdAt.toISOString(), workspaces: [] };
 }

@@ -1,1 +1,1 @@
-export const API = "https://api.storefront.example";
+export const GATEWAY = "https://gateway.storefront.example";

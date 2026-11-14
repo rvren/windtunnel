@@ -89,11 +89,15 @@ export interface RunInput {
   documents: RunDocument[];
   /** Set to run against code instead of a written requirement alone. */
   repository?: RepoOrigin;
-  /** Set to run a whole project: every workspace, read together. */
+  /** Set on a requirement run: the project it belongs to. */
+  projectRef?: { id: string; demo: boolean };
+  /** Set to run a project's code: the chosen workspaces, read together. */
   project?: {
     id: string;
     name: string;
     workspaces: { name: string; origin: RepoOrigin }[];
+    /** A demo project's runs replay a script and never call the model. */
+    demo?: boolean;
   };
 }
 
@@ -140,7 +144,16 @@ export function newRun(
       : input.requirement.trim()
         ? titleOf(input.requirement)
         : (label ?? ""),
-    ...(project ? { projectId: project.id } : {}),
+    ...(project
+      ? { projectId: project.id }
+      : input.projectRef
+        ? { projectId: input.projectRef.id }
+        : {}),
+    ...(project
+      ? { workspaces: project.workspaces.map((workspace) => workspace.name) }
+      : repository
+        ? { workspaces: [originLabel(repository)] }
+        : {}),
     ...(label && (repository || project?.workspaces.length)
       ? {
           source: {
@@ -262,6 +275,11 @@ export async function executeRun(
             );
             prepared.push(fetched);
             roots[workspace.name] = fetched.root;
+            await emit({
+              type: "workspace.ready",
+              name: workspace.name,
+              label: workspace.label,
+            });
           }
           survey = await surveyWorkspaces(
             Object.entries(roots).map(([name, root]) => ({ name, root })),
@@ -270,6 +288,13 @@ export async function executeRun(
         } else {
           const fetched = await prepareRepo(source.origin, run.id);
           prepared.push(fetched);
+          if (run.projectId && run.workspaces?.[0]) {
+            await emit({
+              type: "workspace.ready",
+              name: run.workspaces[0],
+              label: originLabel(source.origin),
+            });
+          }
           survey = await surveyRepo(fetched.root);
           reader = new RepoReader(fetched.root, survey);
         }
@@ -327,6 +352,10 @@ export async function executeRun(
         );
         source.architecture = checked.architecture;
         warnings.push(...checked.warnings);
+        await emit({
+          type: "architecture.ready",
+          architecture: checked.architecture,
+        });
       }
       if (model.roles.length === 0 || model.operations.length === 0) {
         throw new RunError(

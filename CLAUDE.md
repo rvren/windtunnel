@@ -36,7 +36,7 @@ needs a `docker compose up --build` from `docker compose down -v`.
 | App      | `src/app/app/`               | The product: Projects, the project cockpit, Runs, New run, Run, Settings     |
 | API      | `src/app/api/`               | `projects` (and their workspaces and runs), `runs`, `health`                 |
 | Projects | `src/server/projects/`       | The project store, and `cockpit.ts`: a run turned into the cockpit's numbers |
-| Samples  | `samples/storefront/`        | Three small folders for the scripted project run. Read, never run            |
+| Samples  | `samples/storefront/`        | Seven small services for the scripted project run. Read, never run           |
 | Engine   | `src/server/engine/`         | The five stages and everything they need                                     |
 | Database | `src/server/db/`, `drizzle/` | Five tables, the pool, the migrations                                        |
 | Shared   | `src/lib/`                   | The agents, labels, limits, the live-feed reducer                            |
@@ -71,9 +71,17 @@ take something away.
 - **Nearly monochrome.** Ground, panels, borders and text are neutral greys
   from the tokens in `src/app/globals.css`. Do not tint panels or add
   gradients, glows or shadows in the app.
-- **One white block per view.** The main action (`Button` default) and the
-  current item (sidebar item, tab) are solid white on dark, ink on light.
-  Every other button is `outline` or `ghost`.
+- **One white block per view.** The main action (`Button` default) is solid
+  white on dark, ink on light. Every other button is `outline` or `ghost`.
+  The current sidebar item is a soft grey chip in the text colour, never a
+  solid block.
+- **The shell follows Plinth's console** (`~/Documents/GitHub/plinth`, the
+  owner's other product). Sidebar: the mark and the collapse control in one
+  row, the project scope card under a hairline, quiet 40px rows, "New run"
+  as the one solid button at the bottom, then a hairline and the footer. Top
+  bar: scope, then the trail parted by slashes, the last step in medium
+  weight. Content: the full width of the page with 36px side padding; a form
+  keeps its own reading measure.
 - **Colour is for meaning only.** Violet (`text-link`, `bg-brand`) marks
   progress, "now" and links. Green, orange, red and grey (`bg-ok`, `bg-sev-*`)
   mark state and severity, as a small dot in a neutral badge or a thin mark.
@@ -83,10 +91,11 @@ take something away.
   radius class; the theme maps every size to the same value. Only status
   dots are round. Icon tiles are neutral `bg-accent` squares. No box inside a box: separate rows in a panel
   with hairlines.
-- **Type.** Barlow. Headings are large and light (`font-normal`, tight
-  tracking); body is 14px; secondary text is `text-muted-foreground`. Use
-  `font-medium` only for names in a row. Labels and counts beside a heading
-  are small and grey. Geist Mono only for ids, numbers in sequence and times.
+- **Type.** Barlow. A page title is `text-4xl font-semibold` with tight
+  tracking, then one quiet sentence; section headings are `text-lg
+font-medium`; body is 14px; secondary text is `text-muted-foreground`.
+  Large numbers stay light. Labels and counts beside a heading are small and
+  grey. Geist Mono only for ids, numbers in sequence and times.
 - **Density.** Generous padding (panels `p-5` or more), rows about 44px, one
   idea per panel. A page is a title, at most one row of tabs, then panels.
 - **Loading and empty.** One quiet line of text or a spinner icon; never
@@ -143,6 +152,24 @@ orders`, run by
   repository run also returns the architecture; `architecture.ts` checks it
   and maps a finding to its workspace and component by the file it cites.
   `projects/cockpit.ts` is pure and only counts what a run holds.
+- **Every run belongs to a project.** `POST /api/runs` needs a `projectId`;
+  with `workspaces` (names) it reads their code, without it tests the
+  requirement. `projects/adopt.ts` gathers older runs under "Demo project" /
+  "demo" at start. `runs.workspaces` holds what a run read, for the filters.
+- **Sample data** (`projects/demo.ts`, the `projects.demo` flag, called
+  "Sample" on screen): a sample project's runs use `ScriptedLlm` with
+  `sample-project.ts` and never reach the API, but fetch and read the real
+  repositories. The script is keyed by repository (`storefront-<service>`),
+  and its line numbers must match `samples/storefront`; after changing a
+  sample file, fix the script, run `pnpm test`, then
+  `scripts/publish-samples.sh`. Do not confuse it with "Demo project", which
+  holds the owner's real older runs and is never removed with sample data.
+- **The live map** (`components/project/live-map.tsx`) is driven only by the
+  run's events (`workspace.ready`, `architecture.ready`, `agent.reading`,
+  `agent.finding`) through `lib/run-feed.ts` and `lib/live-map.ts`.
+- **Looking at animations:** headless Chrome cannot capture a page with an
+  open event stream, and the Browser pane pauses animation while hidden.
+  Show the pane first, then take screenshots there.
 - **Never run `next typegen` while `pnpm dev` is running.** It sends the dev
   server into a rebuild loop that reloads every page. Stop the server first.
 - **Expertise** for each agent is Markdown in `expertise/`. Improve an

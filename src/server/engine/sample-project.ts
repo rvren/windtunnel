@@ -9,19 +9,314 @@ import type {
 } from "./schema";
 
 /*
- * A scripted project run, for the sample mode and for tests. It is written
- * for the three folders in samples/storefront, and files its findings against
- * the real lines of those files, so every check in the engine still applies.
+ * A scripted project run, for demo projects and for tests. It is written for
+ * the seven services in samples/storefront (each also a private repository,
+ * rvren/storefront-<service>), and files its findings against the real lines
+ * of those files, so every check in the engine still applies.
  *
- * It follows the workspaces it is given: a finding in a workspace that is not
- * part of the run is left out, and with one workspace the paths carry no
- * workspace name, as in any single-repository run.
+ * It follows the workspaces it is given. A service is known by its
+ * repository, not by the name of its workspace. A finding in a service that
+ * is not part of the run is left out; one that spans two services needs
+ * both. With one workspace the paths carry no workspace name, as in any
+ * single-repository run.
  */
+
+export const SAMPLE_SERVICES = [
+  "web",
+  "gateway",
+  "auth",
+  "catalog",
+  "orders",
+  "billing",
+  "notifications",
+] as const;
+export type SampleService = (typeof SAMPLE_SERVICES)[number];
+
+/** The GitHub address of a sample service's repository. */
+export const sampleRepoUrl = (service: SampleService) =>
+  `https://github.com/rvren/storefront-${service}`;
+
+/**
+ * Which sample service a repository is, if it is one: by the name of the
+ * GitHub repository or of the local folder, with or without "storefront-".
+ */
+export function sampleServiceOf(origin: {
+  kind: string;
+  url?: string;
+  name?: string;
+}): SampleService | null {
+  const last = (origin.kind === "github" ? origin.url : origin.name)
+    ?.replace(/\.git$/, "")
+    .replace(/\/+$/, "")
+    .split("/")
+    .pop()
+    ?.replace(/^storefront-/, "");
+  return SAMPLE_SERVICES.find((service) => service === last) ?? null;
+}
+
+type Kind = Architecture["components"][number]["kind"];
+
+interface Part {
+  id: string;
+  name: string;
+  kind: Kind;
+  /** Paths inside the service's repository. */
+  paths: string[];
+  description: string;
+}
+
+/** Each service: one component in a project, or its parts when it is alone. */
+const SERVICES: Record<
+  SampleService,
+  { name: string; kind: Kind; description: string; parts: Part[] }
+> = {
+  web: {
+    name: "Shop frontend",
+    kind: "frontend",
+    description: "The pages a buyer uses to search, fill a cart and check out.",
+    parts: [
+      {
+        id: "cmp-web-session",
+        name: "Session",
+        kind: "library",
+        paths: ["src/session.ts", "src/api.ts"],
+        description: "Keeps the sign-in token and calls the gateway.",
+      },
+      {
+        id: "cmp-web-search",
+        name: "Search page",
+        kind: "frontend",
+        paths: ["src/search.ts"],
+        description: "Shows products that match a query.",
+      },
+      {
+        id: "cmp-web-checkout",
+        name: "Checkout page",
+        kind: "frontend",
+        paths: ["src/checkout.ts"],
+        description: "Places the order.",
+      },
+    ],
+  },
+  gateway: {
+    name: "API gateway",
+    kind: "service",
+    description: "The one door into the backend: routing and rate limits.",
+    parts: [
+      {
+        id: "cmp-gateway-routes",
+        name: "Routes",
+        kind: "service",
+        paths: ["main.go"],
+        description: "Sends each request to its service.",
+      },
+      {
+        id: "cmp-gateway-proxy",
+        name: "Proxy",
+        kind: "library",
+        paths: ["proxy.go"],
+        description: "Forwards a request upstream.",
+      },
+      {
+        id: "cmp-gateway-limit",
+        name: "Rate limit",
+        kind: "library",
+        paths: ["ratelimit.go"],
+        description: "Counts calls per client.",
+      },
+    ],
+  },
+  auth: {
+    name: "Auth service",
+    kind: "service",
+    description: "Sign-in and sessions.",
+    parts: [
+      {
+        id: "cmp-auth-login",
+        name: "Sign-in",
+        kind: "service",
+        paths: ["src/login.ts"],
+        description: "Checks an email and password.",
+      },
+      {
+        id: "cmp-auth-passwords",
+        name: "Passwords",
+        kind: "library",
+        paths: ["src/password.ts"],
+        description: "Hashes passwords.",
+      },
+      {
+        id: "cmp-auth-sessions",
+        name: "Sessions",
+        kind: "library",
+        paths: ["src/session.ts"],
+        description: "Opens sessions and resolves tokens.",
+      },
+    ],
+  },
+  catalog: {
+    name: "Catalog service",
+    kind: "service",
+    description: "Products, prices and search.",
+    parts: [
+      {
+        id: "cmp-catalog-search",
+        name: "Search",
+        kind: "service",
+        paths: ["search.py"],
+        description: "Finds products by name.",
+      },
+      {
+        id: "cmp-catalog-products",
+        name: "Products",
+        kind: "service",
+        paths: ["products.py", "cache.py"],
+        description: "Lists products and keeps prices.",
+      },
+    ],
+  },
+  orders: {
+    name: "Orders service",
+    kind: "service",
+    description: "Takes orders, charges for them and announces them.",
+    parts: [
+      {
+        id: "cmp-orders-checkout",
+        name: "Checkout",
+        kind: "service",
+        paths: ["orders.py"],
+        description: "Creates and lists orders.",
+      },
+      {
+        id: "cmp-orders-billing",
+        name: "Billing client",
+        kind: "library",
+        paths: ["billing_client.py"],
+        description: "Calls the billing service.",
+      },
+      {
+        id: "cmp-orders-events",
+        name: "Events",
+        kind: "library",
+        paths: ["events.py"],
+        description: "Announces orders on the queue.",
+      },
+    ],
+  },
+  billing: {
+    name: "Billing service",
+    kind: "service",
+    description: "Charges cards through the payment gateway.",
+    parts: [
+      {
+        id: "cmp-billing-charge",
+        name: "Charges",
+        kind: "service",
+        paths: ["charge.go"],
+        description: "Sends a charge to the payment gateway.",
+      },
+      {
+        id: "cmp-billing-server",
+        name: "HTTP server",
+        kind: "service",
+        paths: ["server.go"],
+        description: "Takes charges from the orders service.",
+      },
+    ],
+  },
+  notifications: {
+    name: "Notifications worker",
+    kind: "service",
+    description: "Sends buyers an email for each order event.",
+    parts: [
+      {
+        id: "cmp-notifications-worker",
+        name: "Worker",
+        kind: "service",
+        paths: ["src/worker.ts"],
+        description: "Takes events from the queue.",
+      },
+      {
+        id: "cmp-notifications-templates",
+        name: "Templates",
+        kind: "library",
+        paths: ["src/templates.ts"],
+        description: "The words of each email.",
+      },
+    ],
+  },
+};
+
+/** What the services call that has no code of its own. */
+const OUTSIDE: { id: string; name: string; kind: Kind; description: string }[] =
+  [
+    {
+      id: "cmp-users-db",
+      name: "Users database",
+      kind: "database",
+      description: "Users and their sessions.",
+    },
+    {
+      id: "cmp-catalog-db",
+      name: "Catalog database",
+      kind: "database",
+      description: "Products and prices.",
+    },
+    {
+      id: "cmp-price-cache",
+      name: "Price cache",
+      kind: "database",
+      description: "Prices kept in memory, by product.",
+    },
+    {
+      id: "cmp-orders-db",
+      name: "Orders database",
+      kind: "database",
+      description: "Orders and their items.",
+    },
+    {
+      id: "cmp-queue",
+      name: "Order events queue",
+      kind: "queue",
+      description: "Carries order events to the workers.",
+    },
+    {
+      id: "cmp-payments",
+      name: "Payment gateway",
+      kind: "external",
+      description: "The outside system that moves the money.",
+    },
+    {
+      id: "cmp-email",
+      name: "Email provider",
+      kind: "external",
+      description: "The outside system that delivers email.",
+    },
+  ];
+
+/** Who calls whom. An end is a service or the id of something outside. */
+const CALLS: { from: SampleService; to: string; label: string }[] = [
+  { from: "web", to: "gateway", label: "REST" },
+  { from: "gateway", to: "auth", label: "HTTP" },
+  { from: "gateway", to: "catalog", label: "HTTP" },
+  { from: "gateway", to: "orders", label: "HTTP" },
+  { from: "auth", to: "cmp-users-db", label: "SQL" },
+  { from: "catalog", to: "cmp-catalog-db", label: "SQL" },
+  { from: "catalog", to: "cmp-price-cache", label: "Redis" },
+  { from: "orders", to: "billing", label: "HTTP" },
+  { from: "orders", to: "cmp-orders-db", label: "SQL" },
+  { from: "orders", to: "cmp-queue", label: "publishes" },
+  { from: "billing", to: "cmp-payments", label: "HTTPS" },
+  { from: "notifications", to: "cmp-queue", label: "consumes" },
+  { from: "notifications", to: "cmp-email", label: "HTTPS" },
+];
 
 interface SampleFinding {
   key: string;
   agent: AgentId;
-  workspace: string;
+  service: SampleService;
+  /** Other services that must be in the run for this to be seen. */
+  needs?: SampleService[];
   path: string;
   line: number;
   type: FindingType;
@@ -31,153 +326,753 @@ interface SampleFinding {
   suggestion: string;
 }
 
+const f = (
+  key: string,
+  agent: AgentId,
+  service: SampleService,
+  path: string,
+  line: number,
+  type: FindingType,
+  severity: Severity,
+  title: string,
+  description: string,
+  suggestion: string,
+  needs?: SampleService[],
+): SampleFinding => ({
+  key,
+  agent,
+  service,
+  path,
+  line,
+  type,
+  severity,
+  title,
+  description,
+  suggestion,
+  needs,
+});
+
+const SECURITY = "security_vulnerability";
+const WEAKNESS = "architecture_weakness";
+const MISSING = "missing_requirement";
+const JOURNEY = "unhandled_journey";
+
 const FINDINGS: SampleFinding[] = [
+  // web
+  f(
+    "web-token",
+    "adversarial_user",
+    "web",
+    "src/session.ts",
+    2,
+    SECURITY,
+    "high",
+    "The sign-in token is kept where any script can read it",
+    "The token is saved in local storage, so one injected script can take the session.",
+    "Keep the session in a cookie that scripts cannot read.",
+  ),
+  f(
+    "web-xss",
+    "adversarial_user",
+    "web",
+    "src/search.ts",
+    8,
+    SECURITY,
+    "high",
+    "A product name is written to the page as HTML",
+    "A product whose name holds a script runs it in every buyer's browser.",
+    "Write the name as text, not as HTML.",
+  ),
+  f(
+    "web-failed-order",
+    "normal_user",
+    "web",
+    "src/checkout.ts",
+    8,
+    JOURNEY,
+    "medium",
+    "A failed order tells the buyer nothing",
+    "The answer is read as if it always succeeded. When the order fails the buyer cannot tell whether they paid.",
+    "Check the answer and show what happened and what to do next.",
+  ),
+  f(
+    "web-no-confirm",
+    "product_critic",
+    "web",
+    "src/checkout.ts",
+    3,
+    MISSING,
+    "low",
+    "The buyer never confirms the order",
+    "The order is placed in one step, with no summary of what will be charged.",
+    "Show the items and the total, and ask the buyer to confirm.",
+  ),
+  // gateway
+  f(
+    "gw-user-header",
+    "adversarial_user",
+    "gateway",
+    "main.go",
+    14,
+    SECURITY,
+    "critical",
+    "The gateway believes a user id the client sends",
+    "The user is taken from a request header anyone can set. A caller can act as any buyer.",
+    "Resolve the user from the session token, and drop the header from incoming requests.",
+  ),
+  f(
+    "gw-no-auth-call",
+    "adversarial_user",
+    "gateway",
+    "main.go",
+    14,
+    SECURITY,
+    "critical",
+    "The gateway never asks the auth service who the caller is",
+    "The auth service can resolve a token to a user, but no route calls it. Sessions protect nothing.",
+    "Call the auth service for every order request and use its answer.",
+    ["auth"],
+  ),
+  f(
+    "gw-timeout",
+    "chaos",
+    "gateway",
+    "proxy.go",
+    12,
+    WEAKNESS,
+    "high",
+    "A slow service holds every request open",
+    "Calls upstream have no time limit. One stalled service uses up the gateway's connections.",
+    "Set a time limit on upstream calls and answer 504 when it passes.",
+  ),
+  f(
+    "gw-rate-memory",
+    "scale",
+    "gateway",
+    "ratelimit.go",
+    5,
+    WEAKNESS,
+    "medium",
+    "The rate limit is counted per instance and never reset",
+    "Each gateway instance keeps its own count in memory, and the count only grows. More instances mean a higher limit, and an old client is blocked for ever.",
+    "Keep the count in a shared store, in a window of time.",
+  ),
+  // auth
+  f(
+    "auth-md5",
+    "adversarial_user",
+    "auth",
+    "src/password.ts",
+    4,
+    SECURITY,
+    "critical",
+    "Passwords are hashed with MD5 and no salt",
+    "A copy of the users table gives up most passwords in minutes.",
+    "Use a slow, salted password hash such as Argon2.",
+  ),
+  f(
+    "auth-no-expiry",
+    "adversarial_user",
+    "auth",
+    "src/session.ts",
+    7,
+    SECURITY,
+    "high",
+    "A session never ends",
+    "A session is saved with no expiry and there is no way to end it. A stolen token works for ever.",
+    "Give sessions an expiry and a way to sign out.",
+  ),
+  f(
+    "auth-no-lockout",
+    "product_critic",
+    "auth",
+    "src/login.ts",
+    5,
+    MISSING,
+    "medium",
+    "Nothing limits sign-in attempts",
+    "The design says nothing about repeated wrong passwords, so guessing is free.",
+    "Decide a limit on attempts per account and per address.",
+  ),
+  // catalog
+  f(
+    "cat-sqli",
+    "adversarial_user",
+    "catalog",
+    "search.py",
+    5,
+    SECURITY,
+    "critical",
+    "The search text is put straight into the SQL",
+    "A buyer can read or change any table through the search box.",
+    "Pass the text as a parameter of the query.",
+  ),
+  f(
+    "cat-unbounded",
+    "scale",
+    "catalog",
+    "products.py",
+    5,
+    WEAKNESS,
+    "medium",
+    "The product list returns the whole catalog",
+    "Every product is read and returned in one answer. It slows down, then fails, as the catalog grows.",
+    "Return products a page at a time.",
+  ),
+  f(
+    "cat-stale-price",
+    "chaos",
+    "catalog",
+    "products.py",
+    20,
+    WEAKNESS,
+    "medium",
+    "A changed price is not seen until the cache is emptied by hand",
+    "Setting a price updates the database and leaves the cached price, which never expires.",
+    "Remove the cached price when the price is set, and give cached prices an expiry.",
+  ),
+  // orders
+  f(
+    "ord-price",
+    "adversarial_user",
+    "orders",
+    "orders.py",
+    7,
+    SECURITY,
+    "critical",
+    "The order total is taken from the request",
+    "The service charges whatever total the client sends. A buyer can set their own price.",
+    "Work the total out on the server from the items and their stored prices.",
+  ),
+  f(
+    "ord-all-orders",
+    "adversarial_user",
+    "orders",
+    "orders.py",
+    15,
+    SECURITY,
+    "critical",
+    "Every user can read every order",
+    "The list of orders is not limited to the user who asks.",
+    "Return only the orders that belong to the user.",
+  ),
+  f(
+    "ord-unbounded",
+    "scale",
+    "orders",
+    "orders.py",
+    15,
+    WEAKNESS,
+    "medium",
+    "The list of orders has no limit",
+    "Every order is read and returned in one answer.",
+    "Return the orders a page at a time.",
+  ),
+  f(
+    "ord-charge-first",
+    "chaos",
+    "orders",
+    "orders.py",
+    8,
+    WEAKNESS,
+    "high",
+    "The card is charged before the order is saved",
+    "If saving the order fails after the charge, the buyer has paid and no order exists.",
+    "Save the order as pending first, charge, then mark it paid.",
+  ),
+  f(
+    "ord-lost-event",
+    "chaos",
+    "orders",
+    "orders.py",
+    10,
+    WEAKNESS,
+    "medium",
+    "An order can be saved and never announced",
+    "The event is published after the order is saved, with nothing to send it again if publishing fails. The buyer then gets no email.",
+    "Write the event in the same transaction as the order and publish it from there.",
+  ),
+  f(
+    "ord-double-charge",
+    "chaos",
+    "orders",
+    "billing_client.py",
+    7,
+    WEAKNESS,
+    "critical",
+    "A slow charge is sent again, and billing charges twice",
+    "The orders service repeats a charge that timed out, and the billing service has no way to know it is the same charge. The buyer pays two or three times.",
+    "Send an idempotency key with each charge and have billing honour it.",
+    ["billing"],
+  ),
+  // billing
+  f(
+    "bill-card-log",
+    "adversarial_user",
+    "billing",
+    "charge.go",
+    11,
+    SECURITY,
+    "high",
+    "Card numbers are written to the log",
+    "Every charge logs the full card number, so anyone who can read logs can read cards.",
+    "Never log the card number; log a reference to the charge.",
+  ),
+  f(
+    "bill-no-timeout",
+    "chaos",
+    "billing",
+    "charge.go",
+    12,
+    WEAKNESS,
+    "high",
+    "A charge has no time limit and its answer is not read",
+    "The call to the payment gateway can hang for ever, and a refused charge is treated as a success.",
+    "Set a time limit and check the gateway's answer.",
+  ),
+  f(
+    "bill-no-refund",
+    "product_critic",
+    "billing",
+    "charge.go",
+    10,
+    MISSING,
+    "medium",
+    "There is no way to give money back",
+    "The billing service can charge a card and nothing else. A cancelled order cannot be refunded.",
+    "Decide how refunds work and add them to the billing service.",
+  ),
+  // notifications
+  f(
+    "ntf-ack-first",
+    "chaos",
+    "notifications",
+    "src/worker.ts",
+    7,
+    WEAKNESS,
+    "medium",
+    "An email is lost when sending fails",
+    "The event is acknowledged before the email is sent. If the send fails the event is gone.",
+    "Acknowledge the event after the email is accepted.",
+  ),
+  f(
+    "ntf-duplicate",
+    "normal_user",
+    "notifications",
+    "src/worker.ts",
+    9,
+    JOURNEY,
+    "low",
+    "A buyer can get the same email twice",
+    "Nothing records which events were handled, so a redelivered event sends a second email.",
+    "Record handled events and skip the ones seen before.",
+  ),
+  f(
+    "ntf-no-optout",
+    "product_critic",
+    "notifications",
+    "src/templates.ts",
+    3,
+    MISSING,
+    "low",
+    "Emails have no way to opt out",
+    "A matter of taste for an order email.",
+    "None.",
+  ),
+];
+
+/** The judge's groups, by the keys of the findings each one merges. */
+const GROUPS: {
+  id: string;
+  keys: string[];
+  title: string;
+  type: FindingType;
+  severity: Severity;
+  summary: string;
+}[] = [
   {
-    key: "price",
-    agent: "adversarial_user",
-    workspace: "api",
-    path: "orders.py",
-    line: 6,
-    type: "security_vulnerability",
-    severity: "critical",
-    title: "The order total is taken from the request",
-    description:
-      "The service charges whatever total the client sends. A buyer can set their own price.",
-    suggestion:
-      "Work the total out on the server from the items and their stored prices.",
-  },
-  {
-    key: "all-orders",
-    agent: "adversarial_user",
-    workspace: "api",
-    path: "orders.py",
-    line: 13,
-    type: "security_vulnerability",
-    severity: "critical",
-    title: "Every user can read every order",
-    description:
-      "The list of orders is not limited to the user who asks. One customer sees all the others' orders.",
-    suggestion: "Return only the orders that belong to the user.",
-  },
-  {
-    key: "token-check",
-    agent: "adversarial_user",
-    workspace: "api",
-    path: "auth.py",
-    line: 6,
-    type: "security_vulnerability",
+    id: "g-web-token",
+    keys: ["web-token"],
+    title: "The session can be taken by an injected script",
+    type: SECURITY,
     severity: "high",
-    title: "Sign-in tokens never expire",
-    description:
-      "A token is looked up and trusted for ever. A stolen token keeps working until someone deletes it by hand.",
-    suggestion: "Give tokens an expiry and check it on every request.",
+    summary: "The frontend keeps the token in local storage.",
   },
   {
-    key: "token-storage",
-    agent: "adversarial_user",
-    workspace: "web",
-    path: "src/session.ts",
-    line: 2,
-    type: "security_vulnerability",
+    id: "g-web-xss",
+    keys: ["web-xss"],
+    title: "A product name can run a script in the shop",
+    type: SECURITY,
     severity: "high",
-    title: "The sign-in token is kept where any script can read it",
-    description:
-      "The token is saved in local storage, so one injected script can take the session.",
-    suggestion: "Keep the session in a cookie that scripts cannot read.",
+    summary: "Search results are written to the page as HTML.",
   },
   {
-    key: "charge-first",
-    agent: "chaos",
-    workspace: "api",
-    path: "orders.py",
-    line: 7,
-    type: "architecture_weakness",
-    severity: "high",
-    title: "The card is charged before the order is saved",
-    description:
-      "If saving the order fails after the charge, the customer has paid and no order exists.",
-    suggestion: "Save the order as pending first, charge, then mark it paid.",
-  },
-  {
-    key: "no-timeout",
-    agent: "chaos",
-    workspace: "billing",
-    path: "charge.go",
-    line: 6,
-    type: "architecture_weakness",
-    severity: "high",
-    title: "A charge has no time limit and no key against repeats",
-    description:
-      "The call to the payment gateway can hang for ever, and a retry charges the card a second time.",
-    suggestion:
-      "Set a time limit and send an idempotency key with each charge.",
-  },
-  {
-    key: "unbounded-list",
-    agent: "scale",
-    workspace: "api",
-    path: "orders.py",
-    line: 13,
-    type: "architecture_weakness",
-    severity: "medium",
-    title: "The list of orders has no limit",
-    description:
-      "Every order is read and returned in one answer. It slows down, then fails, as orders grow.",
-    suggestion: "Return the orders a page at a time.",
-  },
-  {
-    key: "failed-order",
-    agent: "normal_user",
-    workspace: "web",
-    path: "src/checkout.ts",
-    line: 9,
-    type: "unhandled_journey",
-    severity: "medium",
+    id: "g-web-failed",
+    keys: ["web-failed-order"],
     title: "A failed order tells the buyer nothing",
-    description:
-      "The answer is read as if it always succeeded. When the order fails the buyer cannot tell whether they paid.",
-    suggestion: "Check the answer and show what happened and what to do next.",
-  },
-  {
-    key: "no-refund",
-    agent: "product_critic",
-    workspace: "billing",
-    path: "charge.go",
-    line: 5,
-    type: "missing_requirement",
+    type: JOURNEY,
     severity: "medium",
-    title: "There is no way to give money back",
-    description:
-      "The billing service can charge a card and nothing else. A cancelled order cannot be refunded.",
-    suggestion: "Decide how refunds work and add them to the billing service.",
+    summary: "The frontend reads every answer as a success.",
   },
   {
-    key: "no-confirmation",
-    agent: "product_critic",
-    workspace: "web",
-    path: "src/checkout.ts",
-    line: 3,
-    type: "missing_requirement",
+    id: "g-gw-identity",
+    keys: ["gw-user-header", "gw-no-auth-call"],
+    title: "Anyone can act as any buyer",
+    type: SECURITY,
+    severity: "critical",
+    summary:
+      "The gateway takes the user from a header the client sets, and never asks the auth service.",
+  },
+  {
+    id: "g-gw-timeout",
+    keys: ["gw-timeout"],
+    title: "One slow service can stall the gateway",
+    type: WEAKNESS,
+    severity: "high",
+    summary: "Upstream calls have no time limit.",
+  },
+  {
+    id: "g-gw-rate",
+    keys: ["gw-rate-memory"],
+    title: "The rate limit does not hold across instances",
+    type: WEAKNESS,
+    severity: "medium",
+    summary: "Counts are kept in each instance's memory and never reset.",
+  },
+  {
+    id: "g-auth-md5",
+    keys: ["auth-md5"],
+    title: "Passwords are stored with a broken hash",
+    type: SECURITY,
+    severity: "critical",
+    summary: "MD5 with no salt.",
+  },
+  {
+    id: "g-auth-expiry",
+    keys: ["auth-no-expiry"],
+    title: "A session never ends",
+    type: SECURITY,
+    severity: "high",
+    summary: "Sessions have no expiry and no sign-out.",
+  },
+  {
+    id: "g-auth-lockout",
+    keys: ["auth-no-lockout"],
+    title: "Nothing limits sign-in attempts",
+    type: MISSING,
+    severity: "medium",
+    summary: "Password guessing is free.",
+  },
+  {
+    id: "g-cat-sqli",
+    keys: ["cat-sqli"],
+    title: "The search box can run SQL",
+    type: SECURITY,
+    severity: "critical",
+    summary: "The search text is joined into the query.",
+  },
+  {
+    id: "g-cat-list",
+    keys: ["cat-unbounded"],
+    title: "The product list returns the whole catalog",
+    type: WEAKNESS,
+    severity: "medium",
+    summary: "No paging.",
+  },
+  {
+    id: "g-cat-price",
+    keys: ["cat-stale-price"],
+    title: "A changed price is not seen by buyers",
+    type: WEAKNESS,
+    severity: "medium",
+    summary: "The price cache is never cleared and never expires.",
+  },
+  {
+    id: "g-ord-price",
+    keys: ["ord-price"],
+    title: "A buyer can set their own price",
+    type: SECURITY,
+    severity: "critical",
+    summary: "The orders service charges the total the client sends.",
+  },
+  {
+    id: "g-ord-list",
+    keys: ["ord-all-orders", "ord-unbounded"],
+    title: "The list of orders returns everything to everyone",
+    type: SECURITY,
+    severity: "critical",
+    summary:
+      "The list is neither limited to the user who asks nor split into pages.",
+  },
+  {
+    id: "g-ord-charge",
+    keys: ["ord-charge-first"],
+    title: "A buyer can pay for an order that does not exist",
+    type: WEAKNESS,
+    severity: "high",
+    summary: "The card is charged before the order is saved.",
+  },
+  {
+    id: "g-ord-event",
+    keys: ["ord-lost-event"],
+    title: "An order can be saved and never announced",
+    type: WEAKNESS,
+    severity: "medium",
+    summary: "The event is published outside the order's transaction.",
+  },
+  {
+    id: "g-double-charge",
+    keys: ["ord-double-charge"],
+    title: "A retried charge takes the money again",
+    type: WEAKNESS,
+    severity: "critical",
+    summary:
+      "Orders repeats a slow charge and billing cannot tell it is the same one.",
+  },
+  {
+    id: "g-bill-log",
+    keys: ["bill-card-log"],
+    title: "Card numbers are written to the log",
+    type: SECURITY,
+    severity: "high",
+    summary: "Every charge logs the full card number.",
+  },
+  {
+    id: "g-bill-timeout",
+    keys: ["bill-no-timeout"],
+    title: "A charge can hang, and a refusal passes as success",
+    type: WEAKNESS,
+    severity: "high",
+    summary: "No time limit, and the gateway's answer is not read.",
+  },
+  {
+    id: "g-bill-refund",
+    keys: ["bill-no-refund"],
+    title: "There is no way to give money back",
+    type: MISSING,
+    severity: "medium",
+    summary: "Billing can charge and nothing else.",
+  },
+  {
+    id: "g-ntf-lost",
+    keys: ["ntf-ack-first"],
+    title: "An email is lost when sending fails",
+    type: WEAKNESS,
+    severity: "medium",
+    summary: "The event is acknowledged before the email is sent.",
+  },
+  {
+    id: "g-ntf-twice",
+    keys: ["ntf-duplicate"],
+    title: "A buyer can get the same email twice",
+    type: JOURNEY,
     severity: "low",
-    title: "The buyer never confirms the order",
+    summary: "Handled events are not recorded.",
+  },
+];
+
+const REJECTED: Record<string, string> = {
+  "web-no-confirm": "A choice of design, not a flaw the code shows.",
+  "ntf-no-optout": "An order email is not marketing; no opt-out is owed.",
+};
+
+const WORK_ORDERS: {
+  id: string;
+  title: string;
+  priority: "p0" | "p1" | "p2" | "p3";
+  description: string;
+  acceptanceCriteria: string[];
+  groupIds: string[];
+}[] = [
+  {
+    id: "wo-identity",
+    title: "Take the caller's identity from the session, at the gateway",
+    priority: "p0",
     description:
-      "The order is placed in one step, with no summary of what will be charged.",
-    suggestion: "Show the items and the total, and ask the buyer to confirm.",
+      "Drop the client's user header. Resolve the user from the token through the auth service on every order request.",
+    acceptanceCriteria: [
+      "Given a request with a made-up user header, then the header is ignored.",
+      "Given no valid session, then an order request is refused with 401.",
+    ],
+    groupIds: ["g-gw-identity"],
+  },
+  {
+    id: "wo-passwords",
+    title: "Store passwords with a slow, salted hash",
+    priority: "p0",
+    description:
+      "Replace MD5 with Argon2 and rehash each password at the next sign-in.",
+    acceptanceCriteria: [
+      "No password in the users table is an MD5 hash 90 days after release.",
+    ],
+    groupIds: ["g-auth-md5"],
+  },
+  {
+    id: "wo-sqli",
+    title: "Pass the search text as a query parameter",
+    priority: "p0",
+    description: "Never join request text into SQL in the catalog service.",
+    acceptanceCriteria: [
+      "Given a search for a quote character, then the query runs and returns no error.",
+    ],
+    groupIds: ["g-cat-sqli"],
+  },
+  {
+    id: "wo-price",
+    title: "Work out the order total on the server",
+    priority: "p0",
+    description:
+      "Ignore the total the client sends. Price the items from the catalog.",
+    acceptanceCriteria: [
+      "Given a request with a total lower than the items cost, then the card is charged the real total.",
+    ],
+    groupIds: ["g-ord-price"],
+  },
+  {
+    id: "wo-orders-list",
+    title: "Limit the list of orders to its owner, a page at a time",
+    priority: "p0",
+    description:
+      "Return only the asking user's orders, and no more than one page.",
+    acceptanceCriteria: [
+      "Given two buyers, when one lists orders, then none of the other's are returned.",
+      "One answer holds at most one page.",
+    ],
+    groupIds: ["g-ord-list"],
+  },
+  {
+    id: "wo-charge-once",
+    title: "Make a charge safe to fail and safe to repeat",
+    priority: "p0",
+    description:
+      "Orders saves the order as pending, then charges with an idempotency key. Billing honours the key, sets a time limit and reads the gateway's answer.",
+    acceptanceCriteria: [
+      "Given the same charge sent three times, then the card is charged once.",
+      "Given a failure after the charge, then a pending order exists.",
+      "Given a refused charge, then the order is not marked paid.",
+    ],
+    groupIds: ["g-double-charge", "g-ord-charge", "g-bill-timeout"],
+  },
+  {
+    id: "wo-sessions",
+    title: "Make sessions expire and keep them out of reach of scripts",
+    priority: "p1",
+    description:
+      "Give sessions an expiry and a sign-out, and keep the token in a cookie scripts cannot read.",
+    acceptanceCriteria: [
+      "Given a session past its expiry, then the request is refused.",
+      "The token is not readable from page scripts.",
+    ],
+    groupIds: ["g-auth-expiry", "g-web-token"],
+  },
+  {
+    id: "wo-xss",
+    title: "Write product names to the page as text",
+    priority: "p1",
+    description: "Never set HTML from catalog data in the frontend.",
+    acceptanceCriteria: [
+      "Given a product named with a script tag, then the tag is shown as text.",
+    ],
+    groupIds: ["g-web-xss"],
+  },
+  {
+    id: "wo-card-log",
+    title: "Take card numbers out of the log",
+    priority: "p1",
+    description:
+      "Log a charge reference only, and remove card numbers from the logs kept so far.",
+    acceptanceCriteria: ["No log line holds a card number."],
+    groupIds: ["g-bill-log"],
+  },
+  {
+    id: "wo-gateway-limits",
+    title: "Give the gateway time limits and a shared rate limit",
+    priority: "p1",
+    description:
+      "Limit the time of upstream calls. Count calls in a shared store, in a window of time.",
+    acceptanceCriteria: [
+      "Given a service that does not answer, then the gateway answers 504 within the limit.",
+      "Given two gateway instances, then one client's limit is counted across both.",
+    ],
+    groupIds: ["g-gw-timeout", "g-gw-rate"],
+  },
+  {
+    id: "wo-events",
+    title: "Never lose an order event or its email",
+    priority: "p2",
+    description:
+      "Publish order events from an outbox. The worker acknowledges after the email is accepted and skips events it has handled.",
+    acceptanceCriteria: [
+      "Given a failed publish, then the event is sent later.",
+      "Given a failed send, then the email is tried again.",
+      "Given a redelivered event, then one email is sent.",
+    ],
+    groupIds: ["g-ord-event", "g-ntf-lost", "g-ntf-twice"],
+  },
+  {
+    id: "wo-catalog",
+    title: "Page the product list and keep cached prices true",
+    priority: "p2",
+    description:
+      "Return products a page at a time. Clear a cached price when it is set, and expire cached prices.",
+    acceptanceCriteria: [
+      "One answer holds at most one page of products.",
+      "Given a price change, then the next read returns the new price.",
+    ],
+    groupIds: ["g-cat-list", "g-cat-price"],
+  },
+  {
+    id: "wo-buyer",
+    title: "Tell the buyer what happened to an order",
+    priority: "p2",
+    description:
+      "Show a failed order as failed, and say whether the card was charged.",
+    acceptanceCriteria: [
+      "Given a failed order, then the buyer sees whether they were charged.",
+    ],
+    groupIds: ["g-web-failed"],
+  },
+  {
+    id: "wo-decide",
+    title: "Decide refunds and the limit on sign-in attempts",
+    priority: "p2",
+    description:
+      "Two things the design does not say: how money is given back, and how many wrong passwords are allowed.",
+    acceptanceCriteria: [
+      "The requirement states how a refund is made.",
+      "The requirement states the limit on sign-in attempts.",
+    ],
+    groupIds: ["g-bill-refund", "g-auth-lockout"],
   },
 ];
 
 const MODEL: DesignModel = {
   summary:
-    "An online shop. A buyer fills a cart in the web frontend and places an order; the orders service charges the card through the billing service and saves the order.",
+    "An online shop. A buyer signs in, searches the catalog and places an order in the web frontend. Requests go through a gateway to the auth, catalog and orders services. Orders charges the card through billing and announces the order, and a worker emails the buyer.",
   roles: [
     {
       id: "role-buyer",
       name: "Buyer",
-      description: "A signed-in customer who places and reads orders.",
+      description:
+        "A signed-in customer who searches, orders and reads their orders.",
       source: "stated",
+    },
+    {
+      id: "role-visitor",
+      name: "Visitor",
+      description: "Someone who has not signed in.",
+      source: "assumed",
     },
   ],
   entities: [
+    {
+      id: "ent-product",
+      name: "Product",
+      description: "Something for sale, with a name and a price.",
+      fields: ["id", "name", "price"],
+      limit: null,
+      source: "stated",
+    },
     {
       id: "ent-order",
       name: "Order",
@@ -186,15 +1081,48 @@ const MODEL: DesignModel = {
       limit: null,
       source: "stated",
     },
+    {
+      id: "ent-session",
+      name: "Session",
+      description: "A signed-in buyer's token.",
+      fields: ["token", "userId"],
+      limit: null,
+      source: "stated",
+    },
   ],
   operations: [
     {
+      id: "op-sign-in",
+      name: "Sign in",
+      description: "Checks an email and password and opens a session.",
+      entityIds: ["ent-session"],
+      preconditions: [],
+      effects: ["A session is opened."],
+      failureBehaviour: "A wrong email or password is answered with 401.",
+      source: "stated",
+    },
+    {
+      id: "op-search",
+      name: "Search products",
+      description: "Finds products by name.",
+      entityIds: ["ent-product"],
+      preconditions: [],
+      effects: [],
+      failureBehaviour: null,
+      source: "stated",
+    },
+    {
       id: "op-place-order",
       name: "Place an order",
-      description: "Charges the buyer's card and saves the order.",
+      description:
+        "Charges the buyer's card, saves the order and announces it.",
       entityIds: ["ent-order"],
       preconditions: ["The buyer is signed in."],
-      effects: ["The card is charged.", "An order is saved."],
+      effects: [
+        "The card is charged.",
+        "An order is saved.",
+        "An email is sent.",
+      ],
       failureBehaviour: null,
       source: "stated",
     },
@@ -211,6 +1139,27 @@ const MODEL: DesignModel = {
   ],
   permissions: [
     {
+      operationId: "op-sign-in",
+      roleId: "role-visitor",
+      effect: "allow",
+      condition: null,
+      source: "stated",
+    },
+    {
+      operationId: "op-search",
+      roleId: "role-visitor",
+      effect: "allow",
+      condition: null,
+      source: "stated",
+    },
+    {
+      operationId: "op-search",
+      roleId: "role-buyer",
+      effect: "allow",
+      condition: null,
+      source: "stated",
+    },
+    {
       operationId: "op-place-order",
       roleId: "role-buyer",
       effect: "allow",
@@ -218,162 +1167,46 @@ const MODEL: DesignModel = {
       source: "stated",
     },
   ],
-  rules: [],
+  rules: [
+    {
+      id: "rule-own-orders",
+      kind: "security",
+      statement: "A buyer sees only their own orders.",
+      source: "assumed",
+    },
+  ],
   journeys: [
     {
       id: "jrn-checkout",
-      name: "Check out",
+      name: "Sign in, search and check out",
       roleId: "role-buyer",
-      operationIds: ["op-place-order"],
+      operationIds: ["op-sign-in", "op-search", "op-place-order"],
       source: "stated",
     },
   ],
 };
 
-const COMPONENTS: (Architecture["components"][number] & {
-  workspace: string | null;
-})[] = [
-  {
-    id: "cmp-web",
-    name: "Shop frontend",
-    kind: "frontend",
-    workspace: "web",
-    paths: ["web/src"],
-    description: "The pages a buyer uses to fill a cart and check out.",
-  },
-  {
-    id: "cmp-orders",
-    name: "Orders service",
-    kind: "service",
-    workspace: "api",
-    paths: ["api/orders.py"],
-    description: "Takes orders, charges for them and lists them.",
-  },
-  {
-    id: "cmp-auth",
-    name: "Sign-in",
-    kind: "library",
-    workspace: "api",
-    paths: ["api/auth.py"],
-    description: "Works out which user a request comes from.",
-  },
-  {
-    id: "cmp-billing",
-    name: "Billing service",
-    kind: "service",
-    workspace: "billing",
-    paths: ["billing"],
-    description: "Charges cards through the payment gateway.",
-  },
-  {
-    id: "cmp-db",
-    name: "Orders database",
-    kind: "database",
-    workspace: null,
-    paths: [],
-    description: "Holds users and orders.",
-  },
-  {
-    id: "cmp-gateway",
-    name: "Payment gateway",
-    kind: "external",
-    workspace: null,
-    paths: [],
-    description: "The outside system that moves the money.",
-  },
-];
+export interface SampleWorkspace {
+  /** The workspace's name in the project: the first part of its paths. */
+  name: string;
+  /** The sample service its repository is, or null when it is not one. */
+  service: SampleService | null;
+}
 
-const CONNECTIONS: Architecture["connections"] = [
-  { from: "cmp-web", to: "cmp-orders", label: "REST" },
-  { from: "cmp-orders", to: "cmp-auth", label: "imports" },
-  { from: "cmp-orders", to: "cmp-billing", label: "HTTP" },
-  { from: "cmp-orders", to: "cmp-db", label: "SQL" },
-  { from: "cmp-auth", to: "cmp-db", label: "SQL" },
-  { from: "cmp-billing", to: "cmp-gateway", label: "HTTPS" },
-];
+export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
+  const single = workspaces.length === 1;
+  const nameOf = new Map<SampleService, string>();
+  for (const workspace of workspaces) {
+    if (workspace.service && !nameOf.has(workspace.service)) {
+      nameOf.set(workspace.service, workspace.name);
+    }
+  }
+  const has = (service: SampleService) => nameOf.has(service);
+  const pathOf = (service: SampleService, path: string) =>
+    single ? path : `${nameOf.get(service)}/${path}`;
 
-/** The judge's groups, by the keys of the findings each one merges. */
-const GROUPS: {
-  id: string;
-  keys: string[];
-  title: string;
-  type: FindingType;
-  severity: Severity;
-  summary: string;
-}[] = [
-  {
-    id: "g-price",
-    keys: ["price"],
-    title: "A buyer can set their own price",
-    type: "security_vulnerability",
-    severity: "critical",
-    summary: "The orders service charges the total the client sends.",
-  },
-  {
-    id: "g-orders",
-    keys: ["all-orders", "unbounded-list"],
-    title: "The list of orders returns everything to everyone",
-    type: "security_vulnerability",
-    severity: "critical",
-    summary:
-      "The list is neither limited to the user who asks nor split into pages.",
-  },
-  {
-    id: "g-token",
-    keys: ["token-check"],
-    title: "Sign-in tokens never expire",
-    type: "security_vulnerability",
-    severity: "high",
-    summary: "A stolen token works for ever.",
-  },
-  {
-    id: "g-storage",
-    keys: ["token-storage"],
-    title: "The session can be taken by an injected script",
-    type: "security_vulnerability",
-    severity: "high",
-    summary: "The token is kept in local storage.",
-  },
-  {
-    id: "g-charge",
-    keys: ["charge-first"],
-    title: "A buyer can pay for an order that does not exist",
-    type: "architecture_weakness",
-    severity: "high",
-    summary: "The card is charged before the order is saved.",
-  },
-  {
-    id: "g-timeout",
-    keys: ["no-timeout"],
-    title: "A retried charge takes the money twice",
-    type: "architecture_weakness",
-    severity: "high",
-    summary: "Charges have no time limit and no idempotency key.",
-  },
-  {
-    id: "g-failed",
-    keys: ["failed-order"],
-    title: "A failed order tells the buyer nothing",
-    type: "unhandled_journey",
-    severity: "medium",
-    summary: "The frontend reads every answer as a success.",
-  },
-  {
-    id: "g-refund",
-    keys: ["no-refund"],
-    title: "There is no way to give money back",
-    type: "missing_requirement",
-    severity: "medium",
-    summary: "Billing can charge and nothing else.",
-  },
-];
-
-export function sampleProjectScript(workspaceNames: string[]): Script {
-  const single = workspaceNames.length === 1;
-  const pathOf = (workspace: string, path: string) =>
-    single ? path : `${workspace}/${path}`;
-  const findings = FINDINGS.filter((item) =>
-    workspaceNames.includes(item.workspace),
+  const findings = FINDINGS.filter(
+    (item) => has(item.service) && (item.needs ?? []).every(has),
   );
 
   // An agent's findings are numbered in the order it files them.
@@ -381,13 +1214,13 @@ export function sampleProjectScript(workspaceNames: string[]): Script {
   const tools: NonNullable<Script["tools"]> = {};
   for (const item of findings) {
     const steps = (tools[item.agent] ??= []);
-    const path = pathOf(item.workspace, item.path);
-    if (steps.length === 0) {
-      steps.push({
-        tool: "read_file",
-        input: { path, startLine: 0, endLine: 0 },
-      });
-    }
+    const path = pathOf(item.service, item.path);
+    const read = {
+      tool: "read_file",
+      input: { path, startLine: 0, endLine: 0 },
+    };
+    const last = steps.findLast((step) => step.tool === "read_file");
+    if (JSON.stringify(last) !== JSON.stringify(read)) steps.push(read);
     const filed = steps.filter((step) => step.tool === "report_finding");
     uids.set(item.key, `${item.agent}/f${filed.length + 1}`);
     steps.push({
@@ -409,40 +1242,76 @@ export function sampleProjectScript(workspaceNames: string[]): Script {
     ...group,
     findingIds: keys.flatMap((key) => uids.get(key) ?? []),
   })).filter((group) => group.findingIds.length > 0);
-  const rejected = uids.has("no-confirmation")
-    ? [
-        {
-          findingId: uids.get("no-confirmation")!,
-          reason: "A choice of design, not a flaw the code shows.",
-        },
-      ]
-    : [];
+  const groupIds = new Set(groups.map((group) => group.id));
+  const rejected = Object.entries(REJECTED).flatMap(([key, reason]) =>
+    uids.has(key) ? [{ findingId: uids.get(key)!, reason }] : [],
+  );
 
-  const strip = (path: string) =>
-    single ? path.split("/").slice(1).join("/") : path;
-  const architecture: Architecture = {
-    components: COMPONENTS.map((component) => {
-      const inRun =
-        component.workspace !== null &&
-        workspaceNames.includes(component.workspace);
-      if (component.workspace !== null && !inRun) {
-        // Its code is not part of this run: to this run it is an outside system.
-        return { ...component, kind: "external", workspace: null, paths: [] };
-      }
-      return {
-        ...component,
-        workspace: single ? null : component.workspace,
-        paths: component.paths.map(strip).filter(Boolean),
-      };
-    }),
-    connections: CONNECTIONS,
-  };
+  // The architecture: in a project each service is one component; alone, a
+  // service is shown as its parts, and the services it calls as outside
+  // systems.
+  const present = SAMPLE_SERVICES.filter(has);
+  const idOf = (end: string) =>
+    SAMPLE_SERVICES.includes(end as SampleService) ? `cmp-${end}` : end;
+  const calls = CALLS.filter((call) => has(call.from));
+  const reached = new Set(calls.map((call) => call.to));
+  const components: Architecture["components"] = [];
+  for (const service of present) {
+    const info = SERVICES[service];
+    if (single) {
+      components.push(
+        ...info.parts.map((part) => ({ ...part, workspace: null })),
+      );
+    } else {
+      components.push({
+        id: `cmp-${service}`,
+        name: info.name,
+        kind: info.kind,
+        workspace: nameOf.get(service)!,
+        paths: [nameOf.get(service)!],
+        description: info.description,
+      });
+    }
+  }
+  for (const service of SAMPLE_SERVICES) {
+    if (has(service) || !reached.has(service)) continue;
+    components.push({
+      id: `cmp-${service}`,
+      name: SERVICES[service].name,
+      kind: "external",
+      workspace: null,
+      paths: [],
+      description: `${SERVICES[service].description} Its code is not part of this run.`,
+    });
+  }
+  for (const outside of OUTSIDE) {
+    if (reached.has(outside.id)) {
+      components.push({ ...outside, workspace: null, paths: [] });
+    }
+  }
+  const connections = calls.map((call) => ({
+    // Alone, a service's calls leave from its first part.
+    from: single ? SERVICES[call.from].parts[0].id : `cmp-${call.from}`,
+    to: idOf(call.to),
+    label: call.label,
+  }));
+  if (single && present[0]) {
+    const [first, ...rest] = SERVICES[present[0]].parts;
+    connections.unshift(
+      ...rest.map((part) => ({
+        from: first.id,
+        to: part.id,
+        label: "imports",
+      })),
+    );
+  }
 
   const ok = <T>(value: T) => ({ kind: "ok" as const, value });
   const empty = ok({ scenarios: [], findings: [] });
+  const firstPath = present[0] ? pathOf(present[0], "README.md") : "README.md";
   return {
     model: ok(MODEL),
-    architecture,
+    architecture: { components, connections },
     agents: {
       normal_user: empty,
       adversarial_user: empty,
@@ -452,9 +1321,10 @@ export function sampleProjectScript(workspaceNames: string[]): Script {
     },
     tools: {
       model: [
+        { tool: "list_files", input: { path: "" } },
         {
-          tool: "list_files",
-          input: { path: "" },
+          tool: "read_file",
+          input: { path: firstPath, startLine: 0, endLine: 0 },
         },
       ],
       ...tools,
@@ -462,65 +1332,10 @@ export function sampleProjectScript(workspaceNames: string[]): Script {
     challenges: {},
     judge: ok({ groups, rejected }),
     work_orders: ok({
-      workOrders: [
-        {
-          id: "wo-1",
-          title: "Work out the order total on the server",
-          priority: "p0" as const,
-          description:
-            "Ignore the total the client sends. Price the items from the stored prices.",
-          acceptanceCriteria: [
-            "Given a request with a total lower than the items cost, then the card is charged the real total.",
-          ],
-          groupIds: ["g-price"],
-        },
-        {
-          id: "wo-2",
-          title: "Limit the list of orders to its owner, a page at a time",
-          priority: "p0" as const,
-          description:
-            "Return only the asking user's orders, and no more than one page of them.",
-          acceptanceCriteria: [
-            "Given two buyers, when one lists orders, then none of the other's orders are returned.",
-            "Given 10,000 orders, then one answer holds at most one page.",
-          ],
-          groupIds: ["g-orders"],
-        },
-        {
-          id: "wo-3",
-          title: "Make sessions expire and keep them out of reach of scripts",
-          priority: "p1" as const,
-          description:
-            "Give tokens an expiry, and keep the session in a cookie scripts cannot read.",
-          acceptanceCriteria: [
-            "Given a token past its expiry, then the request is refused.",
-            "The token is not readable from page scripts.",
-          ],
-          groupIds: ["g-token", "g-storage"],
-        },
-        {
-          id: "wo-4",
-          title: "Make a charge safe to fail and safe to repeat",
-          priority: "p1" as const,
-          description:
-            "Save the order as pending before charging. Give the charge a time limit and an idempotency key.",
-          acceptanceCriteria: [
-            "Given a failure after the charge, then a pending order exists.",
-            "Given the same charge sent twice, then the card is charged once.",
-          ],
-          groupIds: ["g-charge", "g-timeout"],
-        },
-        {
-          id: "wo-5",
-          title: "Tell the buyer when an order fails",
-          priority: "p2" as const,
-          description: "Check the answer and show what happened.",
-          acceptanceCriteria: [
-            "Given a failed order, then the buyer sees whether they were charged.",
-          ],
-          groupIds: ["g-failed"],
-        },
-      ],
+      workOrders: WORK_ORDERS.map((order) => ({
+        ...order,
+        groupIds: order.groupIds.filter((id) => groupIds.has(id)),
+      })).filter((order) => order.groupIds.length > 0),
     }),
   };
 }

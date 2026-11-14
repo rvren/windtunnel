@@ -399,6 +399,11 @@ export interface RunRecord {
   documents: RunDocument[];
   /** The project this run was started from, if any. */
   projectId?: string;
+  /**
+   * What the run read: the names of the project's workspaces, or the label
+   * of the one repository. Absent on requirement runs.
+   */
+  workspaces?: string[];
   /** Set when the run reads a repository. Absent on requirement runs. */
   source?: RunSource;
   models: { reasoning: string; agents: string };
@@ -428,12 +433,18 @@ export interface RunSummary {
   title: string;
   findingCount: number;
   workOrderCount: number;
+  /** What the run read. Empty for a requirement run. */
+  workspaces: string[];
 }
 
 export type RunEvent =
   | { type: "run.started" }
   | { type: "stage.started"; stage: Stage }
   | { type: "stage.completed"; stage: Stage; summary: string }
+  /** A workspace's code is on disk. Project runs only. */
+  | { type: "workspace.ready"; name: string; label: string }
+  /** The model stage has described how the application is put together. */
+  | { type: "architecture.ready"; architecture: Architecture }
   | { type: "agent.started"; agentId: AgentId }
   | {
       type: "agent.progress";

@@ -2,6 +2,7 @@ import { AGENT_IDS, type AgentId } from "@/lib/agents";
 import { STAGE_ORDER } from "@/lib/labels";
 import type {
   AgentStatus,
+  Architecture,
   LiveFinding,
   RunEvent,
   Stage,
@@ -29,6 +30,10 @@ export interface Feed {
       reading: string | null;
     }
   >;
+  /** In a project run: the workspaces whose code has arrived, in order. */
+  workspaces: { name: string; label: string }[];
+  /** How the application is put together, once the model stage has said. */
+  architecture: Architecture | null;
   /** Findings as they are filed, newest first, before the judge rules. */
   live: (LiveFinding & { agentId: AgentId })[];
   /** True once the run has said its last word. */
@@ -50,7 +55,14 @@ export function emptyFeed(): Feed {
       reading: null,
     };
   }
-  return { stages, agents, live: [], ended: false };
+  return {
+    stages,
+    agents,
+    workspaces: [],
+    architecture: null,
+    live: [],
+    ended: false,
+  };
 }
 
 export function applyEvent(feed: Feed, event: RunEvent): Feed {
@@ -76,6 +88,17 @@ export function applyEvent(feed: Feed, event: RunEvent): Feed {
       return stage(event.stage, { state: "running" });
     case "stage.completed":
       return stage(event.stage, { state: "done", summary: event.summary });
+    case "workspace.ready":
+      if (feed.workspaces.some((item) => item.name === event.name)) return feed;
+      return {
+        ...feed,
+        workspaces: [
+          ...feed.workspaces,
+          { name: event.name, label: event.label },
+        ],
+      };
+    case "architecture.ready":
+      return { ...feed, architecture: event.architecture };
     case "agent.started":
       return agent(event.agentId, { status: "running" });
     case "agent.progress":
