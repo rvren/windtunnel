@@ -5,12 +5,9 @@ import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  ProjectSelect,
+  type SelectableProject,
+} from "@/components/project/project-select";
 
 /*
  * Narrows a list of runs by project and by workspace. The choice lives in
@@ -25,7 +22,7 @@ export function RunFilters({
   workspaces,
 }: {
   /** Left out on a project's own page, where the project is fixed. */
-  projects?: { id: string; name: string }[];
+  projects?: SelectableProject[];
   /** The workspaces that can be picked: those of the project in view. */
   workspaces: string[];
 }) {
@@ -51,36 +48,22 @@ export function RunFilters({
       data-testid="run-filters"
     >
       {projects ? (
-        <Select
-          value={project}
-          onValueChange={(value) =>
+        <ProjectSelect
+          size="sm"
+          className="w-56"
+          testId="run-filter-project"
+          allLabel="All projects"
+          projects={projects}
+          value={project === ALL ? null : project}
+          onChange={(value) =>
             go((next) => {
+              if (value) next.set("project", value);
+              else next.delete("project");
+              // Workspaces belong to one project; a new project starts over.
               next.delete("workspace");
-              if (!value || value === ALL) next.delete("project");
-              else next.set("project", String(value));
             })
           }
-        >
-          <SelectTrigger
-            size="sm"
-            className="w-48"
-            aria-label="Project"
-            data-testid="run-filter-project"
-          >
-            <SelectValue>
-              {projects.find((item) => item.id === project)?.name ??
-                "All projects"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All projects</SelectItem>
-            {projects.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       ) : null}
       {workspaces.length > 0 ? (
         <span className="text-xs text-muted-foreground">Workspace</span>

@@ -337,7 +337,7 @@ function SidebarSwap({
 const COCKPIT = /^\/app\/projects\/[0-9a-f-]{36}\/?$/;
 
 /** The sidebar for the page being shown. Needs a Suspense boundary above it. */
-export function AppSidebar({ switcher }: { switcher: React.ReactNode }) {
+export function AppSidebar() {
   const pathname = usePathname();
   // A project's cockpit gets the whole width: the sidebar folds to its rail
   // on the way in and opens again on the way to any other page. It is only
@@ -353,23 +353,16 @@ export function AppSidebar({ switcher }: { switcher: React.ReactNode }) {
   useEffect(() => {
     move.current(!cockpit);
   }, [cockpit]);
-  return <AppSidebarFor pathname={pathname} switcher={switcher} />;
+  return <AppSidebarFor pathname={pathname} />;
 }
 
 /**
- * The sidebar itself: the mark and the collapse control, the project every
- * page is about, the pages, and the one action at the bottom. With no
+ * The sidebar itself: the mark and the collapse control, the pages, and
+ * the one action at the bottom. With no
  * pathname nothing is marked as current: that is what is shown for the
  * instant before the path is known.
  */
-export function AppSidebarFor({
-  pathname,
-  switcher,
-}: {
-  pathname: string | null;
-  /** The project switcher, which the layout reads on the server. */
-  switcher: React.ReactNode;
-}) {
+export function AppSidebarFor({ pathname }: { pathname: string | null }) {
   // From a project's page, a new run starts in that project.
   const projectId =
     /^\/app\/projects\/([0-9a-f-]{36})/.exec(pathname ?? "")?.[1] ?? null;
@@ -410,11 +403,6 @@ export function AppSidebarFor({
             </>
           ) : (
             <>
-              {/* One scope card: the project the page is about. Part of the
-                  main menu, so it slides away with it in Settings. */}
-              <div className="mb-4 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-                {switcher}
-              </div>
               <NavList
                 groups={MAIN}
                 pathname={pathname}

@@ -4,7 +4,6 @@ import { connection } from "next/server";
 
 import { AppSidebar, AppSidebarFor } from "@/components/app/app-sidebar";
 import { AppTopbar, AppTopbarFor } from "@/components/app/app-topbar";
-import { ProjectSwitcher } from "@/components/project/project-switcher";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ensureDatabase } from "@/server/db/ready";
 import { listProjects } from "@/server/projects/store";
@@ -13,7 +12,7 @@ export const metadata: Metadata = {
   title: { default: "Runs", template: "%s · Windtunnel" },
 };
 
-/** The projects, read once per request for the switcher and the top bar. */
+/** The projects, read once per request for the top bar. */
 const projectList = cache(async () => {
   await connection();
   try {
@@ -21,18 +20,12 @@ const projectList = cache(async () => {
     return (await listProjects()).map((project) => ({
       id: project.id,
       name: project.name,
-      workspaces: project.workspaces.length,
-      demo: project.demo,
     }));
   } catch {
-    // With no database the pages say so; the switcher is shown empty.
+    // With no database the pages say so; the top bar names no project.
     return [];
   }
 });
-
-async function Switcher() {
-  return <ProjectSwitcher projects={await projectList()} />;
-}
 
 async function Topbar() {
   return <AppTopbar projects={await projectList()} />;
@@ -42,21 +35,13 @@ async function Topbar() {
 // and the page on the canvas itself. The marketing header is not part of
 // this area.
 export default function AppLayout({ children }: LayoutProps<"/app">) {
-  // Read on the server and handed to the sidebar, which is a client component.
-  const switcher = (
-    <Suspense fallback={<div className="h-[46px]" />}>
-      <Switcher />
-    </Suspense>
-  );
   return (
     <SidebarProvider>
       {/* The sidebar and top bar read the current path, which a page with an
           id in its address only knows at request time. Until then they are
           shown with nothing marked as current. */}
-      <Suspense
-        fallback={<AppSidebarFor pathname={null} switcher={switcher} />}
-      >
-        <AppSidebar switcher={switcher} />
+      <Suspense fallback={<AppSidebarFor pathname={null} />}>
+        <AppSidebar />
       </Suspense>
       {/* min-w-0: a wide chart scrolls inside itself, never the page. */}
       <SidebarInset className="min-w-0">

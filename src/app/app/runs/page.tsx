@@ -82,7 +82,12 @@ async function RunsTable({
   return (
     <>
       <RunFilters
-        projects={projects.map(({ id, name }) => ({ id, name }))}
+        projects={projects.map(({ id, name, workspaces, demo }) => ({
+          id,
+          name,
+          workspaces: workspaces.length,
+          demo,
+        }))}
         workspaces={current?.workspaces.map((item) => item.name) ?? []}
       />
       <div className="overflow-hidden rounded-card border bg-card">
