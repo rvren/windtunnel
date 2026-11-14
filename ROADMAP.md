@@ -5,17 +5,24 @@ alone: plain input in, plain output out. Connectors come last and stay optional.
 
 The stage names keep the wind tunnel metaphor. They are working titles.
 
-## Now: foundation
+## Now
 
 Done:
 
 - Name, logo and brand colour ([brand/](brand/README.md))
-- App shell on Next.js, Tailwind CSS and shadcn/ui
-- Home page that explains the product
-
-Not done: everything below.
+- The home page, and the product app at `/app`
+- Tunnel run, version 1 (below)
+- Postgres for runs; Docker Compose to run everything locally
 
 ## 1. Tunnel run
+
+**Version 1 is built.** Still to do in this stage:
+
+- A second round, where agents challenge each other's findings.
+- Run the same checks against the real code once it exists.
+- Sign-in, so more than one team can share a server.
+
+What version 1 does:
 
 The core simulation. One requirement, five agents, one report.
 
@@ -25,7 +32,6 @@ The core simulation. One requirement, five agents, one report.
 - Output: missing requirements, architecture weaknesses, security
   vulnerabilities, unhandled user journeys, and new work orders with acceptance
   criteria. On screen, as Markdown and as JSON.
-- Later in this stage: run the same checks against the real code once it exists.
 
 Needs a model API key. That is the only outside dependency of the standalone
 product.

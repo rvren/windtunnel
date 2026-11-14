@@ -1,0 +1,58 @@
+# Windtunnel on your machine.
+#
+#   docker compose up --build     the whole application: app + database
+#   docker compose up -d db       only the database, for `pnpm dev` on the host
+#   docker compose down -v        stop everything and delete the database volume
+#
+# The credentials below are for local use only.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: windtunnel
+      POSTGRES_PASSWORD: windtunnel-dev-only
+      POSTGRES_DB: windtunnel
+    ports:
+      # 5433 on the host: another project's Postgres may already hold 5432.
+      - "5433:5432"
+    volumes:
+      - windtunnel-db:/var/lib/postgresql/data
+      # Creates the separate windtunnel_test database used by `pnpm test:db`.
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U windtunnel -d windtunnel"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3300:3300"
+    # ANTHROPIC_API_KEY and the optional model settings come from .env.local.
+    # The key is passed in when the container starts; it is not in the image.
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      # Inside Compose the database is the `db` service, whatever .env.local says.
+      DATABASE_URL: postgres://windtunnel:windtunnel-dev-only@db:5432/windtunnel
+      # Development only: `WINDTUNNEL_SAMPLE_RUN=1 docker compose up` replays
+      # sample data and never calls the model.
+      WINDTUNNEL_SAMPLE_RUN: ${WINDTUNNEL_SAMPLE_RUN:-}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3300/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  windtunnel-db:

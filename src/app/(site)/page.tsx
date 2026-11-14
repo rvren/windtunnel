@@ -1,23 +1,15 @@
-import {
-  ArrowDown,
-  FileText,
-  ListChecks,
-  MessageCircleQuestionMark,
-  Plug,
-  Scaling,
-  ShieldAlert,
-  User,
-  Zap,
-} from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, FileText, ListChecks, Plug } from "lucide-react";
 
 import { FlowBand } from "@/components/brand/flow-band";
 import { HeroVisual } from "@/components/brand/hero-visual";
+import { Panel } from "@/components/panel";
+import { AgentIcon } from "@/components/run/badges";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { AGENTS } from "@/lib/agents";
+import { EXAMPLE_REQUIREMENT } from "@/lib/limits";
 import { cn } from "@/lib/utils";
-
-const EXAMPLE_REQUIREMENT =
-  "Build a multi-tenant dashboard where organization admins can invite users and manage permissions.";
 
 const steps = [
   {
@@ -31,34 +23,6 @@ const steps = [
   {
     title: "A report comes out",
     body: "Findings you can act on, and work orders with acceptance criteria.",
-  },
-];
-
-const agents = [
-  {
-    icon: User,
-    name: "Normal user",
-    body: "Walks the expected path, the way a real user would.",
-  },
-  {
-    icon: ShieldAlert,
-    name: "Adversarial user",
-    body: "Tries privilege escalation and unauthorized access.",
-  },
-  {
-    icon: Zap,
-    name: "Chaos",
-    body: "Brings API failures, network timeouts and partial failures.",
-  },
-  {
-    icon: Scaling,
-    name: "Scale",
-    body: "Pushes to large organizations, thousands of users and performance limits.",
-  },
-  {
-    icon: MessageCircleQuestionMark,
-    name: "Product critic",
-    body: "Finds ambiguous requirements and missing workflows.",
   },
 ];
 
@@ -111,7 +75,7 @@ const roadmap = [
   {
     name: "Tunnel run",
     body: "The core simulation: one requirement, five agents, one report.",
-    stage: "Next",
+    stage: "In the app",
   },
   {
     name: "Crosswind",
@@ -131,16 +95,6 @@ const roadmap = [
 ];
 
 const number = (index: number) => String(index + 1).padStart(2, "0");
-
-/* A glass card: hairline border, faint fill, used for every raised surface. */
-function Panel({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      className={cn("rounded-2xl border bg-card/60 backdrop-blur", className)}
-      {...props}
-    />
-  );
-}
 
 /* Left: label, two-line heading, text, optional numbered list. Right: a panel. */
 function Feature({
@@ -204,7 +158,7 @@ export default function Home() {
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-6 px-4 pt-12 pb-28 sm:px-6 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:pt-0">
           <div>
             <Badge variant="outline" className="rounded-full">
-              Foundation build
+              Early build
             </Badge>
             <h1 className="mt-6 text-5xl leading-[1.02] font-medium tracking-[-0.04em] sm:text-6xl lg:text-[4.5rem]">
               Break it before
@@ -218,26 +172,26 @@ export default function Home() {
               fix.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a
-                href="#how"
-                data-testid="hero-how-link"
+              <Link
+                href="/app"
+                data-testid="hero-launch-app"
                 className={cn(
                   buttonVariants({ size: "lg" }),
                   "h-11 rounded-full px-5 shadow-[0_0_44px_-6px] shadow-brand/70",
                 )}
               >
-                See how it works
-                <ArrowDown />
-              </a>
+                Launch app
+                <ArrowRight />
+              </Link>
               <a
-                href="#roadmap"
-                data-testid="hero-roadmap-link"
+                href="#how"
+                data-testid="hero-how-link"
                 className={cn(
                   buttonVariants({ variant: "outline", size: "lg" }),
                   "h-11 rounded-full px-5",
                 )}
               >
-                Roadmap
+                See how it works
               </a>
             </div>
             <p className="mt-8 flex max-w-md items-baseline gap-3 rounded-xl border bg-card/50 px-3.5 py-2.5 font-mono text-xs leading-relaxed text-muted-foreground">
@@ -278,14 +232,14 @@ export default function Home() {
           <span className="text-muted-foreground">Five ways to break it.</span>
         </h2>
         <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {agents.map((agent) => (
+          {AGENTS.map((agent) => (
             <li
               key={agent.name}
               className="last:sm:col-span-2 last:lg:col-span-1"
             >
               <Panel className="h-full p-5">
                 <span className="flex size-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                  <agent.icon className="size-5" aria-hidden="true" />
+                  <AgentIcon agentId={agent.id} className="size-5" />
                 </span>
                 <h3 className="mt-5 font-medium">{agent.name}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
@@ -413,7 +367,7 @@ export default function Home() {
                   <span className="flex items-center justify-between gap-3">
                     <span className="font-medium">{item.name}</span>
                     <Badge
-                      variant={item.stage === "Next" ? "default" : "secondary"}
+                      variant={item.stage === "Later" ? "secondary" : "default"}
                     >
                       {item.stage}
                     </Badge>
@@ -439,8 +393,8 @@ export default function Home() {
             Find the flaw while it is still a sentence.
           </p>
           <p className="mt-10 border-t pt-6 text-sm text-muted-foreground">
-            Windtunnel is at the foundation stage. The simulation engine is not
-            built yet.
+            Windtunnel is an early build. Its first engine, Tunnel run, is in
+            the app.
           </p>
         </div>
       </footer>

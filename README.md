@@ -18,22 +18,60 @@ That is the whole design brief.
 
 ## Status
 
-**Foundation only.** This repo holds the name, the brand and the app shell with
-its home page. The simulation engine is not built yet. See
+**Early build.** The product app and the first engine, Tunnel run, are in this
+repo: a requirement goes in, five agents test the design, and a report with
+findings and work orders comes out. What comes after is in
 [ROADMAP.md](ROADMAP.md).
 
-## The idea
+Not yet verified: so far the engine has run only against a stand-in for the
+model, in tests. Its first run on the real Claude API is the next step.
 
-A product requirement is not just a document. It is a world of possible user
-behaviour, edge cases, failures and security holes. Windtunnel turns the
-requirement into a simulation and lets agents loose in it.
+## Run it
 
-You give it a requirement:
+You need Docker and a Claude API key.
 
-> Build a multi-tenant dashboard where organization admins can invite users and
-> manage permissions.
+1. Copy `.env.example` to `.env.local` and put your key in it:
 
-Five agents then compete to find flaws in the proposed design:
+   ```
+   ANTHROPIC_API_KEY=...
+   ```
+
+2. Start the app and its database:
+
+   ```bash
+   docker compose up --build
+   ```
+
+3. Open <http://localhost:3300>. "Launch app" opens the product at
+   <http://localhost:3300/app>.
+
+To stop everything and delete the saved runs:
+
+```bash
+docker compose down -v
+```
+
+A run sends the requirement and any attached files to the Claude API, takes a
+few minutes, and goes on if you close the page.
+
+## How a run works
+
+```
+requirement (+ Markdown files)
+   │
+ 1 Model        writes an explicit design model: roles, data, operations,
+   │            permission rules, failure behaviour, limits, journeys.
+   │            Each item is marked "stated" or "assumed".
+ 2 Coverage     code finds the gaps that need no judgement: an operation with
+   │            no rule for a role, no failure behaviour, no limit.
+ 3 Agents ×5    in parallel, each walks its own scenarios against the model
+   │            and reports findings with the steps as evidence.
+ 4 Judge        merges duplicates, rejects findings the requirement does not
+   │            support, sets severity, credits the finder.
+ 5 Work orders  one per accepted finding group, with acceptance criteria.
+   │
+ report: findings by type, work orders, the design model, a scoreboard
+```
 
 | Agent            | What it does                                                             |
 | ---------------- | ------------------------------------------------------------------------ |
@@ -43,16 +81,17 @@ Five agents then compete to find flaws in the proposed design:
 | Scale            | Pushes to large organizations, thousands of users and performance limits |
 | Product critic   | Finds ambiguous requirements and missing workflows                       |
 
-The report lists:
+Three things keep the report honest:
 
-- Missing requirements
-- Architecture weaknesses
-- Security vulnerabilities
-- Unhandled user journeys
-- New work orders with acceptance criteria
+- **The model is visible.** The report shows the design model the engine built,
+  with its assumptions, so you can see exactly what was tested.
+- **Evidence is checked by code.** A finding must cite scenario steps that
+  exist. One that cites nothing real is dropped, and the report says so.
+- **The agents compete.** They score for accepted findings, more when nobody
+  else found the same thing. The scoreboard is part of the report.
 
-Windtunnel tests the design before implementation. Once the code exists, it can
-check the real thing against the same findings.
+The model, the judge and the work orders use Claude Opus 5.5; the five agents
+use Claude Sonnet 5.5. Both are settings (see `.env.example`).
 
 ## Works on its own
 
@@ -70,40 +109,60 @@ work orders out.
 
 ## Develop
 
-Needs Node 20 or later and pnpm 10.
+Needs Node 24, pnpm 10 and Docker.
 
 ```bash
 pnpm install
+```
+
+Run only the database in Docker and the app on your machine, for fast reloads:
+
+```bash
+pnpm db:up
 ```
 
 ```bash
 pnpm dev
 ```
 
-The app runs on <http://localhost:3300>.
+The app is on <http://localhost:3300> and Postgres on port 5433.
 
-```bash
-pnpm lint
-```
+| Command            | Does                                                        |
+| ------------------ | ----------------------------------------------------------- |
+| `pnpm lint`        | ESLint                                                      |
+| `pnpm typecheck`   | TypeScript                                                  |
+| `pnpm test`        | Unit tests. No network, no database                         |
+| `pnpm test:db`     | Postgres store tests, against a separate `windtunnel_test`  |
+| `pnpm build`       | Production build                                            |
+| `pnpm db:generate` | Turn a change in `src/server/db/schema.ts` into a migration |
 
-```bash
-pnpm build
-```
+Migrations in `drizzle/` are applied by the app when it starts.
+
+To work on the screens without spending on the model, start the app with
+`WINDTUNNEL_SAMPLE_RUN=1`. Runs then replay a small hand-written sample and are
+marked "Sample run" everywhere.
 
 ## Stack
 
-- [Next.js](https://nextjs.org) (App Router, TypeScript, Turbopack)
-- [Tailwind CSS](https://tailwindcss.com) v4
-- [shadcn/ui](https://ui.shadcn.com) on Base UI, with lucide icons
+- [Next.js](https://nextjs.org) 16 (App Router, TypeScript, Turbopack)
+- [Tailwind CSS](https://tailwindcss.com) v4 and
+  [shadcn/ui](https://ui.shadcn.com) on Base UI, with lucide icons
+- Postgres 17 with [Drizzle](https://orm.drizzle.team)
+- The Claude API through `@anthropic-ai/sdk`
 - Sora for text and headings, Geist Mono for labels
 
 ## Layout
 
 ```
-brand/            logo files, colours, usage notes, preview sheet
-src/app/          routes, global styles, icons and the share card
-src/components/   brand/ (mark, hero art), ui/ (shadcn), site chrome
-src/lib/          helpers
+brand/                 logo files, colours, usage notes, preview sheet
+drizzle/               SQL migrations
+src/app/(site)/        the home page
+src/app/app/           the product: Runs, New run, Run, Settings
+src/app/api/           runs, their event stream and exports, health
+src/components/        brand/, app/ (shell), run/ (screens), ui/ (shadcn)
+src/lib/               the agents, labels, limits, the live-feed reducer
+src/server/engine/     the engine: stages, prompts, checks, scoring, export
+src/server/db/         tables, connection, migrations
 ```
 
 ## Brand

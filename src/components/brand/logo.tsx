@@ -34,11 +34,23 @@ export function Mark({ className, ...props }: React.ComponentProps<"svg">) {
 }
 
 /* Mark plus the name. The name is live text in Sora SemiBold, lowercase. */
-export function Logo({ className }: { className?: string }) {
+export function Logo({
+  className,
+  wordClassName,
+}: {
+  className?: string;
+  /** Extra classes for the name, for example to hide it in a narrow rail. */
+  wordClassName?: string;
+}) {
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
       <Mark />
-      <span className="text-lg leading-none font-semibold tracking-[-0.04em]">
+      <span
+        className={cn(
+          "text-lg leading-none font-semibold tracking-[-0.04em]",
+          wordClassName,
+        )}
+      >
         windtunnel
       </span>
     </span>

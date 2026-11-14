@@ -1,5 +1,8 @@
+import Link from "next/link";
+
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { buttonVariants } from "@/components/ui/button";
 
 const links = [
   { href: "#how", label: "How it works" },
@@ -34,8 +37,15 @@ export function SiteHeader() {
             </a>
           ))}
         </nav>
-        <div className="col-start-3 flex justify-end">
+        <div className="col-start-3 flex items-center justify-end gap-2">
           <ThemeToggle />
+          <Link
+            href="/app"
+            data-testid="header-launch-app"
+            className={buttonVariants({ className: "rounded-full px-4" })}
+          >
+            Launch app
+          </Link>
         </div>
       </div>
     </header>

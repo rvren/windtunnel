@@ -1,0 +1,124 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ArrowLeft, History, Plus, Settings } from "lucide-react";
+
+import { Logo } from "@/components/brand/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from "@/components/ui/sidebar";
+
+// Only what exists is listed. Crosswind, Fly-off and Black box join this list
+// when they are built.
+const items = [
+  {
+    href: "/app",
+    label: "Runs",
+    icon: History,
+    testId: "app-nav-runs",
+    // Runs owns /app and every /app/runs/... page except the new-run form.
+    isActive: (path: string | null) =>
+      path === "/app" ||
+      Boolean(path?.startsWith("/app/runs/") && path !== "/app/runs/new"),
+  },
+  {
+    href: "/app/settings",
+    label: "Settings",
+    icon: Settings,
+    testId: "app-nav-settings",
+    isActive: (path: string | null) =>
+      Boolean(path?.startsWith("/app/settings")),
+  },
+];
+
+/** The sidebar for the page being shown. Needs a Suspense boundary above it. */
+export function AppSidebar() {
+  return <AppSidebarFor pathname={usePathname()} />;
+}
+
+/**
+ * The sidebar itself. With no pathname nothing is marked as current: that is
+ * what is shown for the instant before the path is known.
+ */
+export function AppSidebarFor({ pathname }: { pathname: string | null }) {
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <Link
+          href="/app"
+          aria-label="Windtunnel, runs"
+          data-testid="app-sidebar-logo"
+          className="flex h-10 items-center px-1.5"
+        >
+          <Logo wordClassName="group-data-[collapsible=icon]:hidden" />
+        </Link>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<Link href="/app/runs/new" />}
+              tooltip="New run"
+              data-testid="app-nav-new-run"
+              isActive={pathname === "/app/runs/new"}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground data-active:bg-primary data-active:text-primary-foreground"
+            >
+              <Plus />
+              <span>New run</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {items.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    render={<Link href={item.href} />}
+                    tooltip={item.label}
+                    isActive={item.isActive(pathname)}
+                    data-testid={item.testId}
+                  >
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<Link href="/" />}
+              tooltip="Back to site"
+              data-testid="app-nav-back-to-site"
+            >
+              <ArrowLeft />
+              <span>Back to site</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <div className="px-0.5">
+          <ThemeToggle />
+        </div>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
+}
