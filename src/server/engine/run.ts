@@ -5,17 +5,21 @@ import { RunError, type LlmClient } from "./llm";
 import { readProgress } from "./progress";
 import {
   AGENT_SYSTEM,
+  CHALLENGE_SYSTEM,
   JUDGE_SYSTEM,
   MODEL_SYSTEM,
   WORK_ORDER_SYSTEM,
   agentPrompt,
   agentSharedContext,
+  challengePrompt,
+  challengeSharedContext,
   judgePrompt,
   modelPrompt,
   workOrderPrompt,
 } from "./prompts";
 import {
   AgentReport,
+  Challenges,
   DesignModel,
   Verdict,
   WorkOrders,
@@ -33,6 +37,7 @@ import { scoreAgents } from "./score";
 import type { RunStore } from "./store";
 import {
   checkAgentReport,
+  checkChallenges,
   checkWorkOrders,
   reconcileVerdict,
 } from "./validate";
@@ -40,7 +45,8 @@ import {
 /*
  * The orchestrator: one run, five stages.
  *
- *   model → coverage → agents (five, in parallel) → judge → work orders
+ *   model → coverage → agents (five, in parallel) → challenge → judge →
+ *   work orders
  *
  * Every step is announced as an event, saved and published, so a page can
  * follow the run live and replay it after a reload.
@@ -100,6 +106,7 @@ export function newRun(
       declinedCategory: null,
       error: null,
     })),
+    challenges: [],
     groups: [],
     rejected: [],
     workOrders: [],
@@ -317,7 +324,61 @@ export async function executeRun(
 
     const findings = run.agents.flatMap((agent) => agent.findings);
 
-    // 4. Judge: merge duplicates, reject what the design does not support.
+    // 4. Challenge: each agent reviews what the others found. Best effort:
+    // an agent that fails or is declined here simply has nothing to say.
+    run.challenges = [];
+    await stage("challenge", async () => {
+      const reviewers = run.agents.filter((agent) => agent.status === "done");
+      if (findings.length === 0 || reviewers.length < 2) {
+        return "Nothing to challenge";
+      }
+      const shared = challengeSharedContext(run, model, findings);
+      let usage = ZERO_USAGE;
+
+      // Same cache-aware start as the agents stage: one first, then the rest.
+      let release!: () => void;
+      const firstAnswering = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const review = async (agent: AgentRun, first: boolean) => {
+        const definition = AGENTS.find((item) => item.id === agent.agentId)!;
+        if (!first) await firstAnswering;
+        try {
+          const result = await llm.call({
+            stage: "challenge",
+            model: run.models.agents,
+            effort: "medium",
+            system: CHALLENGE_SYSTEM,
+            shared,
+            prompt: challengePrompt(definition),
+            schema: Challenges,
+            onStart: first ? release : undefined,
+          });
+          usage = addUsage(usage, result.usage);
+          if (result.kind === "ok") {
+            run.challenges!.push(
+              ...checkChallenges(agent.agentId, result.value, findings),
+            );
+          }
+        } catch {
+          // Leave this agent out of the round.
+        } finally {
+          if (first) release();
+        }
+      };
+      await Promise.all(
+        reviewers.map((agent, index) => review(agent, index === 0)),
+      );
+      run.usage.challenge = usage;
+
+      const disputes = run.challenges!.filter(
+        (item) => item.stance === "dispute",
+      ).length;
+      return `${plural(disputes, "dispute")}, ${run.challenges!.length - disputes} in support`;
+    });
+    const challenges = run.challenges;
+
+    // 5. Judge: merge duplicates, reject what the design does not support.
     await stage("judge", async () => {
       if (findings.length === 0) {
         run.scoreboard = scoreAgents(run.agents, [], []);
@@ -336,7 +397,7 @@ export async function executeRun(
         model: run.models.reasoning,
         effort: "high",
         system: JUDGE_SYSTEM,
-        prompt: judgePrompt(run, model, findings, scenarios),
+        prompt: judgePrompt(run, model, findings, scenarios, challenges),
         schema: Verdict,
       });
       run.usage.judge = result.usage;
@@ -346,11 +407,16 @@ export async function executeRun(
       const verdict = reconcileVerdict(result.value, findings);
       run.groups = verdict.groups;
       run.rejected = verdict.rejected;
-      run.scoreboard = scoreAgents(run.agents, run.groups, run.rejected);
+      run.scoreboard = scoreAgents(
+        run.agents,
+        run.groups,
+        run.rejected,
+        challenges,
+      );
       return `${plural(run.groups.length, "finding")} accepted, ${run.rejected.length} rejected`;
     });
 
-    // 5. Work orders: what to do about each accepted finding.
+    // 6. Work orders: what to do about each accepted finding.
     await stage("work_orders", async () => {
       if (run.groups.length === 0) return "No work orders needed";
       const result = await llm.call({

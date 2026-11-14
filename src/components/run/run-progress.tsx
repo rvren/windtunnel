@@ -39,7 +39,7 @@ function StageMark({ state, index }: { state: StageState; index: number }) {
 export function StageRail({ feed }: { feed: Feed }) {
   return (
     <ol
-      className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-5"
+      className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-3 lg:grid-cols-6"
       data-testid="run-stages"
     >
       {STAGE_ORDER.map((stage, index) => {

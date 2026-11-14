@@ -18,7 +18,6 @@ Done:
 
 **Version 1 is built.** Still to do in this stage:
 
-- A second round, where agents challenge each other's findings.
 - Run the same checks against the real code once it exists.
 - Sign-in, so more than one team can share a server.
 

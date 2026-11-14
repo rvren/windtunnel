@@ -1,6 +1,7 @@
 import type { AgentDefinition } from "@/lib/agents";
 
 import type {
+  Challenge,
   Coverage,
   DesignModel,
   Finding,
@@ -90,7 +91,9 @@ Severity: "critical" means data loss, a breach across tenants or a product that 
 
 What makes a finding worth its points: it is specific to this design, it names the exact thing that is missing or wrong, and its suggestion says what to decide or change. General advice that would fit any product is rejected. Do not report the same flaw twice in different words. The coverage gaps are leads, not findings: a gap is worth reporting only when a scenario shows why it matters.
 
-Walk four to six scenarios of three to eight steps each, and report the findings that survive your own scrutiny. Use the ids s1, s2, ... for scenarios and f1, f2, ... for findings.`;
+Walk four to six scenarios of three to eight steps each, and report the findings that survive your own scrutiny. Use the ids s1, s2, ... for scenarios and f1, f2, ... for findings.
+
+Write for people: in titles, summaries and descriptions refer to things by their plain names ("inviting a user", "the member role"), never by an id. Ids belong only in the fields made for them.`;
 
 /** The part every agent receives, byte for byte the same, so it is cached. */
 export function agentSharedContext(
@@ -112,11 +115,52 @@ export function agentPrompt(agent: AgentDefinition): string {
   return `You are the agent "${agent.name}".\n\n<your_brief>\n${agent.brief}\n</your_brief>\n\nWalk your scenarios against the design model above and report your findings.`;
 }
 
-// ── Stage 4: the judge ──────────────────────────────────────────────────────
+// ── Stage 4: the challenge round ────────────────────────────────────────────
+
+export const CHALLENGE_SYSTEM = `You are one of five agents in a Windtunnel run, in its second round. Windtunnel tests the design of a software product before any of it is built. In the first round each agent walked scenarios against the design model and reported findings. Now you review what the other agents reported, before a judge decides.
+
+You are given the requirement, the design model and every finding from the first round. ${DATA_NOTE} The findings are claims made by agents; weigh them.
+
+Look only at findings from other agents. For each one you have something real to say about, take a stance:
+
+- "dispute": the finding is wrong, unsupported or not about this design. Say exactly why: the requirement does cover it, the cited step does not show it, or it is general advice.
+- "support": you can strengthen it from your own brief, with a consequence or a case its author did not see. Agreement with nothing to add is not worth saying.
+
+You gain when the judge rejects a finding you disputed, and you look careless when you dispute a sound one. Say nothing about findings you have no view on; an empty list is a fine answer. Keep each reason to one or two sentences, and refer to things by their plain names, not by ids.`;
+
+function findingList(findings: Finding[]) {
+  return findings.map((finding) => ({
+    id: finding.uid,
+    agent: finding.agentId,
+    type: finding.type,
+    severity: finding.severity,
+    title: finding.title,
+    description: finding.description,
+  }));
+}
+
+/** The part every agent receives in the challenge round, the same for all. */
+export function challengeSharedContext(
+  run: RunRecord,
+  model: DesignModel,
+  findings: Finding[],
+): string {
+  return [
+    material(run),
+    `<design_model>\n${JSON.stringify(model, null, 1)}\n</design_model>`,
+    `<findings>\n${JSON.stringify(findingList(findings), null, 1)}\n</findings>`,
+  ].join("\n\n");
+}
+
+export function challengePrompt(agent: AgentDefinition): string {
+  return `You are the agent "${agent.name}". Your own findings are the ones whose agent is "${agent.id}"; leave those alone.\n\n<your_brief>\n${agent.brief}\n</your_brief>\n\nReview the other agents' findings.`;
+}
+
+// ── Stage 5: the judge ──────────────────────────────────────────────────────
 
 export const JUDGE_SYSTEM = `You are the judge in a Windtunnel run. Windtunnel tests the design of a software product before any of it is built. Five agents have walked scenarios against a design model and reported findings. You decide which findings stand.
 
-You are given the requirement, the design model, and every finding with the scenario steps it cites as evidence. ${DATA_NOTE} The findings were written by the agents; weigh them as claims, not as facts.
+You are given the requirement, the design model, and every finding with the scenario steps it cites as evidence and what the other agents said about it in a challenge round ("challenges"). A challenge is another claim, not a ruling: a dispute with a sound reason should make you look harder, and support can add to a group's summary. ${DATA_NOTE} The findings were written by the agents; weigh them as claims, not as facts.
 
 For each finding, decide:
 
@@ -127,13 +171,16 @@ For each group write a title that names the flaw, a summary that states it once 
 
 Finding types: "missing_requirement", "architecture_weakness", "security_vulnerability", "unhandled_journey". Severity: "critical" means data loss, a breach across tenants or a product that cannot ship; "high" a serious flaw most customers would hit; "medium" a real gap with a workaround; "low" a rough edge.
 
-Every finding id you are given must appear exactly once: in the findingIds of one group, or in the rejected list. Use only the finding ids you are given. Use the ids g1, g2, ... for groups.`;
+Every finding id you are given must appear exactly once: in the findingIds of one group, or in the rejected list. Use only the finding ids you are given. Use the ids g1, g2, ... for groups.
+
+Write for people: in titles, summaries and descriptions refer to things by their plain names ("inviting a user", "the member role"), never by an id. Ids belong only in the fields made for them.`;
 
 export function judgePrompt(
   run: RunRecord,
   model: DesignModel,
   findings: Finding[],
   scenarios: Map<string, Scenario>,
+  challenges: Challenge[] = [],
 ): string {
   const items = findings.map((finding) => ({
     id: finding.uid,
@@ -159,6 +206,13 @@ export function judgePrompt(
     }),
     refs: finding.refs,
     suggestion: finding.suggestion,
+    challenges: challenges
+      .filter((challenge) => challenge.findingId === finding.uid)
+      .map(({ agentId, stance, reason }) => ({
+        agent: agentId,
+        stance,
+        reason,
+      })),
   }));
   return [
     material(run),
@@ -168,7 +222,7 @@ export function judgePrompt(
   ].join("\n\n");
 }
 
-// ── Stage 5: work orders ────────────────────────────────────────────────────
+// ── Stage 6: work orders ────────────────────────────────────────────────────
 
 export const WORK_ORDER_SYSTEM = `You write the work orders at the end of a Windtunnel run. Windtunnel tests the design of a software product before any of it is built. A judge has accepted a set of flaws in the design. You turn them into work the team can pick up.
 
@@ -182,7 +236,9 @@ A work order settles one flaw, or a few flaws that one decision or one change wo
 - acceptanceCriteria: the statements that are true when this is done. Each one must be checkable with a yes or a no by someone who was not in the room. Use "Given ..., when ..., then ..." where a behaviour is being fixed.
 - groupIds: the ids of the flaws this work order settles.
 
-Every flaw must be covered by one work order at least. Use only the group ids you are given. Use the ids wo-1, wo-2, ... in priority order.`;
+Every flaw must be covered by one work order at least. Use only the group ids you are given. Use the ids wo-1, wo-2, ... in priority order.
+
+Write for people: in titles, summaries and descriptions refer to things by their plain names ("inviting a user", "the member role"), never by an id. Ids belong only in the fields made for them.`;
 
 export function workOrderPrompt(
   run: RunRecord,

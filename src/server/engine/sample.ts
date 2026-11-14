@@ -3,8 +3,8 @@ import { AGENTS, type AgentId } from "@/lib/agents";
 import { RunError, type LlmCall, type LlmClient, type LlmResult } from "./llm";
 import type {
   AgentReport,
+  Challenges,
   DesignModel,
-  Stage,
   Usage,
   Verdict,
   WorkOrders,
@@ -29,6 +29,8 @@ type Scripted<T> =
 export interface Script {
   model: Scripted<DesignModel>;
   agents: Record<AgentId, Scripted<AgentReport>>;
+  /** What each agent says about the others' findings. Default: nothing. */
+  challenges?: Partial<Record<AgentId, Scripted<Challenges>>>;
   judge: Scripted<Verdict>;
   work_orders: Scripted<WorkOrders>;
 }
@@ -58,14 +60,23 @@ export class ScriptedLlm implements LlmClient {
   ) {}
 
   private entryFor(request: LlmCall<unknown>): [string, Scripted<unknown>] {
-    if (request.stage !== "agents") {
-      const stage = request.stage as Exclude<Stage, "agents" | "coverage">;
+    const { stage } = request;
+    if (stage === "model" || stage === "judge" || stage === "work_orders") {
       return [stage, this.script[stage]];
     }
     const agent = AGENTS.find((item) =>
       request.prompt.includes(`You are the agent "${item.name}"`),
     );
     if (!agent) throw new Error("ScriptedLlm: no agent named in the prompt.");
+    if (stage === "challenge") {
+      return [
+        `challenge:${agent.id}`,
+        this.script.challenges?.[agent.id] ?? {
+          kind: "ok",
+          value: { challenges: [] },
+        },
+      ];
+    }
     return [agent.id, this.script.agents[agent.id]];
   }
 
@@ -541,6 +552,34 @@ export const SAMPLE_SCRIPT: Script = {
       { kind: "ok", value },
     ]),
   ) as Script["agents"],
+  challenges: {
+    chaos: {
+      kind: "ok",
+      value: {
+        challenges: [
+          {
+            findingId: "product_critic/f2",
+            stance: "dispute",
+            reason:
+              "Documentation is general advice. Nothing in this design makes it a flaw.",
+          },
+        ],
+      },
+    },
+    scale: {
+      kind: "ok",
+      value: {
+        challenges: [
+          {
+            findingId: "adversarial_user/f2",
+            stance: "support",
+            reason:
+              "At many organizations this is also a load problem: one admin could act on every tenant's users.",
+          },
+        ],
+      },
+    },
+  },
   judge: { kind: "ok", value: SAMPLE_VERDICT },
   work_orders: { kind: "ok", value: SAMPLE_WORK_ORDERS },
 };

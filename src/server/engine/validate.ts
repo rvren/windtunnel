@@ -2,6 +2,8 @@ import type { AgentId } from "@/lib/agents";
 
 import type {
   AgentReport,
+  Challenge,
+  Challenges,
   DroppedFinding,
   Finding,
   FindingGroup,
@@ -157,4 +159,27 @@ export function checkWorkOrders(
       .map((group) => group.id)
       .filter((id) => !covered.has(id)),
   };
+}
+
+/**
+ * Checks one agent's challenges. An agent may speak about another agent's
+ * finding, once. Anything about its own findings, or about a finding that
+ * does not exist, is dropped.
+ */
+export function checkChallenges(
+  agentId: AgentId,
+  raw: Challenges,
+  findings: Finding[],
+): Challenge[] {
+  const owner = new Map(findings.map((item) => [item.uid, item.agentId]));
+  const seen = new Set<string>();
+  const kept: Challenge[] = [];
+  for (const item of raw.challenges) {
+    const findingOwner = owner.get(item.findingId);
+    if (!findingOwner || findingOwner === agentId) continue;
+    if (seen.has(item.findingId)) continue;
+    seen.add(item.findingId);
+    kept.push({ agentId, ...item });
+  }
+  return kept;
 }

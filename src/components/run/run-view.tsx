@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Download, LoaderCircle, RotateCcw } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocalTime } from "@/components/local-time";
 import { FadeIn } from "@/components/motion";
@@ -79,6 +80,57 @@ function useRun(initial: RunRecord) {
   return { run, feed, connected };
 }
 
+/** Starts a new run with the same requirement and files, and opens it. */
+function RunAgain({ run }: { run: RunRecord }) {
+  const router = useRouter();
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function start() {
+    setStarting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requirement: run.requirement,
+          documents: run.documents,
+        }),
+      });
+      const body = (await response.json()) as { id?: string; error?: string };
+      if (response.ok && body.id) {
+        router.push(`/app/runs/${body.id}`);
+        return;
+      }
+      setError(body.error ?? "The run could not be started.");
+    } catch {
+      setError("Could not reach the server.");
+    }
+    setStarting(false);
+  }
+
+  return (
+    <>
+      {error ? (
+        <span className="self-center text-xs text-sev-critical" role="alert">
+          {error}
+        </span>
+      ) : null}
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={starting}
+        onClick={start}
+        data-testid="run-again"
+      >
+        {starting ? <LoaderCircle className="animate-spin" /> : <RotateCcw />}
+        Run again
+      </Button>
+    </>
+  );
+}
+
 export function RunView({ initial }: { initial: RunRecord }) {
   const { run, feed, connected } = useRun(initial);
   const running = run.status === "running";
@@ -96,6 +148,7 @@ export function RunView({ initial }: { initial: RunRecord }) {
           />
           {!running ? (
             <span className="ml-auto flex gap-2">
+              <RunAgain run={run} />
               <a
                 href={`/api/runs/${run.id}/export?format=md`}
                 download

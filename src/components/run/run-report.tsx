@@ -207,6 +207,29 @@ export function FindingsTab({ run }: { run: RunRecord }) {
                                 {finding.suggestion}
                               </p>
                             ) : null}
+                            {(run.challenges ?? [])
+                              .filter((item) => item.findingId === finding.uid)
+                              .map((item) => (
+                                <p
+                                  key={`${item.agentId}-${item.stance}`}
+                                  className="mt-2 max-w-3xl text-sm"
+                                >
+                                  <span
+                                    className={
+                                      item.stance === "dispute"
+                                        ? "text-sev-high"
+                                        : "text-muted-foreground"
+                                    }
+                                  >
+                                    {agentName(item.agentId)}{" "}
+                                    {item.stance === "dispute"
+                                      ? "disputes"
+                                      : "supports"}
+                                    :
+                                  </span>{" "}
+                                  {item.reason}
+                                </p>
+                              ))}
                           </li>
                         ))}
                       </ul>
@@ -569,7 +592,8 @@ export function ScoreboardTab({ run }: { run: RunRecord }) {
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           An agent scores for each accepted finding it contributed to: 8 for
           critical, 5 for high, 3 for medium, 1 for low. Agents that found the
-          same thing share the points.
+          same thing share the points. Disputing a finding that the judge then
+          rejects earns 1.
         </p>
         {run.scoreboard.length === 0 ? (
           <div className="mt-3">
@@ -584,6 +608,7 @@ export function ScoreboardTab({ run }: { run: RunRecord }) {
                   <TableHead className="text-right">Points</TableHead>
                   <TableHead className="text-right">Accepted</TableHead>
                   <TableHead className="text-right">Only this agent</TableHead>
+                  <TableHead className="text-right">Disputes upheld</TableHead>
                   <TableHead className="text-right">Rejected</TableHead>
                   <TableHead className="text-right">Scenarios</TableHead>
                 </TableRow>
@@ -602,6 +627,9 @@ export function ScoreboardTab({ run }: { run: RunRecord }) {
                     </TableCell>
                     <TableCell className="text-right">{row.accepted}</TableCell>
                     <TableCell className="text-right">{row.unique}</TableCell>
+                    <TableCell className="text-right">
+                      {row.upheld ?? 0}
+                    </TableCell>
                     <TableCell className="text-right">{row.rejected}</TableCell>
                     <TableCell className="text-right">
                       {row.scenarios}

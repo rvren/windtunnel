@@ -73,6 +73,12 @@ describe("executeRun", () => {
       unique: 1,
     });
 
+    // Chaos disputed the finding the judge rejected: one point for that.
+    expect(done.challenges).toHaveLength(2);
+    expect(
+      done.scoreboard.find((row) => row.agentId === "chaos"),
+    ).toMatchObject({ points: 6, upheld: 1 });
+
     const saved = await store.get("run-1");
     expect(saved).toEqual(done);
   });
@@ -95,9 +101,17 @@ describe("executeRun", () => {
       )
       .map((event) => `${event.type}:${event.stage}`);
     expect(stageEvents).toEqual(
-      ["model", "coverage", "agents", "judge", "work_orders"].flatMap(
-        (stage) => [`stage.started:${stage}`, `stage.completed:${stage}`],
-      ),
+      [
+        "model",
+        "coverage",
+        "agents",
+        "challenge",
+        "judge",
+        "work_orders",
+      ].flatMap((stage) => [
+        `stage.started:${stage}`,
+        `stage.completed:${stage}`,
+      ]),
     );
     expect(types(saved)[0]).toBe("run.started");
     expect(types(saved).at(-1)).toBe("run.completed");
@@ -130,7 +144,16 @@ describe("executeRun", () => {
       "product_critic",
       "scale",
     ]);
-    expect(llm.calls.slice(6)).toEqual(["judge", "work_orders"]);
+    // The challenge round starts the same way: one agent first, then the rest.
+    expect(llm.calls[6]).toBe("challenge:normal_user");
+    expect(llm.calls.slice(6, 11).sort()).toEqual([
+      "challenge:adversarial_user",
+      "challenge:chaos",
+      "challenge:normal_user",
+      "challenge:product_critic",
+      "challenge:scale",
+    ]);
+    expect(llm.calls.slice(11)).toEqual(["judge", "work_orders"]);
   });
 
   it("carries on when the model declines one agent", async () => {
@@ -234,6 +257,53 @@ describe("executeRun", () => {
     expect(llm.calls).not.toContain("judge");
     expect(llm.calls).not.toContain("work_orders");
     expect(done.scoreboard).toHaveLength(5);
+  });
+});
+
+describe("the challenge round", () => {
+  it("ignores what an agent says about its own or unknown findings", async () => {
+    const script = withScript((item) => {
+      item.challenges = {
+        chaos: {
+          kind: "ok",
+          value: {
+            challenges: [
+              { findingId: "chaos/f1", stance: "support", reason: "Mine." },
+              { findingId: "ghost/f1", stance: "dispute", reason: "No such." },
+              { findingId: "scale/f1", stance: "dispute", reason: "First." },
+              { findingId: "scale/f1", stance: "support", reason: "Again." },
+            ],
+          },
+        },
+      };
+    });
+    const { deps, run } = setup(script);
+    const done = await executeRun(deps, run);
+    expect(done.challenges).toEqual([
+      {
+        agentId: "chaos",
+        findingId: "scale/f1",
+        stance: "dispute",
+        reason: "First.",
+      },
+    ]);
+  });
+
+  it("does not stop the run when an agent fails in it", async () => {
+    const script = withScript((item) => {
+      item.challenges = {
+        normal_user: {
+          kind: "error",
+          message: "Could not reach the Claude API.",
+        },
+        scale: { kind: "declined", category: "cyber" },
+      };
+    });
+    const { deps, run } = setup(script);
+    const done = await executeRun(deps, run);
+    expect(done.status).toBe("completed");
+    expect(done.challenges).toEqual([]);
+    expect(done.groups).toHaveLength(4);
   });
 });
 

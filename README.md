@@ -65,9 +65,11 @@ requirement (+ Markdown files)
    │            no rule for a role, no failure behaviour, no limit.
  3 Agents ×5    in parallel, each walks its own scenarios against the model
    │            and reports findings with the steps as evidence.
- 4 Judge        merges duplicates, rejects findings the requirement does not
-   │            support, sets severity, credits the finder.
- 5 Work orders  one per accepted finding group, with acceptance criteria.
+ 4 Challenge    each agent reviews the others' findings and disputes or
+   │            supports them.
+ 5 Judge        weighs findings and challenges, merges duplicates, rejects
+   │            what the requirement does not support, sets severity.
+ 6 Work orders  one per accepted finding group, with acceptance criteria.
    │
  report: findings by type, work orders, the design model, a scoreboard
 ```

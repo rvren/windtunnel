@@ -103,7 +103,8 @@ component before you add classes at a call site.
 
 ## The engine
 
-`model → coverage → agents (five, in parallel) → judge → work orders`, run by
+`model → coverage → agents (five, in parallel) → challenge → judge → work
+orders`, run by
 `executeRun` in `src/server/engine/run.ts`. Read that file first.
 
 - **One door to the model.** Only `llm.ts` calls the Claude API. Everything

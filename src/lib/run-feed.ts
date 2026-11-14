@@ -1,4 +1,5 @@
 import { AGENT_IDS, type AgentId } from "@/lib/agents";
+import { STAGE_ORDER } from "@/lib/labels";
 import type { AgentStatus, RunEvent, Stage } from "@/server/engine/schema";
 
 /*
@@ -6,14 +7,6 @@ import type { AgentStatus, RunEvent, Stage } from "@/server/engine/schema";
  * replays the saved events and then follows the live ones, so one reducer
  * serves a run in progress, a finished run and a page reloaded half-way.
  */
-
-const STAGE_ORDER: Stage[] = [
-  "model",
-  "coverage",
-  "agents",
-  "judge",
-  "work_orders",
-];
 
 export type StageState = "pending" | "running" | "done" | "failed";
 

@@ -121,6 +121,12 @@ export function runToMarkdown(run: RunRecord): string {
         if (finding.suggestion) {
           out.push(`  - Suggestion: ${finding.suggestion}`);
         }
+        for (const challenge of run.challenges ?? []) {
+          if (challenge.findingId !== uid) continue;
+          out.push(
+            `  - ${agentName(challenge.agentId)} ${challenge.stance === "dispute" ? "disputes" : "supports"}: ${challenge.reason}`,
+          );
+        }
       }
     }
   }
@@ -152,11 +158,11 @@ export function runToMarkdown(run: RunRecord): string {
       "",
       "## Scoreboard",
       "",
-      "| Agent | Points | Accepted | Only this agent | Rejected | Scenarios |",
-      "| --- | ---: | ---: | ---: | ---: | ---: |",
+      "| Agent | Points | Accepted | Only this agent | Disputes upheld | Rejected | Scenarios |",
+      "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
       ...run.scoreboard.map(
         (row) =>
-          `| ${agentName(row.agentId)} | ${row.points} | ${row.accepted} | ${row.unique} | ${row.rejected} | ${row.scenarios} |`,
+          `| ${agentName(row.agentId)} | ${row.points} | ${row.accepted} | ${row.unique} | ${row.upheld ?? 0} | ${row.rejected} | ${row.scenarios} |`,
       ),
     );
   }

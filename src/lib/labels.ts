@@ -6,6 +6,7 @@ export const STAGE_ORDER = [
   "model",
   "coverage",
   "agents",
+  "challenge",
   "judge",
   "work_orders",
 ] as const;
@@ -14,6 +15,7 @@ export const STAGE_LABEL = {
   model: "Model",
   coverage: "Coverage",
   agents: "Agents",
+  challenge: "Challenge",
   judge: "Judge",
   work_orders: "Work orders",
 } as const;
@@ -22,6 +24,7 @@ export const STAGE_DESCRIPTION = {
   model: "Writing the design model from the requirement",
   coverage: "Finding the gaps code can see",
   agents: "Five agents walking scenarios against the model",
+  challenge: "The agents reviewing each other's findings",
   judge: "Merging, checking and ranking the findings",
   work_orders: "Writing work orders with acceptance criteria",
 } as const;

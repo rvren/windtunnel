@@ -144,7 +144,21 @@ export type AgentReport = z.infer<typeof AgentReport>;
 export type Scenario = AgentReport["scenarios"][number];
 export type RawFinding = AgentReport["findings"][number];
 
-// ── Stage 4: the judge ──────────────────────────────────────────────────────
+// ── Stage 4: the challenge round ────────────────────────────────────────────
+
+/** One agent's view of the findings the other agents reported. */
+export const Challenges = z.object({
+  challenges: z.array(
+    z.object({
+      findingId: z.string(),
+      stance: z.enum(["support", "dispute"]),
+      reason: z.string(),
+    }),
+  ),
+});
+export type Challenges = z.infer<typeof Challenges>;
+
+// ── Stage 5: the judge ──────────────────────────────────────────────────────
 
 export const Verdict = z.object({
   groups: z.array(
@@ -162,7 +176,7 @@ export const Verdict = z.object({
 });
 export type Verdict = z.infer<typeof Verdict>;
 
-// ── Stage 5: work orders ────────────────────────────────────────────────────
+// ── Stage 6: work orders ────────────────────────────────────────────────────
 
 export const Priority = z.enum(["p0", "p1", "p2", "p3"]);
 
@@ -191,6 +205,7 @@ export const STAGES = [
   "model",
   "coverage",
   "agents",
+  "challenge",
   "judge",
   "work_orders",
 ] as const;
@@ -261,6 +276,14 @@ export interface AgentRun {
   error: string | null;
 }
 
+/** What one agent said about another agent's finding. */
+export interface Challenge {
+  agentId: AgentId;
+  findingId: string;
+  stance: "support" | "dispute";
+  reason: string;
+}
+
 export interface FindingGroup {
   id: string;
   title: string;
@@ -280,6 +303,8 @@ export interface ScoreRow {
   rejected: number;
   /** Groups only this agent found. */
   unique: number;
+  /** Disputes of other agents' findings that the judge agreed with. */
+  upheld: number;
   scenarios: number;
 }
 
@@ -305,6 +330,8 @@ export interface RunRecord {
   modelWarnings: string[];
   coverage: Coverage | null;
   agents: AgentRun[];
+  /** Absent on runs made before the challenge round existed. */
+  challenges?: Challenge[];
   groups: FindingGroup[];
   rejected: { findingId: string; reason: string }[];
   workOrders: WorkOrder[];
