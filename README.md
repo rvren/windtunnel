@@ -196,6 +196,19 @@ project (share fixed, open issues by severity, pull requests, last run and
 the next thing to do), then recent runs and pull requests. Pull requests need `GITHUB_TOKEN` with Contents and Pull requests
 write access.
 
+## Refining a requirement
+
+A requirement run is the start of a loop. When it ends, **Refine
+requirement** lists what it found unsaid: the gaps in the design ("the
+design does not say whether Member may invite a user"), what the model had
+to assume, and the requirement issues the agents found. Answer what you can
+(or keep an assumption as it is); your answers are added to the text under
+`## Decisions`, in your words. Edit anything else, check the diff, and run
+the next version. Each version links to the one it refines: the run page
+shows `v1 · v2 · v3`, what changed in the text, and what got better (gaps
+closed, assumptions now stated, issues gone). Nothing is sent to the model
+until you start the run, and every run asks first.
+
 ## Every run belongs to a project
 
 A run is started in a project: on a written requirement, or on the code of

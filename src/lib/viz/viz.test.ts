@@ -320,6 +320,7 @@ describe("a finished run as insights", () => {
       {
         id: "before",
         projectId: "p",
+        parentRunId: null,
         createdAt: "",
         status: "completed",
         stage: null,

@@ -9,8 +9,11 @@ import { getProjectLink, listDeliveries } from "@/server/connectors/store";
 import { listIssues } from "@/server/issues/store";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ensureDatabase } from "@/server/db/ready";
+import { engineConfig } from "@/server/engine/config";
 import { runStore } from "@/server/engine/registry";
 import type { RunRecord } from "@/server/engine/schema";
+import { getProject } from "@/server/projects/store";
+import { threadOf, versionChanges } from "@/lib/viz/refine";
 
 export const metadata: Metadata = { title: "Run" };
 
@@ -38,16 +41,46 @@ async function Run({ params }: { params: Promise<{ id: string }> }) {
 
   // For the report's right column: the project's previous finished run,
   // and the work orders that reached 8090 when the project is linked.
+  const sampleMode = engineConfig().sampleMode;
   let context: RunContext = {
     previous: null,
     previousSeverity: null,
     sent: null,
     tracked: {},
+    cost: sampleMode ? "sample-mode" : "billed",
+    versions: [],
+    parent: null,
   };
   try {
     if (run.projectId) {
       const store = runStore();
-      const earlier = (await store.list({ projectId: run.projectId }))
+      const all = await store.list({ projectId: run.projectId });
+      const project = await getProject(run.projectId);
+      // A requirement's versions, and what changed since the one before.
+      const versions = run.source
+        ? []
+        : threadOf(all, run.id).map((version) => ({
+            id: version.run.id,
+            number: version.number,
+            status: version.run.status,
+          }));
+      const parentRecord =
+        !run.source && run.parentRunId
+          ? await store.get(run.parentRunId)
+          : null;
+      const parent = parentRecord
+        ? {
+            id: parentRecord.id,
+            number:
+              versions.find((item) => item.id === parentRecord.id)?.number ?? 1,
+            requirement: parentRecord.requirement,
+            changes:
+              parentRecord.status === "completed" && run.status === "completed"
+                ? versionChanges(parentRecord, run)
+                : null,
+          }
+        : null;
+      const earlier = all
         .filter(
           (item) =>
             item.id !== run.id &&
@@ -59,6 +92,13 @@ async function Run({ params }: { params: Promise<{ id: string }> }) {
       const record = previous ? await store.get(previous.id) : null;
       const link = await getProjectLink(run.projectId, SOFTWARE_FACTORY);
       context = {
+        cost: project?.demo
+          ? "sample-project"
+          : sampleMode
+            ? "sample-mode"
+            : "billed",
+        versions,
+        parent,
         previous,
         previousSeverity: record
           ? {

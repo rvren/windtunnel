@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -51,6 +52,13 @@ export const runs = pgTable(
     projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "set null",
     }),
+    /**
+     * The requirement run this one refines: its previous version. Null for
+     * a first version and for code runs.
+     */
+    parentRunId: uuid("parent_run_id").references((): AnyPgColumn => runs.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     status: text("status").notNull(),
@@ -70,6 +78,7 @@ export const runs = pgTable(
   (table) => [
     index("runs_created_at_idx").on(table.createdAt),
     index("runs_project_idx").on(table.projectId),
+    index("runs_parent_idx").on(table.parentRunId),
   ],
 );
 
@@ -169,6 +178,11 @@ export const issues = pgTable(
     severity: text("severity").notNull(),
     /** "open", "pr_open", "merged", "fixed", "reopened" or "gone". */
     state: text("state").notNull(),
+    /**
+     * "code" or "requirement": the kind of run that found it. A run only
+     * settles issues of its own kind.
+     */
+    origin: text("origin").notNull().default("code"),
     /** The cited file, as workspace/path; null when it cites none. */
     path: text("path"),
     cwe: text("cwe"),

@@ -51,6 +51,7 @@ async function finishedRun(
   projectId: string,
   groups: FindingGroup[],
   at: string,
+  kind: "code" | "requirement" = "code",
 ): Promise<RunRecord> {
   const run = newRun(
     randomUUID(),
@@ -68,7 +69,18 @@ async function finishedRun(
     status: "completed",
     updatedAt: at,
     groups,
-    workspaces: ["web"],
+    ...(kind === "code"
+      ? {
+          workspaces: ["web"],
+          source: {
+            kind: "repository" as const,
+            origin: { kind: "local" as const, name: "web" },
+            label: "web",
+            files: 1,
+            languages: [],
+          },
+        }
+      : {}),
   };
   await new PgRunStore(db()).save(done);
   return done;
@@ -165,5 +177,46 @@ describe("tracking a project's issues across runs", () => {
     // A second call changes nothing.
     await ensureTracked(project.id);
     expect(await listIssues(project.id)).toHaveLength(1);
+  });
+
+  it("keeps code issues and requirement issues apart", async () => {
+    const project = await createProject({ name: "Both", description: "" });
+    const code = await finishedRun(
+      project.id,
+      [group("g1", "The search box can run SQL", "search.ts")],
+      "2026-10-01T10:00:00Z",
+    );
+    await reconcileRun(code);
+    // A requirement run that finds nothing leaves the code issue alone.
+    const requirement = await finishedRun(
+      project.id,
+      [
+        {
+          ...group("r1", "Nobody may refund an order", "x"),
+          type: "missing_requirement",
+          location: undefined,
+        },
+      ],
+      "2026-10-02T10:00:00Z",
+      "requirement",
+    );
+    await reconcileRun(requirement);
+    let tracked = await listIssues(project.id);
+    expect(tracked.map((issue) => [issue.origin, issue.state]).sort()).toEqual([
+      ["code", "open"],
+      ["requirement", "open"],
+    ]);
+    // And a code run that finds nothing new leaves the requirement issue.
+    await reconcileRun(
+      await finishedRun(
+        project.id,
+        [group("g1", "The search box can run SQL", "search.ts")],
+        "2026-10-03T10:00:00Z",
+      ),
+    );
+    tracked = await listIssues(project.id);
+    expect(tracked.find((issue) => issue.origin === "requirement")?.state).toBe(
+      "open",
+    );
   });
 });

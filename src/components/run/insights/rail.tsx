@@ -19,7 +19,7 @@ import type { Change, Ratio } from "@/lib/viz/run-widgets";
  * one question and has its "i".
  */
 
-function Widget({
+export function Widget({
   title,
   about,
   children,

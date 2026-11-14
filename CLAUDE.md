@@ -82,7 +82,10 @@ take something away.
 - **The fix loop.** A project's issues are tracked across runs (table
   `issues`, `src/server/issues/`): matched by kind and cited file (then CWE,
   then title words), states open → PR open → merged → fixed, or reopened /
-  not found again, reconciled after every finished run. A fix leaves
+  not found again, reconciled after every finished run. Each issue has an
+  `origin` (`code` or `requirement`, the kind of run that found it); a run
+  only settles issues of its own origin, so a requirement run never closes
+  code issues, nor the reverse. A fix leaves
   Windtunnel only as a new branch and pull request on GitHub
   (`src/server/connectors/github.ts`, `src/server/issues/pull-request.ts`),
   after a person confirms it in the PR dialog; every edit is checked again
@@ -92,6 +95,16 @@ take something away.
   dialog says so before it runs. A merged fix waits for a rescan, which the
   owner starts (it asks first). The home page (`/app`) is a projects board: one card per project with its next action;
   runs are at `/app/runs`.
+- **Refining a requirement.** A finished requirement run's "Refine
+  requirement" opens a sheet (`src/components/run/refine/`): questions built
+  from the run (coverage gaps, items the model assumed, requirement issues;
+  `src/lib/viz/refine.ts`, no model call), the owner's answers added to the
+  text as a plain `## Decisions` section in their own words (never rewritten
+  by a model), a diff, and "Run version N". The new run's `parent_run_id`
+  links the versions; the run page shows a `v1 · v2` switcher, the text diff
+  and a "Since version N" widget (gaps closed and new, assumptions now
+  stated, issues gone and new). Answers are a draft in the browser until the
+  run starts.
 - **The run page** tells a live run as a story (`components/run/story/`:
   stepper, a card per stage that turns into its result, agents as parallel
   lanes on one clock from the events' times, focus mode `?focus=1`). A
@@ -138,7 +151,7 @@ take something away.
   fill, and on keyboard focus a thin outline only.
 - **The shell follows Plinth's console** (`~/Documents/GitHub/plinth`, the
   owner's other product). Sidebar: the mark and the collapse control in one
-  row, the project scope card, quiet 40px rows, "New run"
+  row, quiet 40px rows, "New run"
   as the one solid button at the bottom, then the footer. No horizontal
   lines in the sidebar: space separates its parts (the owner asked). Top
   bar: scope, then the trail parted by slashes, the last step in medium
@@ -163,7 +176,7 @@ take something away.
   Never fill a large area with a status colour.
 - **Shapes.** Corners follow Plinth: `rounded-card` (16px) for panels, the
   sidebar, dialogs and tables (use `Panel`); `rounded-tile` (12px) for
-  sidebar rows, the scope card and other tiles; `rounded-md` (10px) for
+  sidebar rows and other tiles; `rounded-md` (10px) for
   controls (buttons, inputs, selects, chips); `rounded-sm` (6px) for badges.
   The scale is in `src/app/globals.css`. Only status dots are round. No box
   inside a box: separate rows in a panel with hairlines.
@@ -271,7 +284,9 @@ orders`, run by
   agent by editing its notes before you touch its prompt.
 - **Never start a live run without the owner's permission for that run.**
   Every run bills their Claude API key. Ask each time and say roughly what it
-  will cost. Tests and screen work use `ScriptedLlm` or
+  will cost. In the app, every way to start a run asks first
+  (`src/components/run/confirm-run.tsx`, the project run dialog, and the
+  refine sheet's review step), and says when a run costs nothing. Tests and screen work use `ScriptedLlm` or
   `WINDTUNNEL_SAMPLE_RUN=1`, which spend nothing.
 
 ## Architecture document

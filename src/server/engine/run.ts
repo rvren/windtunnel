@@ -95,6 +95,8 @@ export interface RunInput {
   repository?: RepoOrigin;
   /** Set on a requirement run: the project it belongs to. */
   projectRef?: { id: string; demo: boolean };
+  /** Set on a requirement run that refines an earlier one. */
+  parentRunId?: string;
   /** Set to run a project's code: the chosen workspaces, read together. */
   project?: {
     id: string;
@@ -153,6 +155,9 @@ export function newRun(
       : input.projectRef
         ? { projectId: input.projectRef.id }
         : {}),
+    ...(!project && input.parentRunId
+      ? { parentRunId: input.parentRunId }
+      : {}),
     ...(project
       ? { workspaces: project.workspaces.map((workspace) => workspace.name) }
       : repository

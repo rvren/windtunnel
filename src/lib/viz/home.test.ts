@@ -14,6 +14,7 @@ const issue = (over: Partial<Issue> & { id: string }): Issue => ({
   kind: "security_vulnerability",
   severity: "high",
   state: "open",
+  origin: "code",
   path: null,
   cwe: null,
   firstRunId: null,

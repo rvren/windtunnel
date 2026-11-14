@@ -94,6 +94,7 @@ describe("PgRunStore", () => {
       {
         id: id(2),
         projectId: null,
+        parentRunId: null,
         workspaces: [],
         createdAt: "2026-11-13T11:00:00.000Z",
         status: "completed",
@@ -105,6 +106,7 @@ describe("PgRunStore", () => {
       {
         id: id(1),
         projectId: null,
+        parentRunId: null,
         workspaces: [],
         createdAt: "2026-11-13T09:00:00.000Z",
         status: "running",
@@ -114,6 +116,29 @@ describe("PgRunStore", () => {
         workOrderCount: 0,
       },
     ]);
+  });
+
+  it("keeps the version a requirement run refines", async () => {
+    await store.save(sampleRun(1, "2026-11-13T10:00:00Z"));
+    const next = newRun(
+      id(2),
+      {
+        requirement: "Requirement 1, refined",
+        documents: [],
+        parentRunId: id(1),
+      },
+      { reasoning: "r", agents: "a" },
+      new Date("2026-11-13T11:00:00Z"),
+      true,
+    );
+    await store.save(next);
+    expect((await store.get(id(2)))?.parentRunId).toBe(id(1));
+    const listed = await store.list();
+    expect(listed.find((run) => run.id === id(2))?.parentRunId).toBe(id(1));
+    expect(listed.find((run) => run.id === id(1))?.parentRunId).toBeNull();
+    // Removing the earlier version keeps the later one, unlinked.
+    await store.remove([id(1)]);
+    expect((await store.get(id(2)))?.parentRunId).toBeUndefined();
   });
 
   it("replaces a run when it is saved again", async () => {

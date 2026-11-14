@@ -58,6 +58,10 @@ export const EXPLAIN = {
     "A flame graph of the run: each block is a stage or an agent, its width the time it took. Tokens are the model's input and output counts for that block.",
   designSpecified:
     "How fully the design states its rules: the share of role and operation pairs it gives a permission for. Below: permissions given, items stated rather than assumed by the model, and operations that some journey uses.",
+  versions:
+    "Each time you refine a requirement and run it again, the run is a new version. Versions are numbered in the order they were started.",
+  sinceVersion:
+    "This version against the one it refines: coverage gaps closed and new (by their wording), items the earlier version assumed that this one states, issues gone and new (same kind and most title words shared), permission cells specified, and work orders.",
   whatChanged:
     "This run against the project's previous finished run: each number now, and how much it went up or down.",
   projectsHealth:

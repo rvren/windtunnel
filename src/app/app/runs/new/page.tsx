@@ -55,6 +55,7 @@ async function Form({
         </p>
       ) : null}
       <RunForm
+        sampleMode={status.sampleMode}
         blocked={
           !status.apiKey && !status.sampleMode
             ? "No API key is set. Add ANTHROPIC_API_KEY to .env.local and restart the server."

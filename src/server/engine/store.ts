@@ -45,6 +45,7 @@ function summarize(run: RunRecord): RunSummary {
   return {
     id: run.id,
     projectId: run.projectId ?? null,
+    parentRunId: run.parentRunId ?? null,
     createdAt: run.createdAt,
     status: run.status,
     stage: run.stage,
@@ -125,6 +126,7 @@ export class PgRunStore implements RunStore {
     const row = {
       id: run.id,
       projectId: run.projectId ?? null,
+      parentRunId: run.parentRunId ?? null,
       createdAt: new Date(run.createdAt),
       updatedAt: new Date(run.updatedAt),
       status: run.status,
@@ -174,6 +176,7 @@ export class PgRunStore implements RunStore {
       ...(row.data as RunData),
       // The columns are the truth for what they hold.
       projectId: row.projectId ?? undefined,
+      parentRunId: row.parentRunId ?? undefined,
       ...(row.projectId ? { workspaces: row.workspaces as string[] } : {}),
       status: row.status as RunRecord["status"],
       stage: row.stage as RunRecord["stage"],
@@ -194,6 +197,7 @@ export class PgRunStore implements RunStore {
       .select({
         id: runs.id,
         projectId: runs.projectId,
+        parentRunId: runs.parentRunId,
         createdAt: runs.createdAt,
         status: runs.status,
         stage: runs.stage,

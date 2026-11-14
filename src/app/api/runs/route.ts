@@ -42,10 +42,8 @@ export async function POST(request: Request) {
   } catch {
     return failure("Send the run as JSON.", 400);
   }
-  const { projectId, workspaces, repository } = (body ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { projectId, workspaces, repository, parentRunId } = (body ??
+    {}) as Record<string, unknown>;
   if (repository !== undefined && repository !== null) {
     return failure(
       "Add the repository to a project as a workspace, then run it.",
@@ -61,6 +59,14 @@ export async function POST(request: Request) {
       : null;
   const parsed = parseRunInput(body, names !== null);
   if (!parsed.ok) return failure(parsed.error, 400);
+  const parent =
+    parentRunId === undefined || parentRunId === null ? null : parentRunId;
+  if (parent !== null && (typeof parent !== "string" || !UUID.test(parent))) {
+    return failure("The earlier version is not a run.", 400);
+  }
+  if (parent !== null && names) {
+    return failure("Only a requirement run can refine an earlier one.", 400);
+  }
 
   try {
     await ensureDatabase();
@@ -76,6 +82,16 @@ export async function POST(request: Request) {
     if (names && chosen.length !== new Set(names).size) {
       return failure("One of those workspaces is not in the project.", 400);
     }
+    if (parent) {
+      // A new version refines a requirement run of the same project.
+      const earlier = await runStore().get(parent);
+      if (!earlier || earlier.projectId !== project.id || earlier.source) {
+        return failure(
+          "The earlier version is not a requirement run of this project.",
+          400,
+        );
+      }
+    }
     const run = await startRun({
       requirement: parsed.input.requirement,
       documents: parsed.input.documents,
@@ -88,7 +104,10 @@ export async function POST(request: Request) {
               workspaces: chosen.map(({ name, origin }) => ({ name, origin })),
             },
           }
-        : { projectRef: { id: project.id, demo: project.demo } }),
+        : {
+            projectRef: { id: project.id, demo: project.demo },
+            ...(parent ? { parentRunId: parent } : {}),
+          }),
     });
     return Response.json({ id: run.id }, { status: 201 });
   } catch (error) {

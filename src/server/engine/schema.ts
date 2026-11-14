@@ -406,6 +406,8 @@ export interface RunRecord {
   documents: RunDocument[];
   /** The project this run was started from, if any. */
   projectId?: string;
+  /** The requirement run this one refines (its previous version). */
+  parentRunId?: string;
   /**
    * What the run read: the names of the project's workspaces, or the label
    * of the one repository. Absent on requirement runs.
@@ -438,6 +440,8 @@ export interface RunRecord {
 export interface RunSummary {
   id: string;
   projectId: string | null;
+  /** The requirement run this one refines, if any. */
+  parentRunId: string | null;
   createdAt: string;
   status: RunStatus;
   stage: Stage | null;

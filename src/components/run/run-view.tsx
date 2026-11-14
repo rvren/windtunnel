@@ -9,6 +9,7 @@ import {
   Maximize2,
   FolderKanban,
   LoaderCircle,
+  PencilLine,
   RotateCcw,
 } from "lucide-react";
 
@@ -22,11 +23,17 @@ import { applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
 import { storyOf } from "@/lib/viz/story";
 import { applyTime, emptyTimes, type RunTimes } from "@/lib/viz/times";
 import { cn } from "@/lib/utils";
+import type { VersionChanges } from "@/lib/viz/refine";
 import type {
   RunRecord,
+  RunStatus,
   RunSummary,
   StoredEvent,
 } from "@/server/engine/schema";
+
+import { ConfirmRunDialog, type RunCost } from "./confirm-run";
+import { RefineSheet } from "./refine/refine-sheet";
+import { RequirementDiff, VersionSwitcher } from "./refine/versions";
 
 import { SampleBadge, StatusBadge } from "./badges";
 import { Stepper } from "./story/stepper";
@@ -106,8 +113,9 @@ const originText = (source: NonNullable<RunRecord["source"]>) =>
       source.origin.url)
     : source.origin.name;
 
-function RunAgain({ run }: { run: RunRecord }) {
+function RunAgain({ run, cost }: { run: RunRecord; cost: RunCost }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,21 +148,28 @@ function RunAgain({ run }: { run: RunRecord }) {
 
   return (
     <>
-      {error ? (
-        <span className="self-center text-xs text-sev-critical" role="alert">
-          {error}
-        </span>
-      ) : null}
       <Button
         variant="outline"
         size="sm"
         disabled={starting}
-        onClick={start}
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
         data-testid="run-again"
       >
         {starting ? <LoaderCircle className="animate-spin" /> : <RotateCcw />}
         Run again
       </Button>
+      <ConfirmRunDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Run this again?"
+        cost={cost}
+        starting={starting}
+        error={error}
+        onConfirm={start}
+      />
     </>
   );
 }
@@ -170,11 +185,30 @@ export interface RunContext {
   sent: number | null;
   /** Each issue's tracked state, by its group id, for a project run. */
   tracked: Record<string, TrackedState>;
+  /** What a new run of this project costs. */
+  cost: RunCost;
+  /** A requirement's versions, oldest first; empty for a code run. */
+  versions: { id: string; number: number; status: RunStatus }[];
+  /** The version this run refines, and what changed since it. */
+  parent: {
+    id: string;
+    number: number;
+    requirement: string;
+    changes: VersionChanges | null;
+  } | null;
 }
 
 export function RunView({
   initial,
-  context = { previous: null, previousSeverity: null, sent: null, tracked: {} },
+  context = {
+    previous: null,
+    previousSeverity: null,
+    sent: null,
+    tracked: {},
+    cost: "billed",
+    versions: [],
+    parent: null,
+  },
 }: {
   initial: RunRecord;
   context?: RunContext;
@@ -198,6 +232,12 @@ export function RunView({
     () => false,
   );
   const focus = mounted && params.get("focus") === "1";
+  // When a run watched live ends, the server-side context (versions, what
+  // changed since the version before) is read again.
+  const startedLive = initial.status === "running";
+  useEffect(() => {
+    if (startedLive && run.status !== "running") router.refresh();
+  }, [startedLive, run.status, router]);
   const setFocus = (on: boolean) => {
     const query = new URLSearchParams(params.toString());
     if (on) query.set("focus", "1");
@@ -255,7 +295,25 @@ export function RunView({
                     <FolderKanban />
                     Project cockpit
                   </Link>
-                  <RunAgain run={run} />
+                  {run.source ? (
+                    <RunAgain run={run} cost={context.cost} />
+                  ) : (
+                    <RefineSheet
+                      run={run}
+                      cost={context.cost}
+                      nextNumber={
+                        Math.max(
+                          1,
+                          ...context.versions.map((item) => item.number),
+                        ) + 1
+                      }
+                    >
+                      <Button size="sm" data-testid="run-refine">
+                        <PencilLine />
+                        Refine requirement
+                      </Button>
+                    </RefineSheet>
+                  )}
                 </>
               ) : null}
               <a
@@ -282,6 +340,9 @@ export function RunView({
         <h1 className="max-w-4xl text-2xl leading-tight font-semibold tracking-[-0.03em] text-balance sm:text-3xl">
           {run.title}
         </h1>
+        {context.versions.length > 1 ? (
+          <VersionSwitcher versions={context.versions} current={run.id} />
+        ) : null}
         {/* One line of context: what was read, by which models, how long. */}
         <p
           className="font-mono text-xs text-muted-foreground"
@@ -333,6 +394,22 @@ export function RunView({
                 ))}
               </ul>
             ) : null}
+          </details>
+        ) : null}
+        {context.parent ? (
+          <details className="max-w-4xl text-sm">
+            <summary
+              className="cursor-pointer text-muted-foreground hover:text-foreground"
+              data-testid="run-requirement-changes"
+            >
+              What changed in the text since version {context.parent.number}
+            </summary>
+            <div className="mt-3">
+              <RequirementDiff
+                before={context.parent.requirement}
+                after={run.requirement}
+              />
+            </div>
           </details>
         ) : null}
       </header>

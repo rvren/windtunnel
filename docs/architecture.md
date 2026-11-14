@@ -338,9 +338,26 @@ flowchart LR
 
 Matching (`src/server/issues/match.ts`) pairs a run's issue with a tracked
 one by kind and cited file, then CWE, then title words; reconciling
-(`src/server/issues/reconcile.ts`) decides each state change. The home page
+(`src/server/issues/reconcile.ts`) decides each state change. An issue's
+`origin` is the kind of run that found it (`code` or `requirement`), and a
+run only reconciles issues of its own origin. The home page
 (`src/app/app/page.tsx`) reads its numbers from `src/lib/viz/home.ts`: per
 project its share fixed, open issues by severity and next action.
+
+## Requirement versions
+
+```mermaid
+flowchart LR
+  v1["Requirement run (version 1)"] --> q["questions<br/>gaps · assumptions · requirement issues<br/>src/lib/viz/refine.ts"]
+  q --> ans["answers → ## Decisions<br/>refine sheet, src/components/run/refine/"]
+  ans --> post["POST /api/runs with parentRunId<br/>same project, requirement runs only"]
+  post --> v2["Version 2<br/>runs.parent_run_id = version 1"]
+  v2 --> cmp["versionChanges(v1, v2)<br/>Since version 1 widget"]
+```
+
+`threadOf` numbers a requirement's versions from the project's runs, oldest
+first. Building questions and comparing versions read finished runs only;
+no step calls the model until the next version runs.
 
 Projects and workspaces: `src/server/projects/store.ts`. Older runs with no
 project are gathered under "Demo project" by `src/server/projects/adopt.ts`.

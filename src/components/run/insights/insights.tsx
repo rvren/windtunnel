@@ -11,6 +11,7 @@ import {
 } from "@/lib/viz/run-widgets";
 import type { RunRecord } from "@/server/engine/schema";
 
+import { VersionWidget } from "@/components/run/refine/versions";
 import type { RunContext } from "../run-view";
 import { NotAccepted } from "../run-report";
 import type { ReportTab } from "../story/story";
@@ -85,7 +86,14 @@ export function Insights({
           {design ? (
             <DesignWidget score={design.score} parts={design.parts} />
           ) : null}
-          {changes.length > 0 ? <ChangesWidget changes={changes} /> : null}
+          {context.parent?.changes ? (
+            <VersionWidget
+              number={context.parent.number}
+              changes={context.parent.changes}
+            />
+          ) : changes.length > 0 ? (
+            <ChangesWidget changes={changes} />
+          ) : null}
           {standings.length > 0 ? (
             <AgentsWidget
               standings={standings}

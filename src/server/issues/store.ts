@@ -33,6 +33,8 @@ export interface Issue {
   kind: FindingType;
   severity: Severity;
   state: IssueState;
+  /** The kind of run that found it; a run settles only its own kind. */
+  origin: IssueOrigin;
   path: string | null;
   cwe: string | null;
   firstRunId: string | null;
@@ -45,6 +47,12 @@ export interface Issue {
   fixedAt: string | null;
 }
 
+export type IssueOrigin = "code" | "requirement";
+
+/** The kind of issues a run finds: code runs read a repository. */
+export const originOf = (run: RunRecord): IssueOrigin =>
+  run.source ? "code" : "requirement";
+
 type Row = typeof issues.$inferSelect;
 
 const toIssue = (row: Row): Issue => ({
@@ -54,6 +62,7 @@ const toIssue = (row: Row): Issue => ({
   kind: row.kind as FindingType,
   severity: row.severity as Severity,
   state: row.state as IssueState,
+  origin: row.origin as IssueOrigin,
   path: row.path,
   cwe: row.cwe,
   firstRunId: row.firstRunId,
@@ -110,12 +119,18 @@ export async function setPullRequest(
     .where(eq(issues.id, id));
 }
 
-/** Folds one finished project run into the project's tracked issues. */
+/**
+ * Folds one finished project run into the project's tracked issues of the
+ * same origin: a requirement run never settles code issues, nor the reverse.
+ */
 export async function reconcileRun(run: RunRecord): Promise<void> {
   if (!run.projectId || run.status !== "completed") return;
   const project = await getProject(run.projectId);
   if (!project) return;
-  const tracked = await listIssues(run.projectId);
+  const origin = originOf(run);
+  const tracked = (await listIssues(run.projectId)).filter(
+    (issue) => issue.origin === origin,
+  );
   const seen = seenIn(run);
   const all = project.workspaces.map((item) => item.name);
   const read = run.workspaces?.length ? run.workspaces : all;
@@ -155,6 +170,7 @@ export async function reconcileRun(run: RunRecord): Promise<void> {
           kind: item.kind,
           severity: item.severity,
           state: "open",
+          origin,
           path: item.path,
           cwe: item.cwe,
           firstRunId: run.id,
