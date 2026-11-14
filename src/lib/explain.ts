@@ -60,8 +60,6 @@ export const EXPLAIN = {
     "How fully the design states its rules: the share of role and operation pairs it gives a permission for. Below: permissions given, items stated rather than assumed by the model, and operations that some journey uses.",
   whatChanged:
     "This run against the project's previous finished run: each number now, and how much it went up or down.",
-  pipeline:
-    "Every tracked issue by where it is: open, with a pull request open, merged and waiting for a rescan, and fixed (a later run no longer found it). Median time to fix is the middle value of the days from an issue's first run to the run that confirmed it gone.",
   projectsHealth:
     "Each project: the ring is the share of its tracked issues confirmed fixed, the bar its open issues by severity, then its open fix pull requests, its last run and the one thing to do next.",
   recentPrs:

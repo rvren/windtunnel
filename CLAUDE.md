@@ -90,7 +90,7 @@ take something away.
   (`src/server/issues/fix.ts`) is the remediation stage for one issue on
   fresh code; outside demo projects it spends the owner's key, so the
   dialog says so before it runs. A merged fix waits for a rescan, which the
-  owner starts (it asks first). The home page (`/app`) is a projects board: the pipeline strip, one card per project with its next action;
+  owner starts (it asks first). The home page (`/app`) is a projects board: one card per project with its next action;
   runs are at `/app/runs`.
 - **The run page** tells a live run as a story (`components/run/story/`:
   stepper, a card per stage that turns into its result, agents as parallel

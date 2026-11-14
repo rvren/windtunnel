@@ -191,10 +191,9 @@ says first). Windtunnel never merges.
 The app checks open pull requests while it runs. A merged one waits for a
 rescan ("2 fixes merged · Rescan"); when the next run no longer finds the
 issue it is marked **fixed** and leaves the findings, and if it comes back
-it is **reopened**. The home page is a board of projects: a strip with the
-whole pipeline and the median time to fix, then one card per project (share
-fixed, open issues by severity, pull requests, last run and the next thing
-to do), then recent runs and pull requests. Pull requests need `GITHUB_TOKEN` with Contents and Pull requests
+it is **reopened**. The home page is a board of projects: one card per
+project (share fixed, open issues by severity, pull requests, last run and
+the next thing to do), then recent runs and pull requests. Pull requests need `GITHUB_TOKEN` with Contents and Pull requests
 write access.
 
 ## Every run belongs to a project

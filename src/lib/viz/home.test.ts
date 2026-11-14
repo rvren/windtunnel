@@ -84,16 +84,6 @@ const numbers = homeNumbers({
 });
 
 describe("the home page's numbers", () => {
-  it("counts the pipeline and the time to fix", () => {
-    expect(numbers.pipeline).toEqual({
-      open: 2,
-      prOpen: 1,
-      merged: 1,
-      fixed: 2,
-    });
-    expect(numbers.timeToFix.medianDays).toBe(5);
-  });
-
   it("gives each project its share fixed and its next action", () => {
     const shop = numbers.projects.find((p) => p.id === "p1")!;
     // 2 fixed of 2 fixed + 3 live.
@@ -112,10 +102,5 @@ describe("the home page's numbers", () => {
     expect(shop.bySeverity).toMatchObject({ critical: 1, high: 1 });
     expect(shop.lastRun?.id).toBe("r2");
     expect(numbers.projects.find((p) => p.id === "p2")!.lastRun).toBeNull();
-  });
-
-  it("has no median when nothing was fixed", () => {
-    const none = homeNumbers({ projects: [], issues: [], runs: [] });
-    expect(none.timeToFix.medianDays).toBeNull();
   });
 });

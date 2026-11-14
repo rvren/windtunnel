@@ -186,73 +186,9 @@ function ProjectCard({ project }: { project: Project }) {
 }
 
 export function Home({ numbers }: { numbers: HomeNumbers }) {
-  const { pipeline, timeToFix } = numbers;
-  const stages = [
-    { label: "Open", value: pipeline.open, tone: "var(--sev-high)" },
-    {
-      label: "In a PR",
-      value: pipeline.prOpen,
-      tone: "var(--brand)",
-    },
-    {
-      label: "Merged",
-      value: pipeline.merged,
-      tone: "var(--sev-medium)",
-    },
-    { label: "Fixed", value: pipeline.fixed, tone: "var(--ok)" },
-  ];
-  const total = stages.reduce((sum, stage) => sum + stage.value, 0);
-
   return (
     <div className="space-y-6" data-testid="home">
       <PullRequestRefresher />
-
-      {/* Where every issue is in the fix pipeline: one bar, no card */}
-      <FadeIn data-testid="home-pipeline">
-        {total > 0 ? (
-          <SegmentedBar
-            label="Tracked issues by where they are in the fix pipeline"
-            size="sm"
-            max={total}
-            segments={stages
-              .filter((stage) => stage.value > 0)
-              .map((stage) => ({
-                id: stage.label,
-                label: stage.label,
-                value: stage.value,
-                color: stage.tone,
-              }))}
-          />
-        ) : (
-          <div className="h-1.5 rounded-full bg-foreground/[0.06]" />
-        )}
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-muted-foreground">
-          {stages.map((stage) => (
-            <span key={stage.label} className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="size-1.5 rounded-full"
-                style={{ background: stage.tone }}
-              />
-              {stage.label}
-              <span className="font-mono text-foreground tabular-nums">
-                {stage.value}
-              </span>
-            </span>
-          ))}
-          <span className="ml-auto flex items-center gap-1.5">
-            Median time to fix
-            <span className="font-mono text-foreground tabular-nums">
-              {timeToFix.medianDays === null
-                ? "—"
-                : timeToFix.medianDays < 1
-                  ? "under a day"
-                  : `${Math.round(timeToFix.medianDays)} days`}
-            </span>
-            <InfoTip about="pipeline" label="The fix pipeline" />
-          </span>
-        </div>
-      </FadeIn>
 
       {/* One card per project */}
       <section aria-label="Projects">

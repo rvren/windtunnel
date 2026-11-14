@@ -9,7 +9,6 @@ import type { Issue } from "@/server/issues/store";
 
 const OPEN = new Set(["open", "reopened"]);
 const LIVE = new Set(["open", "reopened", "pr_open", "merged"]);
-const DAY = 24 * 60 * 60 * 1000;
 
 export interface HomeProject {
   id: string;
@@ -24,28 +23,6 @@ export function homeNumbers(input: {
   const { projects, issues, runs } = input;
   const name = new Map(projects.map((item) => [item.id, item.name]));
 
-  // The pipeline: where every live or fixed issue is now.
-  const pipeline = {
-    open: issues.filter((issue) => OPEN.has(issue.state)).length,
-    prOpen: issues.filter((issue) => issue.state === "pr_open").length,
-    merged: issues.filter((issue) => issue.state === "merged").length,
-    fixed: issues.filter((issue) => issue.state === "fixed").length,
-  };
-
-  // Time to fix: first seen to confirmed gone.
-  const days = issues
-    .filter((issue) => issue.state === "fixed" && issue.fixedAt)
-    .map(
-      (issue) =>
-        (Date.parse(issue.fixedAt!) - Date.parse(issue.openedAt)) / DAY,
-    )
-    .sort((a, b) => a - b);
-  const median =
-    days.length === 0
-      ? null
-      : days.length % 2
-        ? days[(days.length - 1) / 2]
-        : (days[days.length / 2 - 1] + days[days.length / 2]) / 2;
   // Each project at a glance, with the one thing to do next.
   const perProject = projects.map((project) => {
     const mine = issues.filter((issue) => issue.projectId === project.id);
@@ -110,8 +87,6 @@ export function homeNumbers(input: {
     }));
 
   return {
-    pipeline,
-    timeToFix: { medianDays: median, fixed: days.length },
     projects: perProject,
     recentRuns: [...runs]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
