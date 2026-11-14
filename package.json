@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Simulate an application before it is built.",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "next dev -p 3300",
     "dev:sample": "WINDTUNNEL_SAMPLE_RUN=1 WINDTUNNEL_REPOS_DIR=samples/storefront next dev -p 3300",

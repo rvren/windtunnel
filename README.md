@@ -381,3 +381,9 @@ The mark is called Parting. The app under test is not built yet, so it is not
 drawn; you see it only in how two lines of air part around it. The brand colour
 is violet `#7C5CFF` and the typeface is Barlow. Files and rules are in
 [brand/](brand/README.md).
+
+## License
+
+MIT, copyright (c) 2026 rvren. See [LICENSE](LICENSE). Code copied from
+shadcn/ui and TUFFUI keeps its own MIT notices, listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
