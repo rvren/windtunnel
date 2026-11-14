@@ -6,7 +6,7 @@ import {
 } from "@/lib/labels";
 import type { FindingType, Severity } from "@/server/engine/schema";
 import type { Cockpit, CockpitIssue } from "@/server/projects/cockpit";
-import { UNPLACED } from "@/server/projects/cockpit";
+import { UNPLACED, unplacedLabel } from "@/server/projects/cockpit";
 
 /*
  * The cockpit's canvas views, as data. Each view is three columns: sources
@@ -157,7 +157,15 @@ export function issueFlowView(cockpit: Cockpit): FlowView | null {
     bands.add(`hub:${issue.type}`, `group:${issue.severity}`, tone);
   }
   return {
-    heading: [byWorkspace ? "Workspaces" : "Components", "Kinds", "Severity"],
+    heading: [
+      cockpit.fromRequirement
+        ? "Source"
+        : byWorkspace
+          ? "Workspaces"
+          : "Components",
+      "Kinds",
+      "Severity",
+    ],
     note: "Where the issues are, what kind they are and how bad.",
     legend: severityLegend(cockpit.issues),
     sources: places.map((place) => {
@@ -166,9 +174,7 @@ export function issueFlowView(cockpit: Cockpit): FlowView | null {
         id: `source:${place}`,
         label:
           place === UNPLACED
-            ? byWorkspace
-              ? "No one workspace"
-              : "No one component"
+            ? unplacedLabel(cockpit)
             : byWorkspace
               ? place
               : (name.get(place) ?? place),

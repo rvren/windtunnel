@@ -33,6 +33,7 @@ import type { RunPoint } from "@/lib/viz/project";
 import type { FindingType, Severity } from "@/server/engine/schema";
 import {
   UNPLACED,
+  unplacedLabel,
   type Cockpit as CockpitData,
   type CockpitIssue,
 } from "@/server/projects/cockpit";
@@ -291,7 +292,7 @@ export function Cockpit({
       return value === UNPLACED ? "No one workspace" : value;
     if (key === "component")
       return value === UNPLACED
-        ? "No one component"
+        ? unplacedLabel(cockpit)
         : (componentName.get(value) ?? value);
     if (key === "owasp")
       return value === NOT_MAPPED
@@ -321,7 +322,7 @@ export function Cockpit({
           key: "component" as const,
           label:
             filter.component === UNPLACED
-              ? "No one component"
+              ? unplacedLabel(cockpit)
               : (componentName.get(filter.component) ?? filter.component),
         }
       : null,

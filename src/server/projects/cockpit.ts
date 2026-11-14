@@ -98,6 +98,8 @@ export interface Cockpit {
   sample: boolean;
   /** What the first column of the chart shows. */
   groupedBy: "workspace" | "component";
+  /** Drawn from a requirement run, which reads no code. */
+  fromRequirement: boolean;
   workspaces: string[];
   totals: {
     issues: number;
@@ -115,6 +117,16 @@ export interface Cockpit {
 
 /** The key for issues whose code is in no one workspace or component. */
 export const UNPLACED = "-";
+
+/** What the first column calls the issues that sit in no one place. */
+export function unplacedLabel(
+  cockpit: Pick<Cockpit, "fromRequirement" | "groupedBy">,
+): string {
+  if (cockpit.fromRequirement) return "The requirement";
+  return cockpit.groupedBy === "workspace"
+    ? "No one workspace"
+    : "No one component";
+}
 
 const worstOf = (severities: Severity[]): Severity | null =>
   SEVERITY_ORDER.find((severity) => severities.includes(severity)) ?? null;
@@ -189,9 +201,7 @@ export function buildCockpit(run: RunRecord): Cockpit {
       column: 0 as const,
       label:
         key === UNPLACED
-          ? groupedBy === "workspace"
-            ? "No one workspace"
-            : "No one component"
+          ? unplacedLabel({ fromRequirement: !run.source, groupedBy })
           : groupedBy === "workspace"
             ? key
             : (componentName.get(key) ?? key),
@@ -272,6 +282,7 @@ export function buildCockpit(run: RunRecord): Cockpit {
 
   return {
     runId: run.id,
+    fromRequirement: !run.source,
     ranAt: run.createdAt,
     sample: run.sample,
     groupedBy,
