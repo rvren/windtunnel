@@ -32,7 +32,7 @@ needs a `docker compose up --build` from `docker compose down -v`.
 
 | Area     | Path                         | What it is                                                                   |
 | -------- | ---------------------------- | ---------------------------------------------------------------------------- |
-| Site     | `src/app/(site)/`            | The home page, with the marketing header                                     |
+| Site     | `src/app/(site)/`            | The home page: the pitch as a click-through slide deck                       |
 | App      | `src/app/app/`               | The product: Projects, the project cockpit, Runs, New run, Run, Settings     |
 | API      | `src/app/api/`               | `projects` (and their workspaces and runs), `runs`, `health`                 |
 | Projects | `src/server/projects/`       | The project store, and `cockpit.ts`: a run turned into the cockpit's numbers |
