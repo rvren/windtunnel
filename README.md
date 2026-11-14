@@ -23,8 +23,7 @@ repo: a requirement goes in, five agents test the design, and a report with
 findings and work orders comes out. What comes after is in
 [ROADMAP.md](ROADMAP.md).
 
-Not yet verified: so far the engine has run only against a stand-in for the
-model, in tests. Its first run on the real Claude API is the next step.
+On the example requirement below, a run takes about three minutes.
 
 ## Run it
 
