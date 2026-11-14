@@ -5,6 +5,7 @@ import { engineConfig } from "./config";
 import { AnthropicLlm, RunError } from "./llm";
 import { executeRun, newRun, type RunInput } from "./run";
 import { SAMPLE_SCRIPT, ScriptedLlm } from "./sample";
+import { sampleProjectScript } from "./sample-project";
 import type { RunRecord, StoredEvent } from "./schema";
 import { PgRunStore, type RunStore } from "./store";
 
@@ -87,7 +88,14 @@ export async function startRun(input: RunInput): Promise<RunRecord> {
   await store.save(run);
 
   const llm = config.sampleMode
-    ? new ScriptedLlm(SAMPLE_SCRIPT, { delayMs: 900 })
+    ? new ScriptedLlm(
+        input.project
+          ? sampleProjectScript(
+              input.project.workspaces.map((item) => item.name),
+            )
+          : SAMPLE_SCRIPT,
+        { delayMs: input.project ? 350 : 900 },
+      )
     : new AnthropicLlm();
 
   state().active.add(run.id);

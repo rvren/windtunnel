@@ -13,13 +13,16 @@ Done:
 - The home page, and the product app at `/app`
 - Tunnel run, version 1 (below), on a written requirement or on a repository
 - Postgres for runs; Docker Compose to run everything locally
+- Projects and workspaces: one application made of several repositories, run
+  together, with a cockpit (issue flow, architecture, issues) per project
 
 ## 1. Tunnel run
 
 **Version 1 is built.** Still to do in this stage:
 
 - Check a repository against the findings of an earlier requirement run.
-- Sign-in, so more than one team can share a server.
+- Sign-in, organizations and per-user access to projects.
+- In the cockpit: trends across a project's runs, and scheduled runs.
 
 What version 1 does:
 

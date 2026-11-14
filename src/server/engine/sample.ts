@@ -10,6 +10,7 @@ import {
 } from "./llm";
 import type {
   AgentReport,
+  Architecture,
   Challenges,
   DesignModel,
   Usage,
@@ -35,6 +36,8 @@ type Scripted<T> =
 
 export interface Script {
   model: Scripted<DesignModel>;
+  /** For repository runs: the architecture the model stage returns. */
+  architecture?: Architecture;
   agents: Record<AgentId, Scripted<AgentReport>>;
   /**
    * For repository runs: the tool calls each tool-using stage makes before it
@@ -165,7 +168,18 @@ export class ScriptedLlm implements LlmClient {
       request.onText?.(text.slice(0, Math.ceil(text.length * part)));
     }
 
-    const parsed = request.schema.safeParse(entry.value);
+    // In a repository run the model stage also returns the architecture.
+    const value =
+      key === "model"
+        ? {
+            architecture: this.script.architecture ?? {
+              components: [],
+              connections: [],
+            },
+            ...(entry.value as object),
+          }
+        : entry.value;
+    const parsed = request.schema.safeParse(value);
     if (!parsed.success) {
       throw new RunError(
         "The model's answer did not match the expected shape.",

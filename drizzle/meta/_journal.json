@@ -8,6 +8,13 @@
       "when": 1794637294287,
       "tag": "0000_loving_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794642290714,
+      "tag": "0001_quiet_champions",
+      "breakpoints": true
     }
   ]
 }

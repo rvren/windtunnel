@@ -20,7 +20,8 @@ export interface RunStore {
   /** Inserts or replaces the run and its agent reports. */
   save(run: RunRecord): Promise<void>;
   get(id: string): Promise<RunRecord | null>;
-  list(): Promise<RunSummary[]>;
+  /** Newest first. With a project id, only that project's runs. */
+  list(projectId?: string): Promise<RunSummary[]>;
   appendEvent(runId: string, event: StoredEvent): Promise<void>;
   /** The run's events in order, optionally only those after `afterSeq`. */
   events(runId: string, afterSeq?: number): Promise<StoredEvent[]>;
@@ -34,6 +35,7 @@ export interface RunStore {
 function summarize(run: RunRecord): RunSummary {
   return {
     id: run.id,
+    projectId: run.projectId ?? null,
     createdAt: run.createdAt,
     status: run.status,
     stage: run.stage,
@@ -58,8 +60,9 @@ export class MemoryRunStore implements RunStore {
     return run ? structuredClone(run) : null;
   }
 
-  async list() {
+  async list(projectId?: string) {
     return [...this.runs.values()]
+      .filter((run) => !projectId || run.projectId === projectId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map(summarize);
   }
@@ -98,6 +101,7 @@ export class PgRunStore implements RunStore {
     const { agents, ...data } = run;
     const row = {
       id: run.id,
+      projectId: run.projectId ?? null,
       createdAt: new Date(run.createdAt),
       updatedAt: new Date(run.updatedAt),
       status: run.status,
@@ -145,6 +149,7 @@ export class PgRunStore implements RunStore {
     return {
       ...(row.data as RunData),
       // The columns are the truth for what they hold.
+      projectId: row.projectId ?? undefined,
       status: row.status as RunRecord["status"],
       stage: row.stage as RunRecord["stage"],
       error: row.error,
@@ -152,10 +157,11 @@ export class PgRunStore implements RunStore {
     };
   }
 
-  async list() {
+  async list(projectId?: string) {
     const rows = await this.db
       .select({
         id: runs.id,
+        projectId: runs.projectId,
         createdAt: runs.createdAt,
         status: runs.status,
         stage: runs.stage,
@@ -164,6 +170,7 @@ export class PgRunStore implements RunStore {
         workOrderCount: runs.workOrderCount,
       })
       .from(runs)
+      .where(projectId ? eq(runs.projectId, projectId) : undefined)
       .orderBy(desc(runs.createdAt))
       .limit(200);
     return rows.map((row) => ({

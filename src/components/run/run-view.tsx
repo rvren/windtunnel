@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, LoaderCircle, RotateCcw } from "lucide-react";
+import { Download, FolderKanban, LoaderCircle, RotateCcw } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -149,7 +150,18 @@ export function RunView({ initial }: { initial: RunRecord }) {
           />
           {!running ? (
             <span className="ml-auto flex gap-2">
-              <RunAgain run={run} />
+              {run.projectId ? (
+                <Link
+                  href={`/app/projects/${run.projectId}`}
+                  data-testid="run-open-project"
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <FolderKanban />
+                  Project cockpit
+                </Link>
+              ) : (
+                <RunAgain run={run} />
+              )}
               <a
                 href={`/api/runs/${run.id}/export?format=md`}
                 download
@@ -179,8 +191,9 @@ export function RunView({ initial }: { initial: RunRecord }) {
             className="font-mono text-xs text-muted-foreground"
             data-testid="run-source"
           >
-            {run.source.origin.kind === "github" ? "GitHub" : "Local folder"} ·{" "}
-            {run.source.label}
+            {run.source.workspaces
+              ? `Project · ${run.source.workspaces.map((item) => item.name).join(", ")}`
+              : `${run.source.origin.kind === "github" ? "GitHub" : "Local folder"} · ${run.source.label}`}
             {run.source.files !== null
               ? ` · ${run.source.files.toLocaleString("en")} files · ${run.source.languages.join(" ")}`
               : ""}

@@ -17,6 +17,9 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 function trail(pathname: string | null): { label: string; href?: string }[] {
   if (pathname === null) return [];
   if (pathname.startsWith("/app/settings")) return [{ label: "Settings" }];
+  if (pathname === "/app/projects") return [{ label: "Projects" }];
+  if (pathname.startsWith("/app/projects/"))
+    return [{ label: "Projects", href: "/app/projects" }, { label: "Project" }];
   if (pathname === "/app/runs/new")
     return [{ label: "Runs", href: "/app" }, { label: "New run" }];
   if (pathname.startsWith("/app/runs/"))

@@ -144,6 +144,40 @@ export type AgentReport = z.infer<typeof AgentReport>;
 export type Scenario = AgentReport["scenarios"][number];
 export type RawFinding = AgentReport["findings"][number];
 
+/** How the application is put together: its parts and how they connect. */
+export const Architecture = z.object({
+  components: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      kind: z.enum([
+        "frontend",
+        "service",
+        "database",
+        "queue",
+        "external",
+        "library",
+        "other",
+      ]),
+      /** The workspace it lives in, or null for something outside the code. */
+      workspace: z.string().nullable(),
+      /** The folders or files that make it up, as paths from the root. */
+      paths: z.array(z.string()),
+      description: z.string(),
+    }),
+  ),
+  connections: z.array(
+    z.object({ from: z.string(), to: z.string(), label: z.string() }),
+  ),
+});
+export type Architecture = z.infer<typeof Architecture>;
+
+/** The model stage's answer in a repository run: the model and the architecture. */
+export const RepoDesignModel = DesignModel.extend({
+  architecture: Architecture,
+});
+export type RepoDesignModel = z.infer<typeof RepoDesignModel>;
+
 /** What an agent returns at the end of a repository run. Its findings were
  * already filed one by one through a tool. */
 export const RepoAgentSummary = z.object({ summary: z.string() });
@@ -276,6 +310,17 @@ export interface RunSource {
   files: number | null;
   /** The most common file types, for example [".ts", ".go"]. */
   languages: string[];
+  /**
+   * Set in a project run: every repository read, by workspace name. Files
+   * are then addressed as "workspace/path".
+   */
+  workspaces?: {
+    name: string;
+    origin: RunSource["origin"];
+    label: string;
+  }[];
+  /** How the application is put together, as read from the code. */
+  architecture?: Architecture;
 }
 
 /** A finding that passed the citation checks, with its run-wide id. */
@@ -352,6 +397,8 @@ export interface RunRecord {
   title: string;
   requirement: string;
   documents: RunDocument[];
+  /** The project this run was started from, if any. */
+  projectId?: string;
   /** Set when the run reads a repository. Absent on requirement runs. */
   source?: RunSource;
   models: { reasoning: string; agents: string };
@@ -374,6 +421,7 @@ export interface RunRecord {
 
 export interface RunSummary {
   id: string;
+  projectId: string | null;
   createdAt: string;
   status: RunStatus;
   stage: Stage | null;

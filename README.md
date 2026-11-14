@@ -120,6 +120,33 @@ per agent. A repository run costs more than a requirement run, because the
 agents take many turns to read code. On a 63-file example app, one run took
 about three and a half minutes.
 
+## Projects and the cockpit
+
+A real application is often several repositories. A **project** is one
+application, and each **workspace** in it is one repository: the frontend, a
+backend service, a shared library. Workspaces take the same two sources as a
+repository run.
+
+"Run project" reads every workspace together, so an agent can follow a journey
+from the frontend into a service and find the flaws between them. Files are
+addressed as `workspace/path`. It always asks you to confirm first, because a
+run uses your API key, and a project run costs more than a run of one
+repository.
+
+The project page is its cockpit, built from the latest finished run:
+
+- the number of issues by severity, and of work orders;
+- a flow chart of the issues: workspace → kind → severity, where the width of
+  a band is the number of issues;
+- the architecture as the run read it from the code (frontends, services, data
+  and outside systems, and what calls what), with the issues in each part;
+- every accepted issue. A number, a name in the chart or a part of the
+  architecture filters the list.
+
+With one workspace the cockpit adapts: the chart starts from the components
+inside it. Nothing is shown that a run did not produce. There is no sign-in
+yet, so everyone who can reach the server sees every project.
+
 ## Works on its own
 
 Windtunnel is a standalone product. This is a rule, not a preference:
@@ -166,8 +193,11 @@ The app is on <http://localhost:3300> and Postgres on port 5433.
 Migrations in `drizzle/` are applied by the app when it starts.
 
 To work on the screens without spending on the model, start the app with
-`WINDTUNNEL_SAMPLE_RUN=1`. Runs then replay a small hand-written sample and are
-marked "Sample run" everywhere.
+`pnpm dev:sample`. Runs then replay a small hand-written sample and are marked
+"Sample run" everywhere. It also points the local folders at
+`samples/storefront`: make a project with the workspaces `web`, `api` and
+`billing` from the folders of the same names, run it, and the cockpit fills
+with a scripted run against those files.
 
 ## Stack
 

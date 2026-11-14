@@ -166,6 +166,54 @@ export async function surveyRepo(root: string): Promise<Survey> {
   };
 }
 
+/**
+ * Surveys every workspace of a project as one. Each file's path gains its
+ * workspace name as a first part, and the limits apply to the whole.
+ */
+export async function surveyWorkspaces(
+  roots: { name: string; root: string }[],
+): Promise<Survey> {
+  const parts = await Promise.all(
+    roots.map(async ({ name, root }) => ({
+      name,
+      survey: await surveyRepo(root),
+    })),
+  );
+  const files = parts.flatMap(({ name, survey }) =>
+    survey.files.map((file) => ({ ...file, path: `${name}/${file.path}` })),
+  );
+  const totalBytes = parts.reduce(
+    (sum, part) => sum + part.survey.totalBytes,
+    0,
+  );
+  if (files.length > REPO_LIMITS.files || totalBytes > REPO_LIMITS.bytes) {
+    throw new RunError(
+      `Together the workspaces hold ${files.length.toLocaleString("en")} text files and ${Math.round(totalBytes / 1_000_000)} MB. That is over the limit for one run (${REPO_LIMITS.files.toLocaleString("en")} files, ${Math.round(REPO_LIMITS.bytes / 1_000_000)} MB).`,
+    );
+  }
+  const extensions = new Map<string, number>();
+  for (const { survey } of parts) {
+    for (const item of survey.languages) {
+      extensions.set(
+        item.extension,
+        (extensions.get(item.extension) ?? 0) + item.files,
+      );
+    }
+  }
+  return {
+    files,
+    totalBytes,
+    skipped: parts.reduce((sum, part) => sum + part.survey.skipped, 0),
+    manifests: parts.flatMap(({ name, survey }) =>
+      survey.manifests.map((manifest) => `${name}/${manifest}`),
+    ),
+    languages: [...extensions.entries()]
+      .map(([extension, count]) => ({ extension, files: count }))
+      .sort((a, b) => b.files - a.files)
+      .slice(0, 12),
+  };
+}
+
 /** A short map of the repository for a prompt: top folders and file counts. */
 export function outline(survey: Survey): string {
   const folders = new Map<string, number>();

@@ -289,6 +289,13 @@ What goes in the model:
 
 Mark an item "stated" when the code does it, and "assumed" when the product could not work without it but you did not find it in the code.
 
+Also describe the architecture, in "architecture":
+
+- components: each deployable or logical part of the application: a web or mobile frontend, a backend service, a database, a queue, an outside system it calls, a shared library. Give each a short name, its kind, a one-sentence description, and "paths": the folders or files that make it up, as paths from the root exactly as the tools show them. A database or an outside system has no code of its own: give it an empty "paths". "workspace" is the workspace it lives in when workspaces are listed, and null otherwise.
+- connections: which component calls or depends on which, "from" the caller "to" the thing called, with a short label for how ("REST", "SQL", "queue", "imports").
+
+Use ids that start with cmp-. Name only what the code shows.
+
 The most important rule: do not repair the design. Where the code is silent, the model must stay visibly silent: a missing permission entry, a null limit, a null failureBehaviour. Those silences are what the later stages look for.
 
 Ids are lowercase with hyphens and a prefix by kind: role-, ent-, op-, rule-, jrn-. Each id is unique across the whole model. Keep the model proportionate: the operations that matter, not every helper.`;
@@ -303,9 +310,16 @@ function statedIntent(run: RunRecord): string {
     : "";
 }
 
+function workspaceList(run: RunRecord): string {
+  const workspaces = run.source?.workspaces;
+  if (!workspaces) return "";
+  return `<workspaces>\nThis application is made of ${workspaces.length} repositories, called workspaces. Every path begins with the name of its workspace.\n${workspaces.map((item) => `- ${item.name}: ${item.label}`).join("\n")}\n</workspaces>`;
+}
+
 export function repoModelPrompt(run: RunRecord, outlineText: string): string {
   return [
     sourceLine(run),
+    workspaceList(run),
     `<repository_outline>\n${outlineText}\n</repository_outline>`,
     statedIntent(run),
     "Read the repository and write its design model.",
@@ -354,6 +368,7 @@ export function repoSharedContext(
     .join("\n");
   return [
     sourceLine(run),
+    workspaceList(run),
     `<repository_outline>\n${outlineText}\n</repository_outline>`,
     statedIntent(run),
     `<design_model>\n${JSON.stringify(model, null, 1)}\n</design_model>`,

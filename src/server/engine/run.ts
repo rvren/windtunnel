@@ -1,5 +1,6 @@
 import { AGENTS, type AgentDefinition } from "@/lib/agents";
 
+import { normalizeArchitecture } from "./architecture";
 import { findCoverage, modelIds, normalizeModel } from "./coverage";
 import { loadExpertise } from "./expertise";
 import { RunError, type LlmClient } from "./llm";
@@ -11,7 +12,12 @@ import {
   type PreparedRepo,
   type RepoOrigin,
 } from "./repo/fetch";
-import { outline, surveyRepo, type Survey } from "./repo/survey";
+import {
+  outline,
+  surveyRepo,
+  surveyWorkspaces,
+  type Survey,
+} from "./repo/survey";
 import { RepoReader } from "./repo/tools";
 import {
   AGENT_SYSTEM,
@@ -37,6 +43,7 @@ import {
   Challenges,
   DesignModel,
   RepoAgentSummary,
+  RepoDesignModel,
   Verdict,
   WorkOrders,
   ZERO_USAGE,
@@ -82,6 +89,12 @@ export interface RunInput {
   documents: RunDocument[];
   /** Set to run against code instead of a written requirement alone. */
   repository?: RepoOrigin;
+  /** Set to run a whole project: every workspace, read together. */
+  project?: {
+    id: string;
+    name: string;
+    workspaces: { name: string; origin: RepoOrigin }[];
+  };
 }
 
 /** How many times a model may come back with tool calls in one stage. */
@@ -104,7 +117,17 @@ export function newRun(
   sample: boolean,
 ): RunRecord {
   const at = now.toISOString();
-  const label = input.repository ? originLabel(input.repository) : null;
+  // A project with one workspace is read as a plain repository: its paths
+  // need no workspace name in front.
+  const project = input.project;
+  const single =
+    project?.workspaces.length === 1 ? project.workspaces[0].origin : undefined;
+  const repository = input.repository ?? single;
+  const label = project
+    ? project.name
+    : repository
+      ? originLabel(repository)
+      : null;
   return {
     id,
     createdAt: at,
@@ -112,17 +135,28 @@ export function newRun(
     status: "running",
     stage: null,
     error: null,
-    title: input.requirement.trim()
-      ? titleOf(input.requirement)
-      : (label ?? ""),
-    ...(input.repository && label
+    title: project
+      ? project.name
+      : input.requirement.trim()
+        ? titleOf(input.requirement)
+        : (label ?? ""),
+    ...(project ? { projectId: project.id } : {}),
+    ...(label && (repository || project?.workspaces.length)
       ? {
           source: {
             kind: "repository" as const,
-            origin: input.repository,
+            origin: repository ?? project!.workspaces[0].origin,
             label,
             files: null,
             languages: [],
+            ...(project && project.workspaces.length > 1
+              ? {
+                  workspaces: project.workspaces.map((workspace) => ({
+                    ...workspace,
+                    label: originLabel(workspace.origin),
+                  })),
+                }
+              : {}),
           },
         }
       : {}),
@@ -203,7 +237,7 @@ export async function executeRun(
   };
 
   // Set in a repository run, once the code is on disk and surveyed.
-  let prepared: PreparedRepo | null = null;
+  const prepared: PreparedRepo[] = [];
   let repo: { reader: RepoReader; survey: Survey; outline: string } | null =
     null;
 
@@ -216,17 +250,37 @@ export async function executeRun(
     const source = run.source;
     if (source) {
       await stage("survey", async () => {
-        prepared = await prepareRepo(source.origin, run.id);
-        const survey = await surveyRepo(prepared.root);
-        repo = {
-          survey,
-          reader: new RepoReader(prepared.root, survey),
-          outline: outline(survey),
-        };
+        let survey: Survey;
+        let reader: RepoReader;
+        if (source.workspaces) {
+          // A project: fetch every workspace, then read them as one.
+          const roots: Record<string, string> = {};
+          for (const workspace of source.workspaces) {
+            const fetched = await prepareRepo(
+              workspace.origin,
+              `${run.id}-${workspace.name}`,
+            );
+            prepared.push(fetched);
+            roots[workspace.name] = fetched.root;
+          }
+          survey = await surveyWorkspaces(
+            Object.entries(roots).map(([name, root]) => ({ name, root })),
+          );
+          reader = new RepoReader(roots, survey);
+        } else {
+          const fetched = await prepareRepo(source.origin, run.id);
+          prepared.push(fetched);
+          survey = await surveyRepo(fetched.root);
+          reader = new RepoReader(fetched.root, survey);
+        }
+        repo = { survey, reader, outline: outline(survey) };
         source.files = survey.files.length;
         source.languages = survey.languages
           .slice(0, 4)
           .map((item) => item.extension);
+        if (source.workspaces) {
+          return `${plural(survey.files.length, "file")} in ${plural(source.workspaces.length, "workspace")}`;
+        }
         return `${plural(survey.files.length, "file")}, mostly ${source.languages.slice(0, 2).join(" and ")}`;
       });
     }
@@ -245,7 +299,7 @@ export async function executeRun(
             effort: "high",
             system: REPO_MODEL_SYSTEM,
             prompt: repoModelPrompt(run, code.outline),
-            schema: DesignModel,
+            schema: RepoDesignModel,
             tools: readTools(code.reader.fork(), () => {}),
             maxTurns: MODEL_TURNS,
           })
@@ -265,6 +319,15 @@ export async function executeRun(
         );
       }
       const { model, warnings } = normalizeModel(result.value);
+      const { architecture } = result.value as Partial<RepoDesignModel>;
+      if (source && architecture) {
+        const checked = normalizeArchitecture(
+          architecture,
+          source.workspaces?.map((workspace) => workspace.name) ?? [],
+        );
+        source.architecture = checked.architecture;
+        warnings.push(...checked.warnings);
+      }
       if (model.roles.length === 0 || model.operations.length === 0) {
         throw new RunError(
           code
@@ -600,7 +663,9 @@ export async function executeRun(
   }
 
   // A cloned repository is removed; the findings keep the lines they cite.
-  await (prepared as PreparedRepo | null)?.cleanup().catch(() => undefined);
+  await Promise.all(
+    prepared.map((item) => item.cleanup().catch(() => undefined)),
+  );
   await queue.catch(() => undefined);
   return run;
 }

@@ -6,16 +6,13 @@ import { FileText, LoaderCircle, Paperclip, Play, X } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  RepoSourceFields,
+  emptyRepoSource,
+  toOrigin,
+} from "./repo-source-fields";
 import { DOCUMENT_EXTENSIONS, EXAMPLE_REQUIREMENT, LIMITS } from "@/lib/limits";
 
 interface Attached {
@@ -41,10 +38,7 @@ export function RunForm({
   const [subject, setSubject] = useState<"requirement" | "repository">(
     "requirement",
   );
-  const [origin, setOrigin] = useState<"github" | "local">("github");
-  const [url, setUrl] = useState("");
-  const [branch, setBranch] = useState("");
-  const [folder, setFolder] = useState(folders[0] ?? "");
+  const [source, setSource] = useState(() => emptyRepoSource(folders));
   const router = useRouter();
   const picker = useRef<HTMLInputElement>(null);
   const [requirement, setRequirement] = useState("");
@@ -88,22 +82,14 @@ export function RunForm({
 
   async function start(event: React.FormEvent) {
     event.preventDefault();
-    const repository =
-      subject !== "repository"
-        ? undefined
-        : origin === "github"
-          ? { kind: "github", url: url.trim(), branch: branch.trim() }
-          : { kind: "local", name: folder };
+    const picked = subject === "repository" ? toOrigin(source) : null;
+    if (picked && !picked.ok) {
+      setError(picked.error);
+      return;
+    }
+    const repository = picked?.ok ? picked.origin : undefined;
     if (!repository && !requirement.trim()) {
       setError("Enter a requirement.");
-      return;
-    }
-    if (repository?.kind === "github" && !repository.url) {
-      setError("Enter the repository's GitHub address.");
-      return;
-    }
-    if (repository?.kind === "local" && !repository.name) {
-      setError("Choose a folder.");
       return;
     }
     setError(null);
@@ -168,89 +154,16 @@ export function RunForm({
             file and lines that show them. Nothing in the repository is ever
             run.
           </p>
-          <Tabs
-            value={origin}
-            onValueChange={(value) => {
-              setOrigin(value as typeof origin);
+          <RepoSourceFields
+            value={source}
+            onChange={(next) => {
+              setSource(next);
               setError(null);
             }}
-          >
-            <TabsList>
-              <TabsTrigger value="github" data-testid="run-form-origin-github">
-                From GitHub
-              </TabsTrigger>
-              <TabsTrigger value="local" data-testid="run-form-origin-local">
-                Local folder
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          {origin === "github" ? (
-            <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
-              <div className="space-y-2">
-                <label htmlFor="repo-url" className="text-sm font-medium">
-                  Repository address
-                </label>
-                <Input
-                  id="repo-url"
-                  data-testid="run-form-repo-url"
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                  placeholder="https://github.com/owner/name"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="repo-branch" className="text-sm font-medium">
-                  Branch
-                </label>
-                <Input
-                  id="repo-branch"
-                  data-testid="run-form-repo-branch"
-                  value={branch}
-                  onChange={(event) => setBranch(event.target.value)}
-                  placeholder="Default branch"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground sm:col-span-2">
-                {githubToken
-                  ? "Private repositories work: the server has a GitHub token."
-                  : "Public repositories only. For private ones, add GITHUB_TOKEN to .env.local and restart the server."}
-              </p>
-            </div>
-          ) : folders.length > 0 ? (
-            <div className="max-w-sm space-y-2">
-              <label htmlFor="repo-folder" className="text-sm font-medium">
-                Folder
-              </label>
-              <Select
-                value={folder}
-                onValueChange={(value) => setFolder(String(value ?? ""))}
-              >
-                <SelectTrigger
-                  id="repo-folder"
-                  className="w-full"
-                  data-testid="run-form-repo-folder"
-                >
-                  <SelectValue placeholder="Choose a folder" />
-                </SelectTrigger>
-                <SelectContent>
-                  {folders.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <p className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">
-              No folders yet. Put a repository in the server&apos;s repositories
-              folder (`repos/` in the Windtunnel project) and reload this page.
-            </p>
-          )}
+            folders={folders}
+            githubToken={githubToken}
+            idPrefix="run-form"
+          />
         </div>
       ) : null}
 

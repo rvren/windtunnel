@@ -12,6 +12,7 @@ it: [README.md](README.md). What is built and what is next:
 ```bash
 pnpm db:up        # Postgres in Docker, port 5433
 pnpm dev          # the app on http://localhost:3300
+pnpm dev:sample   # the same, replaying sample runs: spends nothing
 pnpm lint
 pnpm typecheck
 pnpm test         # unit tests: no network, no database
@@ -29,14 +30,16 @@ needs a `docker compose up --build` from `docker compose down -v`.
 
 ## Where things are
 
-| Area     | Path                         | What it is                                                    |
-| -------- | ---------------------------- | ------------------------------------------------------------- |
-| Site     | `src/app/(site)/`            | The home page, with the marketing header                      |
-| App      | `src/app/app/`               | The product: Runs, New run, Run, Settings, in the app shell   |
-| API      | `src/app/api/`               | `runs` (start, list, read, event stream, export) and `health` |
-| Engine   | `src/server/engine/`         | The five stages and everything they need                      |
-| Database | `src/server/db/`, `drizzle/` | Three tables, the pool, the migrations                        |
-| Shared   | `src/lib/`                   | The agents, labels, limits, the live-feed reducer             |
+| Area     | Path                         | What it is                                                                   |
+| -------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| Site     | `src/app/(site)/`            | The home page, with the marketing header                                     |
+| App      | `src/app/app/`               | The product: Projects, the project cockpit, Runs, New run, Run, Settings     |
+| API      | `src/app/api/`               | `projects` (and their workspaces and runs), `runs`, `health`                 |
+| Projects | `src/server/projects/`       | The project store, and `cockpit.ts`: a run turned into the cockpit's numbers |
+| Samples  | `samples/storefront/`        | Three small folders for the scripted project run. Read, never run            |
+| Engine   | `src/server/engine/`         | The five stages and everything they need                                     |
+| Database | `src/server/db/`, `drizzle/` | Five tables, the pool, the migrations                                        |
+| Shared   | `src/lib/`                   | The agents, labels, limits, the live-feed reducer                            |
 
 The root layout holds only fonts, theme and styles. Each area adds its own
 chrome in a nested layout.
@@ -134,6 +137,14 @@ orders`, run by
   untrusted and is confined in `repo/tools.ts`. Agents file findings one by
   one through `report_finding`, which checks the cited file and lines and
   announces the finding at once.
+- **Project runs** read every workspace of a project as one. Paths are
+  `workspace/path` (no workspace name when the project has one workspace), and
+  each workspace is confined to its own folder. The model stage of any
+  repository run also returns the architecture; `architecture.ts` checks it
+  and maps a finding to its workspace and component by the file it cites.
+  `projects/cockpit.ts` is pure and only counts what a run holds.
+- **Never run `next typegen` while `pnpm dev` is running.** It sends the dev
+  server into a rebuild loop that reloads every page. Stop the server first.
 - **Expertise** for each agent is Markdown in `expertise/`. Improve an
   agent by editing its notes before you touch its prompt.
 - **Never start a live run without the owner's permission for that run.**

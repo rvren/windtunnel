@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, History, Plus, Settings } from "lucide-react";
+import { ArrowLeft, FolderKanban, History, Plus, Settings } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -21,6 +21,14 @@ import {
 // Only what exists is listed. Crosswind, Fly-off and Black box join this list
 // when they are built.
 const items = [
+  {
+    href: "/app/projects",
+    label: "Projects",
+    icon: FolderKanban,
+    testId: "app-nav-projects",
+    isActive: (path: string | null) =>
+      Boolean(path?.startsWith("/app/projects")),
+  },
   {
     href: "/app",
     label: "Runs",
@@ -42,15 +50,22 @@ const items = [
 ];
 
 /** The sidebar for the page being shown. Needs a Suspense boundary above it. */
-export function AppSidebar() {
-  return <AppSidebarFor pathname={usePathname()} />;
+export function AppSidebar({ switcher }: { switcher: React.ReactNode }) {
+  return <AppSidebarFor pathname={usePathname()} switcher={switcher} />;
 }
 
 /**
  * The sidebar itself. With no pathname nothing is marked as current: that is
  * what is shown for the instant before the path is known.
  */
-export function AppSidebarFor({ pathname }: { pathname: string | null }) {
+export function AppSidebarFor({
+  pathname,
+  switcher,
+}: {
+  pathname: string | null;
+  /** The project switcher, which the layout reads on the server. */
+  switcher: React.ReactNode;
+}) {
   return (
     <Sidebar collapsible="icon" variant="floating">
       <SidebarHeader>
@@ -62,6 +77,7 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
         >
           <Logo wordClassName="group-data-[collapsible=icon]:hidden" />
         </Link>
+        {switcher}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton

@@ -38,7 +38,8 @@ export class RepoReader {
   private bytesRead = 0;
 
   constructor(
-    private readonly root: string,
+    /** One folder, or in a project run one folder per workspace name. */
+    private readonly root: string | Record<string, string>,
     private readonly survey: Survey,
   ) {
     this.byPath = new Map(survey.files.map((file) => [file.path, file]));
@@ -78,9 +79,22 @@ export class RepoReader {
     const cached = this.cache.get(relative);
     if (cached) return cached;
 
-    const full = path.join(this.root, relative);
+    // In a project run the first part of the path names the workspace, and
+    // the file must stay inside that workspace's own folder.
+    let root = this.root as string;
+    let inner = relative;
+    if (typeof this.root !== "string") {
+      const slash = relative.indexOf("/");
+      const workspace = relative.slice(0, slash);
+      root = this.root[workspace];
+      inner = relative.slice(slash + 1);
+      if (slash === -1 || !root) {
+        throw new ToolFailure(`"${relative}" is outside the repository.`);
+      }
+    }
+    const full = path.join(root, inner);
     const [realRoot, realFile] = await Promise.all([
-      realpath(this.root),
+      realpath(root),
       realpath(full),
     ]);
     if (realFile !== realRoot && !realFile.startsWith(realRoot + path.sep)) {

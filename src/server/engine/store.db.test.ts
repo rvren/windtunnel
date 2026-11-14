@@ -93,6 +93,7 @@ describe("PgRunStore", () => {
     expect(await store.list()).toEqual([
       {
         id: id(2),
+        projectId: null,
         createdAt: "2026-11-13T11:00:00.000Z",
         status: "completed",
         stage: null,
@@ -102,6 +103,7 @@ describe("PgRunStore", () => {
       },
       {
         id: id(1),
+        projectId: null,
         createdAt: "2026-11-13T09:00:00.000Z",
         status: "running",
         stage: null,

@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3300",
+    "dev:sample": "WINDTUNNEL_SAMPLE_RUN=1 WINDTUNNEL_REPOS_DIR=samples/storefront next dev -p 3300",
     "build": "next build",
     "start": "next start -p 3300",
     "lint": "eslint",
