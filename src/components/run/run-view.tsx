@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocalTime } from "@/components/local-time";
+import { FadeIn } from "@/components/motion";
 import { applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
 import type { RunRecord, StoredEvent } from "@/server/engine/schema";
 
@@ -116,7 +117,7 @@ export function RunView({ initial }: { initial: RunRecord }) {
             </span>
           ) : null}
         </div>
-        <h1 className="max-w-4xl text-2xl leading-tight font-medium tracking-[-0.02em] text-balance sm:text-3xl">
+        <h1 className="max-w-4xl text-2xl leading-tight font-normal tracking-[-0.02em] text-balance sm:text-3xl">
           {run.title}
         </h1>
         {run.requirement !== run.title || run.documents.length > 0 ? (
@@ -173,12 +174,12 @@ export function RunView({ initial }: { initial: RunRecord }) {
       {hasReport ? (
         <Tabs defaultValue="findings" className="gap-6">
           {/* The four tabs do not fit a phone: the strip scrolls sideways. */}
-          <div className="overflow-x-auto border-b">
-            <TabsList variant="line" className="w-max justify-start">
+          <div className="overflow-x-auto">
+            <TabsList className="w-max">
               <TabsTrigger
                 value="findings"
                 data-testid="run-tab-findings"
-                className="flex-none px-3"
+                className="flex-none px-4"
               >
                 Findings
                 <span className="font-mono text-xs text-muted-foreground">
@@ -188,7 +189,7 @@ export function RunView({ initial }: { initial: RunRecord }) {
               <TabsTrigger
                 value="work-orders"
                 data-testid="run-tab-work-orders"
-                className="flex-none px-3"
+                className="flex-none px-4"
               >
                 Work orders
                 <span className="font-mono text-xs text-muted-foreground">
@@ -198,30 +199,38 @@ export function RunView({ initial }: { initial: RunRecord }) {
               <TabsTrigger
                 value="model"
                 data-testid="run-tab-model"
-                className="flex-none px-3"
+                className="flex-none px-4"
               >
                 Design model
               </TabsTrigger>
               <TabsTrigger
                 value="scoreboard"
                 data-testid="run-tab-scoreboard"
-                className="flex-none px-3"
+                className="flex-none px-4"
               >
                 Scoreboard
               </TabsTrigger>
             </TabsList>
           </div>
           <TabsContent value="findings">
-            <FindingsTab run={run} />
+            <FadeIn>
+              <FindingsTab run={run} />
+            </FadeIn>
           </TabsContent>
           <TabsContent value="work-orders">
-            <WorkOrdersTab run={run} />
+            <FadeIn>
+              <WorkOrdersTab run={run} />
+            </FadeIn>
           </TabsContent>
           <TabsContent value="model">
-            <ModelTab run={run} />
+            <FadeIn>
+              <ModelTab run={run} />
+            </FadeIn>
           </TabsContent>
           <TabsContent value="scoreboard">
-            <ScoreboardTab run={run} />
+            <FadeIn>
+              <ScoreboardTab run={run} />
+            </FadeIn>
           </TabsContent>
         </Tabs>
       ) : null}

@@ -24,14 +24,14 @@ export function SiteHeader() {
         </a>
         <nav
           aria-label="Sections"
-          className="hidden items-center rounded-full border bg-card/50 p-1 text-sm text-muted-foreground md:flex"
+          className="hidden items-center rounded-md border bg-card/50 p-1 text-sm text-muted-foreground md:flex"
         >
           {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
               data-testid={`header-nav-${link.href.slice(1)}`}
-              className="rounded-full px-3.5 py-1.5 transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-md px-3.5 py-1.5 transition-colors hover:bg-muted hover:text-foreground"
             >
               {link.label}
             </a>
@@ -42,7 +42,7 @@ export function SiteHeader() {
           <Link
             href="/app"
             data-testid="header-launch-app"
-            className={buttonVariants({ className: "rounded-full px-4" })}
+            className={buttonVariants({ className: "px-4" })}
           >
             Launch app
           </Link>

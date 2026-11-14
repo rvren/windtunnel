@@ -148,7 +148,7 @@ marked "Sample run" everywhere.
   [shadcn/ui](https://ui.shadcn.com) on Base UI, with lucide icons
 - Postgres 17 with [Drizzle](https://orm.drizzle.team)
 - The Claude API through `@anthropic-ai/sdk`
-- Sora for text and headings, Geist Mono for labels
+- Barlow for text and headings, Geist Mono for labels
 
 ## Layout
 
@@ -168,5 +168,5 @@ src/server/db/         tables, connection, migrations
 
 The mark is called Parting. The app under test is not built yet, so it is not
 drawn; you see it only in how two lines of air part around it. The brand colour
-is violet `#7C5CFF` and the typeface is Sora. Files and rules are in
+is violet `#7C5CFF` and the typeface is Barlow. Files and rules are in
 [brand/](brand/README.md).

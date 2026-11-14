@@ -1,5 +1,8 @@
+"use client";
+
 import { Check, LoaderCircle, X } from "lucide-react";
 
+import { FadeInItem } from "@/components/motion";
 import { AGENTS } from "@/lib/agents";
 import { STAGE_DESCRIPTION, STAGE_LABEL, STAGE_ORDER } from "@/lib/labels";
 import type { Feed, StageState } from "@/lib/run-feed";
@@ -12,7 +15,7 @@ function StageMark({ state, index }: { state: StageState; index: number }) {
   return (
     <span
       className={cn(
-        "flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]",
+        "flex size-6 shrink-0 items-center justify-center rounded-md border font-mono text-[11px]",
         state === "done" && "border-ok/50 text-ok",
         state === "running" && "border-brand text-brand",
         state === "failed" && "border-sev-critical/60 text-sev-critical",
@@ -36,7 +39,7 @@ function StageMark({ state, index }: { state: StageState; index: number }) {
 export function StageRail({ feed }: { feed: Feed }) {
   return (
     <ol
-      className="grid gap-px overflow-hidden rounded-2xl border bg-border sm:grid-cols-5"
+      className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-5"
       data-testid="run-stages"
     >
       {STAGE_ORDER.map((stage, index) => {
@@ -94,12 +97,12 @@ export function AgentLanes({ feed }: { feed: Feed }) {
         return (
           <li
             key={agent.id}
-            className="flex flex-col rounded-2xl border bg-card/60 p-4 last:sm:col-span-2 last:lg:col-span-1"
+            className="flex flex-col rounded-md border bg-card p-4 last:sm:col-span-2 last:lg:col-span-1"
             data-testid={`run-agent-${agent.id}`}
             data-status={lane.status}
           >
             <div className="flex items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
                 <AgentIcon agentId={agent.id} />
               </span>
               <span className="min-w-0">
@@ -128,10 +131,10 @@ export function AgentLanes({ feed }: { feed: Feed }) {
             {count > 0 ? (
               <ol className="mt-4 space-y-2 border-t pt-3 text-xs leading-snug text-muted-foreground">
                 {lane.scenarios.map((title, index) => (
-                  <li key={`${index}-${title}`} className="flex gap-2">
-                    <span className="font-mono text-primary">{index + 1}</span>
+                  <FadeInItem key={`${index}-${title}`} className="flex gap-2">
+                    <span className="font-mono text-link">{index + 1}</span>
                     <span>{title}</span>
-                  </li>
+                  </FadeInItem>
                 ))}
               </ol>
             ) : null}

@@ -3,6 +3,7 @@ import { ArrowRight, FileText, ListChecks, Plug } from "lucide-react";
 
 import { FlowBand } from "@/components/brand/flow-band";
 import { HeroVisual } from "@/components/brand/hero-visual";
+import { FadeIn, Reveal } from "@/components/motion";
 import { Panel } from "@/components/panel";
 import { AgentIcon } from "@/components/run/badges";
 import { Badge } from "@/components/ui/badge";
@@ -113,7 +114,7 @@ function Feature({
   children: React.ReactNode;
 }) {
   return (
-    <section
+    <Reveal
       id={id}
       className="mx-auto grid w-full max-w-6xl scroll-mt-24 items-start gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:gap-20 lg:py-28"
     >
@@ -121,7 +122,7 @@ function Feature({
         <p className="font-mono text-xs tracking-widest text-muted-foreground uppercase">
           {eyebrow}
         </p>
-        <h2 className="mt-5 text-3xl leading-[1.1] font-medium tracking-[-0.03em] sm:text-[2.5rem]">
+        <h2 className="mt-5 text-3xl leading-[1.1] font-normal tracking-[-0.03em] sm:text-[2.5rem]">
           {title[0]}
           <br />
           <span className="text-muted-foreground">{title[1]}</span>
@@ -133,7 +134,7 @@ function Feature({
           <ol className="mt-8 divide-y border-y text-sm">
             {items.map((item, index) => (
               <li key={item} className="flex items-baseline gap-4 py-3">
-                <span className="font-mono text-xs text-primary">
+                <span className="font-mono text-xs text-link">
                   {number(index)}
                 </span>
                 {item}
@@ -143,7 +144,7 @@ function Feature({
         ) : null}
       </div>
       <div>{children}</div>
-    </section>
+    </Reveal>
   );
 }
 
@@ -154,13 +155,11 @@ function Divider() {
 export default function Home() {
   return (
     <>
-      <section className="relative overflow-hidden">
+      <FadeIn className="relative overflow-hidden">
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-6 px-4 pt-12 pb-28 sm:px-6 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:pt-0">
           <div>
-            <Badge variant="outline" className="rounded-full">
-              Early build
-            </Badge>
-            <h1 className="mt-6 text-5xl leading-[1.02] font-medium tracking-[-0.04em] sm:text-6xl lg:text-[4.5rem]">
+            <Badge variant="outline">Early build</Badge>
+            <h1 className="mt-6 text-5xl leading-[1.02] font-normal tracking-[-0.04em] sm:text-6xl lg:text-[4.5rem]">
               Break it before
               <br />
               you build it.
@@ -177,7 +176,7 @@ export default function Home() {
                 data-testid="hero-launch-app"
                 className={cn(
                   buttonVariants({ size: "lg" }),
-                  "h-11 rounded-full px-5 shadow-[0_0_44px_-6px] shadow-brand/70",
+                  "h-11 px-5 shadow-[0_0_44px_-6px] shadow-brand/70",
                 )}
               >
                 Launch app
@@ -188,29 +187,29 @@ export default function Home() {
                 data-testid="hero-how-link"
                 className={cn(
                   buttonVariants({ variant: "outline", size: "lg" }),
-                  "h-11 rounded-full px-5",
+                  "h-11 px-5",
                 )}
               >
                 See how it works
               </a>
             </div>
-            <p className="mt-8 flex max-w-md items-baseline gap-3 rounded-xl border bg-card/50 px-3.5 py-2.5 font-mono text-xs leading-relaxed text-muted-foreground">
-              <span className="shrink-0 text-primary">example</span>
+            <p className="mt-8 flex max-w-md items-baseline gap-3 rounded-md border bg-card/50 px-3.5 py-2.5 font-mono text-xs leading-relaxed text-muted-foreground">
+              <span className="shrink-0 text-link">example</span>
               {EXAMPLE_REQUIREMENT}
             </p>
           </div>
           <HeroVisual />
         </div>
-      </section>
+      </FadeIn>
 
-      <section
+      <Reveal
         id="how"
         className="relative mx-auto -mt-16 w-full max-w-6xl scroll-mt-24 px-4 sm:px-6"
       >
-        <ol className="grid gap-px overflow-hidden rounded-2xl border bg-border sm:grid-cols-3">
+        <ol className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-3">
           {steps.map((step, index) => (
             <li key={step.title} className="bg-card p-6">
-              <span className="font-mono text-xs text-primary">
+              <span className="font-mono text-xs text-link">
                 {number(index)}
               </span>
               <h2 className="mt-3 font-medium">{step.title}</h2>
@@ -220,13 +219,13 @@ export default function Home() {
             </li>
           ))}
         </ol>
-      </section>
+      </Reveal>
 
-      <section
+      <Reveal
         id="agents"
         className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-24 sm:px-6 lg:py-32"
       >
-        <h2 className="text-center text-3xl leading-[1.1] font-medium tracking-[-0.03em] sm:text-[2.5rem]">
+        <h2 className="text-center text-3xl leading-[1.1] font-normal tracking-[-0.03em] sm:text-[2.5rem]">
           One design.
           <br />
           <span className="text-muted-foreground">Five ways to break it.</span>
@@ -238,7 +237,7 @@ export default function Home() {
               className="last:sm:col-span-2 last:lg:col-span-1"
             >
               <Panel className="h-full p-5">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+                <span className="flex size-10 items-center justify-center rounded-md bg-accent text-accent-foreground">
                   <AgentIcon agentId={agent.id} className="size-5" />
                 </span>
                 <h3 className="mt-5 font-medium">{agent.name}</h3>
@@ -252,7 +251,7 @@ export default function Home() {
         <p className="mt-10 text-center text-sm text-muted-foreground">
           The agents compete to find flaws in the proposed design.
         </p>
-      </section>
+      </Reveal>
 
       <Divider />
 
@@ -327,7 +326,7 @@ export default function Home() {
           {standalone.map((item) => (
             <li key={item.title}>
               <Panel className="flex gap-4 p-5">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
                   <item.icon className="size-5" aria-hidden="true" />
                 </span>
                 <span>
@@ -347,11 +346,11 @@ export default function Home() {
         </ul>
       </Feature>
 
-      <section
+      <Reveal
         id="roadmap"
         className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 pt-8 pb-24 sm:px-6 lg:pb-32"
       >
-        <h2 className="text-center text-3xl leading-[1.1] font-medium tracking-[-0.03em] sm:text-[2.5rem]">
+        <h2 className="text-center text-3xl leading-[1.1] font-normal tracking-[-0.03em] sm:text-[2.5rem]">
           Before it is yours.
           <br />
           <span className="text-muted-foreground">What comes next.</span>
@@ -360,7 +359,7 @@ export default function Home() {
           {roadmap.map((item, index) => (
             <li key={item.name}>
               <Panel className="flex h-full gap-4 p-5">
-                <span className="font-mono text-xs leading-6 text-primary">
+                <span className="font-mono text-xs leading-6 text-link">
                   {number(index)}
                 </span>
                 <span className="flex-1">
@@ -380,7 +379,7 @@ export default function Home() {
             </li>
           ))}
         </ol>
-      </section>
+      </Reveal>
 
       <footer className="relative overflow-hidden border-t">
         <div
@@ -389,7 +388,7 @@ export default function Home() {
         />
         <FlowBand className="relative pt-10" />
         <div className="relative mx-auto w-full max-w-6xl px-4 pt-6 pb-12 sm:px-6">
-          <p className="max-w-xl text-3xl leading-[1.1] font-medium tracking-[-0.03em] sm:text-[2.5rem]">
+          <p className="max-w-xl text-3xl leading-[1.1] font-normal tracking-[-0.03em] sm:text-[2.5rem]">
             Find the flaw while it is still a sentence.
           </p>
           <p className="mt-10 border-t pt-6 text-sm text-muted-foreground">

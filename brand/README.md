@@ -34,10 +34,11 @@ copy of `icon.svg`.
 | Ink    | `#0B0D10` | Text on light, and the dark ground      |
 | Paper  | `#FAFAFC` | Text on dark, and the light ground      |
 
-Violet on its own does not give small text enough contrast, so the interface
-uses two tuned steps of it: `#6A48F2` under white text in the light theme and
-`#8B70FF` under ink text in the dark theme. Both are set as `--primary` in
-`src/app/globals.css`.
+The interface is nearly monochrome: the main action is a white pill on dark and
+an ink pill on light, and violet is kept for the logo, progress and links.
+Violet on its own does not give small text enough contrast, so links use a
+tuned step of it (`--link`): `#6A48F2` in the light theme and `#A594FF` in the
+dark theme. The tokens are in `src/app/globals.css`.
 
 ## The name
 
@@ -48,13 +49,13 @@ noun: Windtunnel. One word, no space, no capital T.
 
 | Typeface   | Use                                              |
 | ---------- | ------------------------------------------------ |
-| Sora       | Everything people read: headings, text, the name |
+| Barlow     | Everything people read: headings, text, the name |
 | Geist Mono | Labels, numbers and code                         |
 
-Sora is geometric and a little futuristic, and still calm enough for an
-enterprise product. Both typefaces are licensed under the SIL Open Font License.
+Barlow is a DIN-style face: narrow, plain and engineered, in the manner of the
+type SpaceX uses. Both typefaces are licensed under the SIL Open Font License.
 
-The wordmark is Sora SemiBold with tracking of -0.04em, converted to outlines so
+The wordmark is Barlow SemiBold with tracking of -0.01em, converted to outlines so
 it renders the same everywhere.
 
 ## Geometry

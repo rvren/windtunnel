@@ -55,8 +55,51 @@ chrome in a nested layout.
 - Postgres 17, `pg` and Drizzle. Migrations are SQL files in `drizzle/`, applied
   by the app when it starts (`src/instrumentation.ts`).
 - The Claude API through `@anthropic-ai/sdk`.
-- Fonts: Sora for text and headings, Geist Mono for labels and code.
+- Fonts: Barlow for text and headings, Geist Mono for labels and code.
 - pnpm 10. Node 24.
+
+## Design
+
+The owner's brief: **simple, minimal, calm and professional.** The reference is
+a dark operations dashboard: near-black ground, flat panels, white
+blocks, grey text, and colour only where it means something. When in doubt,
+take something away.
+
+- **Nearly monochrome.** Ground, panels, borders and text are neutral greys
+  from the tokens in `src/app/globals.css`. Do not tint panels or add
+  gradients, glows or shadows in the app.
+- **One white block per view.** The main action (`Button` default) and the
+  current item (sidebar item, tab) are solid white on dark, ink on light.
+  Every other button is `outline` or `ghost`.
+- **Colour is for meaning only.** Violet (`text-link`, `bg-brand`) marks
+  progress, "now" and links. Green, orange, red and grey (`bg-ok`, `bg-sev-*`)
+  mark state and severity, as a small dot in a neutral badge or a thin mark.
+  Never fill a large area with a status colour.
+- **Shapes.** Square and plain, with one corner everywhere: `rounded-md`.
+  Panels are `rounded-md border bg-card` (use `Panel`). Never write another
+  radius class; the theme maps every size to the same value. Only status
+  dots are round. Icon tiles are neutral `bg-accent` squares. No box inside a box: separate rows in a panel
+  with hairlines.
+- **Type.** Barlow. Headings are large and light (`font-normal`, tight
+  tracking); body is 14px; secondary text is `text-muted-foreground`. Use
+  `font-medium` only for names in a row. Labels and counts beside a heading
+  are small and grey. Geist Mono only for ids, numbers in sequence and times.
+- **Density.** Generous padding (panels `p-5` or more), rows about 44px, one
+  idea per panel. A page is a title, at most one row of tabs, then panels.
+- **Loading and empty.** One quiet line of text or a spinner icon; never
+  shimmer. An empty state is a dashed panel with one sentence and one action.
+- **Motion.** Every animation uses Motion (`motion/react`) through the
+  helpers in `src/components/motion.tsx`: `FadeIn` for content that mounts,
+  `Reveal` for sections that scroll into view, `FadeInItem` for rows that are
+  added, `Smooth` for size changes. One soft ease-out, about half a second,
+  a rise of 10px at most. Nothing bounces, spins for show or loops, except
+  the hero art and a spinner while work is going on. Do not add CSS
+  keyframes or new `transition-*` classes; add a helper instead. Reduced
+  motion is honoured in `MotionRoot`.
+- **Words.** Sentence case, short, no exclamation marks.
+
+Change a token before you restyle a component, and restyle the shared
+component before you add classes at a call site.
 
 ## The engine
 
@@ -97,13 +140,14 @@ chrome in a nested layout.
    not hand-roll a button, input, dialog or menu, and do not add another
    component library. Plain elements are fine for layout and text.
 3. **Colour comes from tokens.** Use `bg-primary`, `text-muted-foreground`,
-   `border`, `bg-card`, `text-brand`, `bg-sev-critical` and so on. No hex
+   `border`, `bg-card`, `text-link`, `bg-sev-critical` and so on. No hex
    values in components. The two exceptions are the image routes
    (`opengraph-image.tsx`, `apple-icon.tsx`) and the SVG files, which cannot
    read CSS variables.
-4. **Violet is the brand colour** (`--brand`, `#7C5CFF`). `--primary` is the
-   same violet tuned per theme so text on it passes WCAG AA. Details:
-   [brand/README.md](brand/README.md).
+4. **Violet is the brand colour** (`--brand`, `#7C5CFF`): the logo and small
+   accents. `--primary` is neutral (white on dark, ink on light), and
+   `--link` is the violet tuned per theme for small text. Details: "Design"
+   above and [brand/README.md](brand/README.md).
 5. **Nothing fake.** Show only what exists. No sample results dressed up as
    real ones, and no button that does nothing. The sample mode
    (`WINDTUNNEL_SAMPLE_RUN=1`) is for development only, and its runs carry a

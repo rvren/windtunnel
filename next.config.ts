@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/opengraph-image": [
       "./brand/wordmark-dark.svg",
-      "./node_modules/@fontsource/sora/files/sora-latin-500-normal.woff",
+      "./node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff",
     ],
   },
 

@@ -1,3 +1,4 @@
+import { FlowDash } from "@/components/motion";
 import { cn } from "@/lib/utils";
 
 const TOP = "M-60 262H150C205 262 215 190 280 190S355 262 410 262H620";
@@ -58,22 +59,8 @@ export function HeroVisual({ className }: { className?: string }) {
         <path d={TOP} stroke="currentColor" strokeWidth="3" />
         <path d={BOTTOM} className="stroke-brand" strokeWidth="3" />
 
-        <path
-          d={TOP}
-          pathLength="1000"
-          stroke="currentColor"
-          strokeWidth="5"
-          strokeDasharray="46 954"
-          className="animate-[flow_5.5s_linear_infinite] motion-reduce:hidden"
-        />
-        <path
-          d={BOTTOM}
-          pathLength="1000"
-          stroke="#C9BEFF"
-          strokeWidth="5"
-          strokeDasharray="46 954"
-          className="animate-[flow_7s_linear_infinite] [animation-delay:-3s] motion-reduce:hidden"
-        />
+        <FlowDash d={TOP} stroke="currentColor" duration={5.5} />
+        <FlowDash d={BOTTOM} stroke="#C9BEFF" duration={7} delay={1.5} />
 
         <rect
           x="238"

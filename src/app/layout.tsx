@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
 import { GeistMono } from "geist/font/mono";
-import { Sora } from "next/font/google";
+import { Barlow } from "next/font/google";
 
+import { MotionRoot } from "@/components/motion";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
 
-// Sora is the one typeface for text and headings. Geist Mono is for labels
-// and code. See brand/README.md.
-const sora = Sora({
+// Barlow is the one typeface for text and headings: a DIN-style face, in the
+// engineered manner of SpaceX's D-DIN. Geist Mono is for ids and numbers.
+// See brand/README.md.
+const barlow = Barlow({
   subsets: ["latin"],
-  variable: "--font-sora",
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-barlow",
   display: "swap",
 });
 
@@ -36,7 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       id="top"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={`${sora.variable} ${GeistMono.variable} h-full antialiased`}
+      className={`${barlow.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         {/* Dark is the default look. The theme toggle switches it. */}
@@ -46,7 +49,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           enableSystem={false}
           disableTransitionOnChange
         >
-          <TooltipProvider>{children}</TooltipProvider>
+          <MotionRoot>
+            <TooltipProvider>{children}</TooltipProvider>
+          </MotionRoot>
         </ThemeProvider>
       </body>
     </html>

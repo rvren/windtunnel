@@ -41,7 +41,7 @@ async function RunsTable() {
   if (runs.length === 0) {
     return (
       <div
-        className="flex flex-col items-center rounded-2xl border border-dashed px-6 py-16 text-center"
+        className="flex flex-col items-center rounded-md border border-dashed px-6 py-16 text-center"
         data-testid="runs-empty"
       >
         <Mark className="size-10" />
@@ -63,7 +63,7 @@ async function RunsTable() {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card/60">
+    <div className="overflow-hidden rounded-md border bg-card">
       <Table data-testid="runs-table">
         <TableHeader>
           <TableRow>

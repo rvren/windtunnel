@@ -150,7 +150,7 @@ export function RunForm({
           {LIMITS.documents} files.
         </p>
         {documents.length > 0 ? (
-          <ul className="divide-y rounded-xl border">
+          <ul className="divide-y rounded-md border">
             {documents.map((document) => (
               <li
                 key={document.name}

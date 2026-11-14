@@ -16,7 +16,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
 } from "@/components/ui/sidebar";
 
 // Only what exists is listed. Crosswind, Fly-off and Black box join this list
@@ -53,7 +52,7 @@ export function AppSidebar() {
  */
 export function AppSidebarFor({ pathname }: { pathname: string | null }) {
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" variant="floating">
       <SidebarHeader>
         <Link
           href="/app"
@@ -70,7 +69,7 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
               tooltip="New run"
               data-testid="app-nav-new-run"
               isActive={pathname === "/app/runs/new"}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground data-active:bg-primary data-active:text-primary-foreground"
+              className="h-10 rounded-md border px-3 text-sidebar-foreground"
             >
               <Plus />
               <span>New run</span>
@@ -90,6 +89,7 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
                     tooltip={item.label}
                     isActive={item.isActive(pathname)}
                     data-testid={item.testId}
+                    className="h-10 rounded-md px-3 text-muted-foreground data-active:bg-primary data-active:font-normal data-active:text-primary-foreground data-active:hover:bg-primary data-active:hover:text-primary-foreground"
                   >
                     <item.icon />
                     <span>{item.label}</span>
@@ -118,7 +118,6 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
           <ThemeToggle />
         </div>
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   );
 }

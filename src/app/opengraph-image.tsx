@@ -14,15 +14,15 @@ const PAPER = "#FAFAFC";
 const VIOLET = "#7C5CFF";
 const MUTED = "#9EA1B0";
 // Width over height of brand/wordmark-dark.svg, from its viewBox.
-const WORDMARK_RATIO = 685 / 114;
+const WORDMARK_RATIO = 616 / 114;
 
 export default async function Image() {
-  const [wordmark, sora] = await Promise.all([
+  const [wordmark, barlow] = await Promise.all([
     readFile(join(process.cwd(), "brand/wordmark-dark.svg"), "base64"),
     readFile(
       join(
         process.cwd(),
-        "node_modules/@fontsource/sora/files/sora-latin-500-normal.woff",
+        "node_modules/@fontsource/barlow/files/barlow-latin-500-normal.woff",
       ),
     ),
   ]);
@@ -36,7 +36,7 @@ export default async function Image() {
         height: "100%",
         background: INK,
         color: PAPER,
-        fontFamily: "Sora",
+        fontFamily: "Barlow",
       }}
     >
       <div
@@ -89,7 +89,7 @@ export default async function Image() {
     </div>,
     {
       ...size,
-      fonts: [{ name: "Sora", data: sora, weight: 500, style: "normal" }],
+      fonts: [{ name: "Barlow", data: barlow, weight: 500, style: "normal" }],
     },
   );
 }

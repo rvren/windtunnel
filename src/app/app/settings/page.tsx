@@ -47,7 +47,7 @@ async function Status() {
   const status = await engineStatus();
   return (
     <dl
-      className="divide-y rounded-2xl border bg-card/60 px-5"
+      className="divide-y rounded-md border bg-card px-5"
       data-testid="settings-status"
     >
       <Row

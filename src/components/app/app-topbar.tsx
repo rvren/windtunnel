@@ -11,7 +11,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 /** The trail for a path: every crumb but the last links back. */
@@ -35,9 +34,8 @@ export function AppTopbarFor({ pathname }: { pathname: string | null }) {
   const crumbs = trail(pathname);
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 bg-background/80 px-4 backdrop-blur-md">
       <SidebarTrigger data-testid="app-sidebar-toggle" />
-      <Separator orientation="vertical" className="mr-1 !h-4" />
       <Breadcrumb>
         <BreadcrumbList>
           {crumbs.map((crumb, index) => (

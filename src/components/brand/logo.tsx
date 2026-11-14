@@ -33,7 +33,7 @@ export function Mark({ className, ...props }: React.ComponentProps<"svg">) {
   );
 }
 
-/* Mark plus the name. The name is live text in Sora SemiBold, lowercase. */
+/* Mark plus the name. The name is live text in Barlow SemiBold, lowercase. */
 export function Logo({
   className,
   wordClassName,
@@ -47,7 +47,7 @@ export function Logo({
       <Mark />
       <span
         className={cn(
-          "text-lg leading-none font-semibold tracking-[-0.04em]",
+          "text-xl leading-none font-semibold tracking-[-0.01em]",
           wordClassName,
         )}
       >
