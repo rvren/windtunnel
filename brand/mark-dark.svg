@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Windtunnel">
+  <!-- Windtunnel, "Parting". The app under test is not built yet, so it is
+       not drawn. Two lines of air run side by side, part around the space
+       where it will be, and close up again. One line is the ground colour's
+       opposite, the other is the brand violet. Nothing else. -->
+  <g fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 25H9C17 25 18 13 28 13S39 25 47 25H58" stroke="#FAFAFC"/>
+    <path d="M6 39H9C17 39 18 51 28 51S39 39 47 39H58" stroke="#7C5CFF"/>
+  </g>
+</svg>
