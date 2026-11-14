@@ -6,8 +6,6 @@ import { motion, useReducedMotion } from "motion/react";
 import { ChevronRight } from "lucide-react";
 
 import { EASE } from "@/components/motion";
-import { useWidth } from "@/hooks/use-width";
-import { NODE_WIDTH, layoutFlow } from "@/lib/sankey-layout";
 import { cn } from "@/lib/utils";
 import type {
   FlowFilter,
@@ -15,38 +13,45 @@ import type {
   FlowNodeData,
   FlowView,
 } from "@/lib/viz/cockpit-views";
+import { layoutStage, type StageNode } from "@/lib/viz/stage-layout";
 
 /*
- * The cockpit's canvas: sources on the left as ringed circles, hubs in the
- * middle with a ring of ticks, groups on the right with a few items each.
- * Bands are bundles of thin strands in their colour. The SVG draws bands
- * and rings; the words are HTML on top, so they wrap, link and read well.
- * Below 768px it is three plain lists.
+ * Draws a flow view into a box of a given size: sources on the left as
+ * ringed circles, hubs in the middle with a ring of ticks, groups on the
+ * right that list a few items. Bands are bundles of thin strands in their
+ * colour. The SVG draws bands and rings; the words are HTML on top. The
+ * layout (src/lib/viz/stage-layout.ts) fits the box exactly, so every view
+ * has the same height.
  */
 
-const LEFT = 96;
-const RIGHT_ROOM = 268;
-const TOP = 34;
-const SOURCE_R = 32;
-const HUB_R = 34;
 const TICKS = 44;
-// Room per row: roomier with few nodes, tighter when a column has many.
-const rowFor = (rows: number) => (rows > 4 ? 118 : 170);
 
 interface Props {
   view: FlowView;
+  width: number;
+  height: number;
   /** Node ids that filter the list now. */
   selected: string[];
   onPick: (filter: FlowFilter) => void;
 }
 
-function Ticks({ cx, cy, tone }: { cx: number; cy: number; tone: string }) {
+function Ticks({
+  cx,
+  cy,
+  r,
+  tone,
+}: {
+  cx: number;
+  cy: number;
+  r: number;
+  tone: string;
+}) {
   return (
     <g aria-hidden="true">
       {Array.from({ length: TICKS }, (_, index) => {
         const angle = (index / TICKS) * Math.PI * 2;
-        const inner = HUB_R + 6;
-        const outer = HUB_R + (index % 4 === 0 ? 14 : 10);
+        const inner = r + 5;
+        const outer = r + (index % 4 === 0 ? 13 : 9);
         return (
           <line
             key={index}
@@ -64,7 +69,12 @@ function Ticks({ cx, cy, tone }: { cx: number; cy: number; tone: string }) {
   );
 }
 
-function StackedLists({ view, selected, onPick }: Props) {
+/** The views as three plain lists, for narrow screens. */
+export function FlowLists({
+  view,
+  selected,
+  onPick,
+}: Omit<Props, "width" | "height">) {
   const column = (title: string, nodes: (FlowNodeData | FlowGroup)[]) => (
     <section>
       <h3 className="mb-2 text-xs tracking-wide text-muted-foreground uppercase">
@@ -116,74 +126,26 @@ function StackedLists({ view, selected, onPick }: Props) {
   );
 }
 
-export function FlowCanvas(props: Props) {
-  const { view, selected, onPick } = props;
+export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
   const reduced = useReducedMotion();
-  const [ref, width] = useWidth<HTMLDivElement>();
   const [hovered, setHovered] = useState<string | null>(null);
-
-  const rows = Math.max(
-    view.sources.length,
-    view.hubs.length,
-    view.groups.length,
-    1,
-  );
-  const height = Math.max(380, rows * rowFor(rows));
-  const groupX = width - RIGHT_ROOM;
-  const layout = layoutFlow(
-    [
-      ...view.sources.map((n) => ({ id: n.id, column: 0, value: n.value })),
-      ...view.hubs.map((n) => ({ id: n.id, column: 1, value: n.value })),
-      ...view.groups.map((n) => ({ id: n.id, column: 2, value: n.value })),
-    ],
-    view.bands,
-    {
-      width: Math.max(groupX - LEFT, 200),
-      height,
-      gap: 150,
-      // Sources and groups can be many; hubs need room for their labels.
-      gaps: [
-        view.sources.length > 4 ? 100 : 150,
-        150,
-        view.groups.length > 4 ? 104 : 150,
-      ],
-      // A node's bands fit inside its ring.
-      maxScale:
-        (HUB_R * 1.6) /
-        Math.max(
-          1,
-          ...[...view.sources, ...view.hubs, ...view.groups].map(
-            (n) => n.value,
-          ),
-        ),
-    },
-  );
-  const placed = new Map(layout.nodes.map((node) => [node.id, node]));
-  const centre = (id: string) => {
-    const node = placed.get(id);
-    return node
-      ? {
-          x: LEFT + node.x + NODE_WIDTH / 2,
-          y: TOP + node.y + node.height / 2,
-        }
-      : { x: 0, y: 0 };
-  };
+  const layout = layoutStage(view, { width, height });
 
   // What is lit: the hovered node, else what filters the list.
   const lit = hovered ? [hovered] : selected;
   const touches = (band: { source: string; target: string }) =>
     lit.length === 0 || lit.includes(band.source) || lit.includes(band.target);
-  const pickable = (node: FlowNodeData) =>
-    node.filter
+  const pickable = (node: StageNode) =>
+    node.data.filter
       ? {
           role: "button" as const,
           tabIndex: 0,
           "aria-pressed": selected.includes(node.id),
-          onClick: () => onPick(node.filter!),
+          onClick: () => onPick(node.data.filter!),
           onKeyDown: (event: React.KeyboardEvent) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
-              onPick(node.filter!);
+              onPick(node.data.filter!);
             }
           },
         }
@@ -196,267 +158,257 @@ export function FlowCanvas(props: Props) {
   });
 
   return (
-    <div ref={ref} data-testid="flow-canvas">
-      {width === 0 ? (
-        <div style={{ height: height + TOP }} />
-      ) : width < 768 ? (
-        <StackedLists {...props} />
-      ) : (
-        <div className="relative" style={{ height: height + TOP + 24 }}>
-          {/* Column headings */}
-          {[LEFT, LEFT + (groupX - LEFT) / 2, groupX].map((x, index) => (
-            <p
-              key={view.heading[index]}
-              className="absolute top-0 -translate-x-1/2 text-[11px] tracking-[0.12em] whitespace-nowrap text-muted-foreground uppercase"
-              style={{ left: index === 2 ? x + 60 : x }}
+    <div
+      className="relative"
+      style={{ width, height }}
+      data-testid="flow-canvas"
+    >
+      <svg
+        width={width}
+        height={height}
+        className="absolute inset-0 overflow-visible"
+        role="img"
+        aria-label={view.heading.join(" to ")}
+      >
+        {/* Bands, as bundles of strands */}
+        {layout.bands.map((band, index) => {
+          const on = touches(band);
+          const strands = Math.max(
+            1,
+            Math.min(3, Math.round(band.thickness / 4)),
+          );
+          const mid = (band.x0 + band.x1) / 2;
+          return (
+            <g
+              key={`${band.source}>${band.target}>${band.tone}`}
+              className={cn(
+                "transition-opacity duration-300",
+                on && lit.length > 0 && "glow",
+              )}
+              opacity={on ? 1 : 0.12}
             >
-              {view.heading[index]}
-            </p>
-          ))}
-
-          <svg
-            width={width}
-            height={height + TOP + 24}
-            className="absolute inset-0 overflow-visible"
-            role="img"
-            aria-label={`${view.heading.join(" to ")}`}
-          >
-            {/* Bands, as bundles of strands */}
-            <g transform={`translate(${LEFT} ${TOP})`}>
-              {layout.links.map((link, index) => {
-                const tone = link.tone;
-                const on = touches(link);
-                const strands = Math.max(
-                  1,
-                  Math.min(3, Math.round(link.thickness / 4)),
-                );
-                const mid = (link.x0 + link.x1) / 2;
+              {Array.from({ length: strands }, (_, strand) => {
+                const offset = (band.thickness * (strand + 0.5)) / strands;
+                const a = band.y0 + offset;
+                const b = band.y1 + offset;
                 return (
-                  <g
-                    key={`${link.source}>${link.target}>${tone}>${index}`}
-                    className={cn(
-                      "transition-opacity duration-300",
-                      on && lit.length > 0 && "glow",
+                  <motion.path
+                    key={strand}
+                    d={`M${band.x0} ${a}C${mid} ${a} ${mid} ${b} ${band.x1} ${b}`}
+                    fill="none"
+                    stroke={band.tone}
+                    style={{ strokeOpacity: "var(--strand-opacity)" }}
+                    strokeWidth={Math.min(
+                      2.25,
+                      Math.max(1, (band.thickness / strands) * 0.5),
                     )}
-                    opacity={on ? 1 : 0.12}
-                  >
-                    {Array.from({ length: strands }, (_, strand) => {
-                      const offset =
-                        (link.thickness * (strand + 0.5)) / strands;
-                      const a = link.y0 + offset;
-                      const b = link.y1 + offset;
-                      return (
-                        <motion.path
-                          key={strand}
-                          d={`M${link.x0} ${a}C${mid} ${a} ${mid} ${b} ${link.x1} ${b}`}
-                          fill="none"
-                          stroke={tone}
-                          style={{ strokeOpacity: "var(--strand-opacity)" }}
-                          strokeWidth={Math.min(
-                            2.25,
-                            Math.max(1, (link.thickness / strands) * 0.5),
-                          )}
-                          strokeLinecap="round"
-                          initial={reduced ? false : { pathLength: 0 }}
-                          animate={{ pathLength: 1 }}
-                          transition={{
-                            duration: 0.9,
-                            ease: EASE,
-                            delay: 0.05 * (index % 12),
-                          }}
-                        />
-                      );
-                    })}
-                  </g>
+                    strokeLinecap="round"
+                    initial={reduced ? false : { pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{
+                      duration: 0.9,
+                      ease: EASE,
+                      delay: 0.04 * (index % 12),
+                    }}
+                  />
                 );
               })}
             </g>
+          );
+        })}
 
-            {/* Sources: ringed circles */}
-            {view.sources.map((node) => {
-              const { x, y } = centre(node.id);
-              const on = lit.includes(node.id);
-              return (
-                <g key={node.id} className={cn(on && "glow")}>
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={SOURCE_R + 9}
-                    fill="none"
-                    stroke="var(--canvas-ring)"
-                    strokeDasharray="2 5"
-                  />
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={SOURCE_R}
-                    fill="var(--canvas-node)"
-                    stroke={on ? "var(--brand)" : "var(--canvas-ring)"}
-                    strokeWidth={on ? 1.5 : 1}
-                  />
-                </g>
-              );
-            })}
+        {/* Sources: ringed circles */}
+        {layout.sources.map((node) => {
+          const on = lit.includes(node.id);
+          return (
+            <g key={node.id} className={cn(on && "glow")}>
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={node.r + 8}
+                fill="none"
+                stroke="var(--canvas-ring)"
+                strokeDasharray="2 5"
+              />
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={node.r}
+                fill="var(--canvas-node)"
+                stroke={on ? "var(--brand)" : "var(--canvas-ring)"}
+                strokeWidth={on ? 1.5 : 1}
+              />
+            </g>
+          );
+        })}
 
-            {/* Hubs: a ring of ticks */}
-            {view.hubs.map((node) => {
-              const { x, y } = centre(node.id);
-              const on = lit.includes(node.id);
-              const tone = node.tone ?? "var(--brand)";
-              return (
-                <g key={node.id} className={cn("glow-soft", on && "glow")}>
-                  <Ticks cx={x} cy={y} tone={tone} />
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={HUB_R}
-                    fill="var(--canvas-node)"
-                    stroke={on ? tone : "var(--canvas-ring)"}
-                  />
-                </g>
-              );
-            })}
+        {/* Hubs: a ring of ticks */}
+        {layout.hubs.map((node) => {
+          const on = lit.includes(node.id);
+          const tone = node.data.tone ?? "var(--brand)";
+          return (
+            <g key={node.id} className={cn("glow-soft", on && "glow")}>
+              <Ticks cx={node.x} cy={node.y} r={node.r} tone={tone} />
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={node.r}
+                fill="var(--canvas-node)"
+                stroke={on ? tone : "var(--canvas-ring)"}
+              />
+            </g>
+          );
+        })}
 
-            {/* Groups: a dot where the bands land */}
-            {view.groups.map((node) => {
-              const { x, y } = centre(node.id);
-              return (
-                <circle
-                  key={node.id}
-                  cx={x}
-                  cy={y}
-                  r={5}
-                  fill={node.tone ?? "var(--brand)"}
-                  className={cn(lit.includes(node.id) && "glow")}
-                />
-              );
-            })}
-          </svg>
+        {/* Groups: a dot where the bands land */}
+        {layout.groups.map((node) => (
+          <circle
+            key={node.id}
+            cx={node.x}
+            cy={node.y}
+            r={5}
+            fill={node.data.tone ?? "var(--muted-foreground)"}
+            className={cn(lit.includes(node.id) && "glow")}
+          />
+        ))}
+      </svg>
 
-          {/* Words on top */}
-          {view.sources.map((node) => {
-            const { x, y } = centre(node.id);
-            return (
-              <div
-                key={node.id}
-                {...pickable(node)}
-                {...hover(node.id)}
-                data-testid="flow-source"
-                className="absolute flex w-36 -translate-x-1/2 flex-col items-center text-center outline-none focus-visible:outline-2 focus-visible:outline-ring"
-                style={{ left: x, top: y - SOURCE_R }}
-              >
-                <span className="flex h-16 items-center text-xl font-light tabular-nums">
-                  {node.value}
-                </span>
-                <span className="mt-3 line-clamp-2 max-w-full rounded-sm bg-canvas/85 px-1.5 text-[11px] tracking-[0.1em] uppercase">
-                  {node.label}
-                </span>
-                {node.sub ? (
-                  <span className="text-[11px] text-muted-foreground">
-                    {node.sub}
-                  </span>
-                ) : null}
-              </div>
-            );
-          })}
-          {view.hubs.map((node) => {
-            const { x, y } = centre(node.id);
-            return (
-              <div
-                key={node.id}
-                {...pickable(node)}
-                {...hover(node.id)}
-                data-testid="flow-hub"
-                className="absolute flex w-44 -translate-x-1/2 flex-col items-center text-center outline-none focus-visible:outline-2 focus-visible:outline-ring"
-                style={{ left: x, top: y - HUB_R }}
-              >
-                <span className="flex h-[68px] items-center text-2xl font-light tabular-nums">
-                  {node.value}
-                </span>
-                <span className="mt-4 rounded-sm bg-canvas/85 px-1.5 text-sm font-medium">
-                  {node.label}
-                </span>
-                {node.sub ? (
-                  <span className="text-[11px] text-muted-foreground">
-                    {node.sub}
-                  </span>
-                ) : null}
-              </div>
-            );
-          })}
-          {view.groups.map((node) => {
-            const { x, y } = centre(node.id);
-            return (
-              <div
-                key={node.id}
-                {...hover(node.id)}
-                data-testid="flow-group"
-                className="absolute w-[244px]"
-                style={{ left: x + 14, top: y - 11 }}
-              >
-                <div
-                  {...pickable(node)}
-                  className="flex items-baseline gap-2 outline-none focus-visible:outline-2 focus-visible:outline-ring"
-                >
-                  <span className="text-lg leading-none font-light tabular-nums">
-                    {node.value}
-                  </span>
-                  <span className="text-[11px] tracking-[0.1em] uppercase">
-                    {node.label}
-                  </span>
-                </div>
-                <ul className="mt-1.5 space-y-0.5">
-                  {node.leaves.map((leaf) => {
-                    const body = (
-                      <>
-                        <span
-                          aria-hidden="true"
-                          className="size-1.5 shrink-0 rounded-full"
-                          style={{ background: leaf.tone ?? "var(--brand)" }}
-                        />
-                        <span className="min-w-0 flex-1 truncate">
-                          {leaf.label}
-                        </span>
-                        {leaf.meta ? (
-                          <span className="max-w-24 shrink-0 truncate font-mono text-[10px] text-muted-foreground">
-                            {leaf.meta}
-                          </span>
-                        ) : null}
-                      </>
-                    );
-                    return (
-                      <li key={leaf.id}>
-                        {leaf.href ? (
-                          <Link
-                            href={leaf.href}
-                            className="flex items-center gap-1.5 text-xs text-foreground/85 hover:text-foreground"
-                          >
-                            {body}
-                          </Link>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-xs text-foreground/85">
-                            {body}
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-                {node.more > 0 && node.filter ? (
-                  <button
-                    type="button"
-                    onClick={() => onPick(node.filter!)}
-                    className="mt-1 flex items-center gap-0.5 text-xs text-link hover:underline"
-                  >
-                    View all {node.value}
-                    <ChevronRight className="size-3" aria-hidden="true" />
-                  </button>
-                ) : null}
-              </div>
-            );
-          })}
+      {/* Column headings */}
+      {layout.columns.map((x, index) => (
+        <p
+          key={view.heading[index]}
+          className="absolute -top-5 -translate-x-1/2 text-[10px] tracking-[0.14em] whitespace-nowrap text-muted-foreground uppercase"
+          style={{ left: index === 2 ? x + 60 : x }}
+        >
+          {view.heading[index]}
+        </p>
+      ))}
+
+      {/* Words on top */}
+      {layout.sources.map((node) => (
+        <div
+          key={node.id}
+          {...pickable(node)}
+          {...hover(node.id)}
+          data-testid="flow-source"
+          className="absolute flex w-36 -translate-x-1/2 flex-col items-center text-center outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          style={{ left: node.x, top: node.y - node.r }}
+        >
+          <span
+            className={cn(
+              "flex items-center font-light tabular-nums",
+              node.r > 28 ? "text-xl" : "text-base",
+            )}
+            style={{ height: node.r * 2 }}
+          >
+            {node.data.value}
+          </span>
+          <span className="mt-2.5 line-clamp-1 max-w-full rounded-sm bg-canvas/85 px-1.5 text-[11px] tracking-[0.1em] uppercase">
+            {node.data.label}
+          </span>
+          {node.data.sub ? (
+            <span className="text-[11px] text-muted-foreground">
+              {node.data.sub}
+            </span>
+          ) : null}
         </div>
-      )}
+      ))}
+      {layout.hubs.map((node) => (
+        <div
+          key={node.id}
+          {...pickable(node)}
+          {...hover(node.id)}
+          data-testid="flow-hub"
+          className="absolute flex w-48 -translate-x-1/2 flex-col items-center text-center outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          style={{ left: node.x, top: node.y - node.r }}
+        >
+          <span
+            className={cn(
+              "flex items-center font-light tabular-nums",
+              node.r > 28 ? "text-2xl" : "text-lg",
+            )}
+            style={{ height: node.r * 2 }}
+          >
+            {node.data.value}
+          </span>
+          <span className="mt-3.5 rounded-sm bg-canvas/85 px-1.5 text-sm font-medium">
+            {node.data.label}
+          </span>
+          {node.data.sub ? (
+            <span className="text-[11px] text-muted-foreground">
+              {node.data.sub}
+            </span>
+          ) : null}
+        </div>
+      ))}
+      {layout.groups.map((node) => (
+        <div
+          key={node.id}
+          {...hover(node.id)}
+          data-testid="flow-group"
+          className="absolute w-[244px]"
+          style={{ left: node.x + 14, top: node.y - 11 }}
+        >
+          <div
+            {...pickable(node)}
+            className="flex items-baseline gap-2 outline-none focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <span className="text-lg leading-none font-light tabular-nums">
+              {node.data.value}
+            </span>
+            <span className="text-[11px] tracking-[0.1em] uppercase">
+              {node.data.label}
+            </span>
+          </div>
+          <ul className="mt-1.5 space-y-0.5">
+            {(node.data.leaves ?? []).slice(0, node.leaves).map((leaf) => {
+              const body = (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{ background: leaf.tone ?? "var(--brand)" }}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{leaf.label}</span>
+                  {leaf.meta ? (
+                    <span className="max-w-24 shrink-0 truncate font-mono text-[10px] text-muted-foreground">
+                      {leaf.meta}
+                    </span>
+                  ) : null}
+                </>
+              );
+              return (
+                <li key={leaf.id}>
+                  {leaf.href ? (
+                    <Link
+                      href={leaf.href}
+                      className="flex items-center gap-1.5 text-xs text-foreground/85 hover:text-foreground"
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs text-foreground/85">
+                      {body}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {node.data.filter &&
+          (node.data.more > 0 ||
+            node.leaves < (node.data.leaves?.length ?? 0)) ? (
+            <button
+              type="button"
+              onClick={() => onPick(node.data.filter!)}
+              className="mt-0.5 flex items-center gap-0.5 text-xs text-link hover:underline"
+            >
+              View all {node.data.value}
+              <ChevronRight className="size-3" aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }

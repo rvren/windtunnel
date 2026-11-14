@@ -85,14 +85,19 @@ take something away.
   tokens), `FileChanges` (a patch, read-only), `ProgressBar`, `Segmented`
   (the cockpit's view switcher).
 - **The cockpit is the one console-style screen** (after Palo Alto
-  Networks' Command Center, at the owner's request): a header with a centred
-  view switcher, one canvas (`components/project/command/flow-canvas.tsx`:
-  ringed sources, hubs with a ring of ticks, groups that list their top
-  items, bands as strands in severity colours), four cards
-  (`command/cards.tsx`), then the issues. Coloured strands and glow are
-  allowed there; light theme has no glow. A new canvas view is one pure
-  adapter in `src/lib/viz/cockpit-views.ts` plus one switcher entry. Feed
-  them through the pure adapters in `src/lib/viz/`, with real numbers only.
+  Networks' Command Center, at the owner's request). The diagrams come
+  first: the project header is one line (last run · workspaces · 8090), and
+  the workspaces, the description and the 8090 link live in "Setup" at the
+  end of the page. The stage (`components/project/command/stage.tsx`) has a
+  fixed height (640px, 700px from `xl`) for every view, so switching never
+  moves the page; everything else floats on it: the top bar (view name,
+  switcher, way to the run), the filters and legend, and a glass card dock
+  that folds away. Flow views are laid out to fit the box exactly by
+  `src/lib/viz/stage-layout.ts` (even slots, rings sized to the room, the
+  smallest nodes folded into "+N more"); Architecture fits by `FitBox`.
+  Coloured strands and glow are allowed there; light theme has no glow. A
+  new view is one adapter in `src/lib/viz/cockpit-views.ts` (with its note
+  and legend) plus one switcher entry.
 - **One white block per view.** The main action (`Button` default) is solid
   white on dark, ink on light. Every other button is `outline` or `ghost`.
   The current sidebar item is a soft grey chip in the text colour, never a

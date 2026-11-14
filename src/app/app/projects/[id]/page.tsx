@@ -176,20 +176,16 @@ async function ProjectPage({
   );
 
   return (
-    <div className="space-y-10" data-testid="project-page">
-      <header className="space-y-5">
+    <div className="space-y-8" data-testid="project-page">
+      <header>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <h1 className="flex flex-wrap items-center gap-3 text-4xl font-semibold tracking-[-0.03em]">
               {project.name}
               {project.demo ? <Badge variant="secondary">Sample</Badge> : null}
             </h1>
-            {project.description ? (
-              <p className="mt-2 max-w-3xl text-[15px] text-muted-foreground">
-                {project.description}
-              </p>
-            ) : null}
-            <p className="mt-2 flex flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground">
+            {/* One line, so the cockpit sits right under the title. */}
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted-foreground">
               {cockpit ? (
                 <>
                   Last run <LocalTime iso={cockpit.ranAt} />
@@ -198,6 +194,21 @@ async function ProjectPage({
               ) : (
                 "Not run yet"
               )}
+              <span aria-hidden="true">·</span>
+              <a
+                href="#setup"
+                className="underline-offset-4 hover:text-foreground hover:underline"
+                data-testid="project-setup-link"
+              >
+                {count} {count === 1 ? "workspace" : "workspaces"}
+              </a>
+              <span aria-hidden="true">·</span>
+              <a
+                href="#setup"
+                className="underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {link ? "Sends work orders to 8090" : "Not linked to 8090"}
+              </a>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -215,46 +226,6 @@ async function ProjectPage({
             {runProject(count > 0)}
           </div>
         </div>
-
-        {/* The workspaces: the repositories that make up the application. */}
-        <div
-          className="flex flex-wrap items-center gap-2"
-          data-testid="project-workspaces"
-        >
-          {project.workspaces.map((workspace) => {
-            const Icon =
-              workspace.origin.kind === "github" ? GitBranch : FolderGit2;
-            return (
-              <span
-                key={workspace.id}
-                className="flex h-8 items-center gap-2 rounded-card border bg-card pr-0.5 pl-2.5 text-sm"
-                data-testid="project-workspace"
-              >
-                <Icon
-                  className="size-3.5 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <span className="font-medium">{workspace.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {workspace.label}
-                </span>
-                <RemoveWorkspaceButton
-                  projectId={project.id}
-                  workspaceId={workspace.id}
-                  name={workspace.name}
-                />
-              </span>
-            );
-          })}
-          {count > 0 ? addWorkspace("Add workspace") : null}
-        </div>
-
-        {/* Where this project's work orders go. */}
-        <ProjectLink
-          projectId={project.id}
-          externalId={link}
-          connected={connected}
-        />
       </header>
 
       {running ? (
@@ -374,6 +345,59 @@ async function ProjectPage({
           </Panel>
         </section>
       ) : null}
+
+      {/* Setup: what the project reads, what it is, and where work goes. */}
+      <section
+        id="setup"
+        className="scroll-mt-6 space-y-4"
+        data-testid="project-setup"
+      >
+        <h2 className="text-lg font-medium">Setup</h2>
+        {project.description ? (
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            {project.description}
+          </p>
+        ) : null}
+        {/* The workspaces: the repositories that make up the application. */}
+        <div
+          className="flex flex-wrap items-center gap-2"
+          data-testid="project-workspaces"
+        >
+          {project.workspaces.map((workspace) => {
+            const Icon =
+              workspace.origin.kind === "github" ? GitBranch : FolderGit2;
+            return (
+              <span
+                key={workspace.id}
+                className="flex h-8 items-center gap-2 rounded-card border bg-card pr-0.5 pl-2.5 text-sm"
+                data-testid="project-workspace"
+              >
+                <Icon
+                  className="size-3.5 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <span className="font-medium">{workspace.name}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {workspace.label}
+                </span>
+                <RemoveWorkspaceButton
+                  projectId={project.id}
+                  workspaceId={workspace.id}
+                  name={workspace.name}
+                />
+              </span>
+            );
+          })}
+          {count > 0 ? addWorkspace("Add workspace") : null}
+        </div>
+
+        {/* Where this project's work orders go. */}
+        <ProjectLink
+          projectId={project.id}
+          externalId={link}
+          connected={connected}
+        />
+      </section>
     </div>
   );
 }

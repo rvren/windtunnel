@@ -62,6 +62,10 @@ export interface FlowBand {
 export interface FlowView {
   /** The name of each column, left to right. */
   heading: [string, string, string];
+  /** One line on what the view shows. */
+  note: string;
+  /** What the strand colours mean. */
+  legend: { label: string; tone: string }[];
   sources: FlowNodeData[];
   hubs: FlowNodeData[];
   groups: FlowGroup[];
@@ -102,6 +106,15 @@ const issueLeaf = (issue: CockpitIssue, runId: string): FlowLeaf => ({
   tone: SEVERITY_TONE[issue.severity],
   href: `/app/runs/${runId}`,
 });
+
+/** The severities these issues have, as a legend. */
+const severityLegend = (issues: CockpitIssue[]) =>
+  SEVERITY_ORDER.filter((severity) =>
+    issues.some((issue) => issue.severity === severity),
+  ).map((severity) => ({
+    label: SEVERITY_LABEL[severity],
+    tone: SEVERITY_TONE[severity],
+  }));
 
 /** Severities on the right, each listing its first issues. */
 function severityGroups(
@@ -145,6 +158,8 @@ export function issueFlowView(cockpit: Cockpit): FlowView | null {
   }
   return {
     heading: [byWorkspace ? "Workspaces" : "Components", "Kinds", "Severity"],
+    note: "Where the issues are, what kind they are and how bad.",
+    legend: severityLegend(cockpit.issues),
     sources: places.map((place) => {
       const value = cockpit.issues.filter((i) => placeOf(i) === place).length;
       return {
@@ -213,6 +228,10 @@ export function dataFlowView(cockpit: Cockpit): FlowView | null {
   const workspaces = [...new Set(privacy.flows.map((flow) => flow.area))];
   return {
     heading: ["Personal data", "Where it goes", "Where in the code"],
+    note: "Where personal data goes, found by name in the code.",
+    legend: SINKS.filter((sink) =>
+      flows.some((flow) => flow.sink === sink.id),
+    ).map((sink) => ({ label: sink.label, tone: sink.tone })),
     sources: privacy.categories
       .filter((item) => privacy.flows.some((f) => f.category === item.category))
       .map((item) => ({
@@ -289,6 +308,8 @@ export function securityView(cockpit: Cockpit): FlowView | null {
   const ready = security.filter(patched).length;
   return {
     heading: ["OWASP Top 10", "Patch", "Severity"],
+    note: "Security issues by OWASP category, and whether a fix is ready.",
+    legend: severityLegend(security),
     sources: categories.map((id) => {
       const value = security.filter((issue) => owaspOf(issue) === id).length;
       return {

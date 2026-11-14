@@ -136,16 +136,20 @@ repository.
 The project page is its cockpit, a command center built from the latest
 finished run:
 
-- one canvas with a switcher for four views: **Issue flow** (workspace →
+- one stage of fixed height, so switching views never moves the page, with
+  a switcher for four views: **Issue flow** (workspace →
   kind → severity, as bundles of coloured strands, with the top issues of
   each severity listed), **Architecture** (frontends, services, data and
   outside systems, and what calls what), **Data flow** (personal data →
   logs, outside calls, storage, responses → where in the code) and
   **Security** (OWASP category → patch ready or not → severity). The view is
   kept in the address (`?view=`);
-- four cards: issues by severity with the change against the last run, the
-  issues to fix first, issues over the project's runs, and readiness
-  (patches, work orders in 8090, personal data reaching logs);
+- four cards docked over the bottom of the stage (they fold away): issues by
+  severity with the change against the last run, the issues to fix first,
+  issues over the project's runs, and readiness (patches, work orders in
+  8090, personal data reaching logs);
+- the workspaces, the description and the 8090 link under "Setup" at the
+  end of the page, so the diagrams come first;
 - every accepted issue. Anything picked on the canvas or a card filters the
   list.
 

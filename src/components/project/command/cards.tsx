@@ -70,7 +70,7 @@ function Line({ values }: { values: number[] }) {
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
-      className="h-16 w-full overflow-visible"
+      className="h-full max-h-16 min-h-8 w-full overflow-visible"
       aria-hidden="true"
     >
       <path
@@ -343,6 +343,214 @@ function Meter({
         kind="meter"
         tone={tone}
       />
+    </div>
+  );
+}
+
+/**
+ * The same four cards, compact and glassy, docked over the bottom of the
+ * cockpit's stage. Each keeps its question; each shows less.
+ */
+export function DockCards({
+  cockpit,
+  earlier,
+  delivered,
+  selectedSeverity,
+  onPick,
+}: {
+  cockpit: Cockpit;
+  earlier: RunPoint[];
+  delivered: Delivered | null;
+  selectedSeverity: Severity | null;
+  onPick: (filter: FlowFilter) => void;
+}) {
+  const { totals } = cockpit;
+  const previous = earlier.at(-1);
+  const difference =
+    previous !== undefined ? totals.issues - previous.issues : null;
+  const fixFirst = cockpit.issues
+    .filter(
+      (issue) => issue.severity === "critical" || issue.severity === "high",
+    )
+    .slice(0, 2);
+  const history = [...earlier.map((point) => point.issues), totals.issues];
+  const security = cockpit.issues.filter(
+    (issue) => issue.type === "security_vulnerability",
+  );
+  const patched = security.filter(
+    (issue) => (issue.remediation?.edits.length ?? 0) > 0,
+  ).length;
+  const places = cockpit.privacy
+    ? cockpit.privacy.categories.reduce((sum, item) => sum + item.places, 0)
+    : 0;
+  const exposed = cockpit.privacy?.exposedPlaces ?? 0;
+  const glass =
+    "flex h-full min-w-0 flex-col overflow-hidden rounded-tile bg-card/80 p-3 ring-1 ring-foreground/10 backdrop-blur-md";
+  const title =
+    "mb-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase";
+
+  return (
+    <div className="grid h-full grid-cols-4 gap-2" data-testid="cockpit-dock">
+      <section className={glass} data-testid="dock-issues">
+        <h3 className={title}>Issues</h3>
+        <div className="flex items-baseline gap-2">
+          <RollingNumber
+            value={String(totals.issues)}
+            className="text-2xl leading-none font-light tabular-nums"
+          />
+          <span
+            className={cn(
+              "font-mono text-[11px] tabular-nums",
+              difference === null
+                ? "text-muted-foreground"
+                : difference > 0
+                  ? "text-sev-critical"
+                  : difference < 0
+                    ? "text-ok"
+                    : "text-muted-foreground",
+            )}
+          >
+            {difference === null
+              ? "first run"
+              : `${difference > 0 ? `+${difference}` : difference} vs last`}
+          </span>
+        </div>
+        <div className="mt-auto flex flex-wrap gap-1">
+          {SEVERITY_ORDER.map((severity) => (
+            <button
+              key={severity}
+              type="button"
+              disabled={totals.bySeverity[severity] === 0}
+              aria-pressed={selectedSeverity === severity}
+              aria-label={`${SEVERITY_LABEL[severity]}: ${totals.bySeverity[severity]}`}
+              data-testid={`dock-severity-${severity}`}
+              onClick={() => onPick({ key: "severity", value: severity })}
+              className={cn(
+                "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums enabled:hover:bg-muted disabled:opacity-40",
+                selectedSeverity === severity && "bg-muted ring-1 ring-brand",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="size-1.5 rounded-full"
+                style={{ background: SEVERITY_TONE[severity] }}
+              />
+              {totals.bySeverity[severity]}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className={glass} data-testid="dock-fix-first">
+        <h3 className={title}>Fix first</h3>
+        {fixFirst.length > 0 ? (
+          <ul className="space-y-1">
+            {fixFirst.map((issue) => (
+              <li key={issue.id}>
+                <Link
+                  href={`/app/runs/${cockpit.runId}`}
+                  className="group flex items-center gap-2 text-xs hover:text-foreground"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-6 w-0.5 shrink-0 rounded-full"
+                    style={{ background: SEVERITY_TONE[issue.severity] }}
+                  />
+                  <span className="line-clamp-2 min-w-0 flex-1 text-foreground/85">
+                    {issue.title}
+                  </span>
+                  <ChevronRight
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Nothing critical or high.
+          </p>
+        )}
+      </section>
+
+      <section className={glass} data-testid="dock-history">
+        <h3 className={title}>Issues over runs</h3>
+        {history.length > 1 ? (
+          <>
+            <p className="font-mono text-[11px] text-muted-foreground tabular-nums">
+              lowest {Math.min(...history)} · now {totals.issues}
+            </p>
+            <div className="mt-auto">
+              <Line values={history} />
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            The line starts with the next run.
+          </p>
+        )}
+      </section>
+
+      <section className={glass} data-testid="dock-readiness">
+        <h3 className={title}>Readiness</h3>
+        <div className="space-y-1.5">
+          {security.length > 0 ? (
+            <DockMeter
+              label="Patched"
+              value={patched}
+              total={security.length}
+              tone={patched === security.length ? "positive" : "brand"}
+            />
+          ) : null}
+          {delivered && delivered.total > 0 ? (
+            <DockMeter
+              label="In 8090"
+              value={delivered.sent}
+              total={delivered.total}
+              tone={delivered.sent === delivered.total ? "positive" : "brand"}
+            />
+          ) : null}
+          {places > 0 ? (
+            <DockMeter
+              label="Data to logs"
+              value={exposed}
+              total={places}
+              tone={exposed > 0 ? "negative" : "positive"}
+            />
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DockMeter({
+  label,
+  value,
+  total,
+  tone,
+}: {
+  label: string;
+  value: number;
+  total: number;
+  tone: "brand" | "positive" | "negative";
+}) {
+  return (
+    <div className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-[11px]">
+      <span className="truncate text-muted-foreground">{label}</span>
+      <ProgressBar
+        label={label}
+        valueText={`${value} of ${total}`}
+        value={value}
+        max={Math.max(total, 1)}
+        size="sm"
+        kind="meter"
+        tone={tone}
+      />
+      <span className="font-mono tabular-nums">
+        {value}/{total}
+      </span>
     </div>
   );
 }

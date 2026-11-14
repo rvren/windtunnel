@@ -3,23 +3,24 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, KeyRound, X } from "lucide-react";
+import { AnimatePresence } from "motion/react";
+import { X } from "lucide-react";
 
-import { EASE, FadeIn, FadeInItem } from "@/components/motion";
+import { FadeIn, FadeInItem } from "@/components/motion";
 import { Panel } from "@/components/panel";
 import { AgentIcon, SeverityBadge } from "@/components/run/badges";
-import { Segmented } from "@/components/tuff/segmented-control";
 import { Button } from "@/components/ui/button";
 import { AGENTS } from "@/lib/agents";
 import {
   FINDING_TYPE_LABEL,
   FINDING_TYPE_ORDER,
   SEVERITY_LABEL,
+  SEVERITY_ORDER,
 } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import {
   NOT_MAPPED,
+  SEVERITY_TONE,
   dataFlowView,
   issueFlowView,
   securityView,
@@ -35,8 +36,10 @@ import {
 } from "@/server/projects/cockpit";
 
 import { ArchitectureDiagram } from "./architecture-diagram";
-import { SummaryCards, type Delivered } from "./command/cards";
-import { FlowCanvas } from "./command/flow-canvas";
+import { DockCards, SummaryCards, type Delivered } from "./command/cards";
+import { FlowCanvas, FlowLists } from "./command/flow-canvas";
+import { FitBox } from "./command/fit-box";
+import { Stage } from "./command/stage";
 import { PrivacyView } from "./privacy";
 import { SecurityView } from "./security";
 
@@ -67,6 +70,12 @@ const NO_FILTER: Filter = {
 };
 
 type ViewId = "flow" | "architecture" | "data" | "security";
+
+const SEVERITY_LEGEND = SEVERITY_ORDER.map((severity) => ({
+  severity,
+  label: SEVERITY_LABEL[severity],
+  tone: SEVERITY_TONE[severity],
+}));
 
 const DOT: Record<Severity, string> = {
   critical: "bg-sev-critical",
@@ -276,62 +285,78 @@ export function Cockpit({
 
   const secrets = cockpit.privacy?.secrets ?? [];
   const flowView = view && view !== "architecture" ? flows[view] : null;
+  const onFlowPick = (choice: FlowFilter) => {
+    if (view === "data") {
+      document
+        .querySelector('[data-testid="cockpit-privacy"]')
+        ?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    pick(choice);
+  };
 
   return (
     <div className="space-y-6" data-testid="cockpit">
-      {/* The command header: the run, the view switcher, the way out. */}
-      <FadeIn className="grid items-center gap-3 md:grid-cols-[1fr_auto_1fr]">
-        {/* The page header already says when the run was and if it is a sample. */}
-        <span />
-        {views.length > 1 && view ? (
-          <Segmented
-            label="Canvas view"
-            options={views.map(({ value, label }) => ({ value, label }))}
-            value={view}
-            onValueChange={(next) => setView(next as ViewId)}
-            className="justify-self-center"
-          />
-        ) : (
-          <span />
-        )}
-        <Link
-          href={`/app/runs/${cockpit.runId}`}
-          className="flex items-center gap-1 justify-self-end text-xs text-link hover:underline"
-          data-testid="cockpit-open-run"
-        >
-          Open the run
-          <ArrowUpRight className="size-3.5" aria-hidden="true" />
-        </Link>
-      </FadeIn>
-
-      {/* The canvas: one view at a time. */}
+      {/* The stage: one fixed frame for every view, with overlays. */}
       {view ? (
-        <FadeIn delay={0.05}>
-          <section
-            className="relative overflow-hidden rounded-card bg-canvas bg-grid-dots px-4 py-6 sm:px-6"
-            data-testid="cockpit-canvas"
-            data-view={view}
-          >
-            {secrets.length > 0 && (view === "data" || view === "security") ? (
-              <button
-                type="button"
-                onClick={() => toggle("severity", "critical")}
-                className="absolute top-4 right-4 z-10 flex items-center gap-1.5 rounded-md bg-sev-critical/12 px-2 py-1 text-xs text-sev-critical"
-                data-testid="cockpit-secrets"
-              >
-                <KeyRound className="size-3.5" aria-hidden="true" />
-                {secrets.length} {secrets.length === 1 ? "secret" : "secrets"}{" "}
-                in the code
-              </button>
-            ) : null}
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={view}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3, ease: EASE }}
-              >
+        <FadeIn>
+          <Stage
+            views={views.map(({ value, label }) => ({ value, label }))}
+            view={view}
+            onView={setView}
+            title={views.find((item) => item.value === view)?.label ?? ""}
+            note={
+              view === "architecture"
+                ? "The parts of the application as the run read them, and what calls what."
+                : (flowView?.note ?? "")
+            }
+            legend={
+              view === "architecture"
+                ? SEVERITY_LEGEND.filter(
+                    (item) => cockpit.totals.bySeverity[item.severity] > 0,
+                  )
+                : (flowView?.legend ?? [])
+            }
+            chips={chips}
+            onRemoveChip={(key) => setFilter({ ...filter, [key]: null })}
+            onClear={() => setFilter(NO_FILTER)}
+            secrets={
+              view === "data" || view === "security" ? secrets.length : 0
+            }
+            onSecrets={() => toggle("severity", "critical")}
+            runId={cockpit.runId}
+            dock={
+              <DockCards
+                cockpit={cockpit}
+                earlier={earlier}
+                delivered={delivered}
+                selectedSeverity={filter.severity}
+                onPick={pick}
+              />
+            }
+            renderView={(box) =>
+              view === "architecture" ? (
+                <FitBox width={box.width} height={box.height}>
+                  <ArchitectureDiagram
+                    components={cockpit.components}
+                    connections={cockpit.connections}
+                    showWorkspace={byWorkspace}
+                    selected={filter.component}
+                    onSelect={(id) => toggle("component", id)}
+                  />
+                </FitBox>
+              ) : flowView ? (
+                <FlowCanvas
+                  view={flowView}
+                  width={box.width}
+                  height={box.height}
+                  selected={selectedNodes}
+                  onPick={onFlowPick}
+                />
+              ) : null
+            }
+            renderNarrow={() => (
+              <div className="space-y-6">
                 {view === "architecture" ? (
                   <ArchitectureDiagram
                     components={cockpit.components}
@@ -341,35 +366,24 @@ export function Cockpit({
                     onSelect={(id) => toggle("component", id)}
                   />
                 ) : flowView ? (
-                  <FlowCanvas
+                  <FlowLists
                     view={flowView}
                     selected={selectedNodes}
-                    onPick={(choice) => {
-                      if (view === "data") {
-                        document
-                          .querySelector('[data-testid="cockpit-privacy"]')
-                          ?.scrollIntoView({ behavior: "smooth" });
-                        return;
-                      }
-                      pick(choice);
-                    }}
+                    onPick={onFlowPick}
                   />
                 ) : null}
-              </motion.div>
-            </AnimatePresence>
-          </section>
+                <SummaryCards
+                  cockpit={cockpit}
+                  earlier={earlier}
+                  delivered={delivered}
+                  selectedSeverity={filter.severity}
+                  onPick={pick}
+                />
+              </div>
+            )}
+          />
         </FadeIn>
       ) : null}
-
-      <FadeIn delay={0.1}>
-        <SummaryCards
-          cockpit={cockpit}
-          earlier={earlier}
-          delivered={delivered}
-          selectedSeverity={filter.severity}
-          onPick={pick}
-        />
-      </FadeIn>
 
       <FadeIn delay={0.15} className="pt-4">
         <SectionTitle

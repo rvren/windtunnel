@@ -291,15 +291,19 @@ flowchart LR
   v --> s["Issue flow · Data flow · Security<br/>command/flow-canvas.tsx"]
   c --> d["Architecture diagram"]
   c --> i["Issues list"]
-  c --> n["Four cards<br/>command/cards.tsx"]
+  c --> n["Card dock<br/>command/cards.tsx"]
+  v & d & n --> st["Stage, fixed height<br/>command/stage.tsx"]
 ```
 
-The cockpit is a command center: a switcher picks the canvas view (issue
-flow, architecture, data flow, security; `?view=` in the address). Each flow
-view is a pure adapter in `src/lib/viz/cockpit-views.ts` that turns the
-cockpit into sources, hubs, groups and coloured bands; one renderer,
-`src/components/project/command/flow-canvas.tsx`, draws them all with the
-band geometry of `src/lib/sankey-layout.ts`. The four cards
+The cockpit is a command center on one stage of fixed height
+(`src/components/project/command/stage.tsx`): a switcher picks the view
+(issue flow, architecture, data flow, security; `?view=` in the address),
+and the bar, filters, legend and card dock float on top. Each flow view is a
+pure adapter in `src/lib/viz/cockpit-views.ts` that turns the cockpit into
+sources, hubs, groups, coloured bands, a note and a legend;
+`src/lib/viz/stage-layout.ts` fits it to the stage's box (even slots, rings
+sized to the room, "+N more" for what does not fit), and
+`src/components/project/command/flow-canvas.tsx` draws it. The four cards
 (`src/components/project/command/cards.tsx`) read the change and trend from
 the project's earlier finished runs and the 8090 deliveries of this run.
 The widgets come from `src/components/tuff/` (from tuffui.com, MIT).
