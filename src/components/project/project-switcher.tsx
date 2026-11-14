@@ -66,7 +66,7 @@ export function ProjectSwitcher({ projects }: { projects: SwitcherProject[] }) {
         data-testid="project-switcher"
         aria-label={`Project: ${current?.name ?? "all projects"}. Switch project`}
         className={cn(
-          "flex w-full min-w-0 items-center gap-3 rounded-md bg-sidebar-accent px-3 py-2.5 text-left outline-none transition-[background-color,transform] duration-200 hover:bg-sidebar-accent/70 focus-visible:ring-2 focus-visible:ring-sidebar-ring active:scale-[0.98] data-popup-open:bg-sidebar-accent/70",
+          "flex w-full min-w-0 items-center gap-3 rounded-tile bg-sidebar-accent px-3 py-2.5 text-left outline-none transition-[background-color,transform] duration-200 hover:bg-sidebar-accent/70 focus-visible:ring-2 focus-visible:ring-sidebar-ring active:scale-[0.98] data-popup-open:bg-sidebar-accent/70",
           "group-data-[collapsible=icon]:size-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0",
         )}
       >

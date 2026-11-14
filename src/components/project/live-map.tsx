@@ -109,7 +109,7 @@ export function LiveMap({
                     animate={{ opacity: here ? 1 : 0.45 }}
                     transition={glide}
                     data-arrived={here}
-                    className="flex min-h-15 items-center gap-3 rounded-md border bg-card px-3 py-2"
+                    className="flex min-h-15 items-center gap-3 rounded-card border bg-card px-3 py-2"
                   >
                     <FolderGit2
                       className="size-4 shrink-0 text-muted-foreground"

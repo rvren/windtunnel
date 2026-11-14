@@ -55,7 +55,7 @@ async function ProjectsTable() {
   if (projects.length === 0) {
     return (
       <div
-        className="flex flex-col items-center rounded-md border border-dashed px-6 py-16 text-center"
+        className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"
         data-testid="projects-empty"
       >
         <Mark className="size-10" />
@@ -75,7 +75,7 @@ async function ProjectsTable() {
   }
 
   return (
-    <div className="overflow-hidden rounded-md border bg-card">
+    <div className="overflow-hidden rounded-card border bg-card">
       <Table data-testid="projects-table">
         <TableHeader>
           <TableRow>

@@ -257,7 +257,7 @@ export function RunForm({
               })}
             </div>
           ) : (
-            <p className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">
+            <p className="rounded-card border border-dashed px-4 py-6 text-sm text-muted-foreground">
               This project has no workspaces yet. Add a repository on the
               project&apos;s page first.
             </p>

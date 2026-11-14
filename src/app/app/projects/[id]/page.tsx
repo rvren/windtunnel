@@ -199,7 +199,7 @@ async function ProjectPage({
             return (
               <span
                 key={workspace.id}
-                className="flex h-8 items-center gap-2 rounded-md border bg-card pr-0.5 pl-2.5 text-sm"
+                className="flex h-8 items-center gap-2 rounded-card border bg-card pr-0.5 pl-2.5 text-sm"
                 data-testid="project-workspace"
               >
                 <Icon
@@ -246,7 +246,7 @@ async function ProjectPage({
         <Cockpit cockpit={cockpit} />
       ) : count === 0 ? (
         <div
-          className="flex flex-col items-center rounded-md border border-dashed px-6 py-16 text-center"
+          className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"
           data-testid="project-empty-workspaces"
         >
           <h2 className="text-lg font-medium">Add the first workspace</h2>
@@ -259,7 +259,7 @@ async function ProjectPage({
         </div>
       ) : (
         <div
-          className="flex flex-col items-center rounded-md border border-dashed px-6 py-16 text-center"
+          className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"
           data-testid="project-empty-run"
         >
           <h2 className="text-lg font-medium">

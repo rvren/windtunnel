@@ -50,7 +50,7 @@ const number = (n: number) => n.toLocaleString("en");
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-md border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+    <p className="rounded-card border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
       {children}
     </p>
   );
@@ -121,7 +121,7 @@ export function FindingsTab({ run }: { run: RunRecord }) {
             <SectionTitle count={groups.length}>
               {FINDING_TYPE_LABEL[type]}
             </SectionTitle>
-            <Accordion className="mt-3 rounded-md border bg-card px-4">
+            <Accordion className="mt-3 rounded-card border bg-card px-4">
               {groups.map((group) => {
                 const members = group.findingIds.flatMap((uid) => {
                   const finding = findings.get(uid);
@@ -179,7 +179,7 @@ export function FindingsTab({ run }: { run: RunRecord }) {
                               {finding.description}
                             </p>
                             {finding.location ? (
-                              <figure className="mt-3 overflow-hidden rounded-md border">
+                              <figure className="mt-3 overflow-hidden rounded-card border">
                                 <figcaption className="border-b bg-muted/50 px-3 py-1.5 font-mono text-xs text-muted-foreground">
                                   {finding.location.path}:
                                   {finding.location.startLine}
@@ -267,7 +267,7 @@ export function FindingsTab({ run }: { run: RunRecord }) {
           <SectionTitle count={run.rejected.length + dropped.length}>
             Not accepted
           </SectionTitle>
-          <ul className="mt-3 divide-y rounded-md border bg-card px-4 text-sm">
+          <ul className="mt-3 divide-y rounded-card border bg-card px-4 text-sm">
             {run.rejected.map((item) => {
               const finding = findings.get(item.findingId);
               return (
@@ -331,7 +331,7 @@ export function WorkOrdersTab({ run }: { run: RunRecord }) {
       {run.workOrders.map((workOrder) => (
         <article
           key={workOrder.id}
-          className="rounded-md border bg-card p-5"
+          className="rounded-card border bg-card p-5"
           data-testid="work-order"
         >
           <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -407,7 +407,7 @@ function ModelList({
   return (
     <section>
       <SectionTitle count={items.length}>{title}</SectionTitle>
-      <ul className="mt-3 divide-y rounded-md border bg-card px-4 text-sm">
+      <ul className="mt-3 divide-y rounded-card border bg-card px-4 text-sm">
         {items.map((item) => (
           <li key={item.id} className="py-3">
             <p className="flex flex-wrap items-center gap-2">
@@ -449,7 +449,7 @@ function PermissionMatrix({ model }: { model: DesignModel }) {
       <p className="mt-1 text-sm text-muted-foreground">
         Who may do what. A dash means the requirement does not say.
       </p>
-      <div className="mt-3 overflow-hidden rounded-md border bg-card">
+      <div className="mt-3 overflow-hidden rounded-card border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -508,7 +508,7 @@ export function ModelTab({ run }: { run: RunRecord }) {
       <section>
         <p className="max-w-3xl leading-relaxed">{model.summary}</p>
         {coverage ? (
-          <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-4">
+          <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-card border bg-border sm:grid-cols-4">
             {[
               ["Stated", coverage.stats.statedItems],
               ["Assumed", coverage.stats.assumedItems],
@@ -594,7 +594,7 @@ export function ModelTab({ run }: { run: RunRecord }) {
             Holes in the model that need no judgement to see. The agents used
             them as leads.
           </p>
-          <ul className="mt-3 divide-y rounded-md border bg-card px-4 text-sm">
+          <ul className="mt-3 divide-y rounded-card border bg-card px-4 text-sm">
             {coverage.gaps.map((gap) => (
               <li
                 key={gap.id}
@@ -636,7 +636,7 @@ export function ScoreboardTab({ run }: { run: RunRecord }) {
             <Empty>No scores yet.</Empty>
           </div>
         ) : (
-          <div className="mt-3 overflow-hidden rounded-md border bg-card">
+          <div className="mt-3 overflow-hidden rounded-card border bg-card">
             <Table data-testid="scoreboard">
               <TableHeader>
                 <TableRow>
@@ -686,7 +686,7 @@ export function ScoreboardTab({ run }: { run: RunRecord }) {
             : `${run.models.reasoning} for the model, the judge and the work orders; ${run.models.agents} for the agents.`}
         </p>
         {usage.length > 0 && !run.sample ? (
-          <div className="mt-3 overflow-hidden rounded-md border bg-card">
+          <div className="mt-3 overflow-hidden rounded-card border bg-card">
             <Table data-testid="token-use">
               <TableHeader>
                 <TableRow>

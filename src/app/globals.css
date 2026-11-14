@@ -46,15 +46,18 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  /* One corner for the whole product: rounded-md. Every size resolves to it,
-     so a component that asks for a larger or smaller corner still matches. */
-  --radius-sm: var(--radius);
-  --radius-md: var(--radius);
-  --radius-lg: var(--radius);
-  --radius-xl: var(--radius);
-  --radius-2xl: var(--radius);
-  --radius-3xl: var(--radius);
-  --radius-4xl: var(--radius);
+  /* Corners, as in Plinth: controls 10px, rows and tiles 12px, panels 16px.
+     Small marks (badges, chips) keep 6px. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 10px;
+  --radius-control: 10px;
+  --radius-tile: 12px;
+  --radius-card: 16px;
+  --radius-xl: 16px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+  --radius-4xl: 16px;
 }
 
 /*
@@ -99,7 +102,7 @@
   --chart-3: #b4a5ff;
   --chart-4: #62646f;
   --chart-5: #0b0b0d;
-  --radius: 0.375rem;
+  --radius: 10px;
   --sidebar: #ffffff;
   --sidebar-foreground: #0b0b0d;
   --sidebar-primary: #0b0b0d;

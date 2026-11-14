@@ -193,7 +193,7 @@ export default function Home() {
                 See how it works
               </a>
             </div>
-            <p className="mt-8 flex max-w-md items-baseline gap-3 rounded-md border bg-card/50 px-3.5 py-2.5 font-mono text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-8 flex max-w-md items-baseline gap-3 rounded-card border bg-card/50 px-3.5 py-2.5 font-mono text-xs leading-relaxed text-muted-foreground">
               <span className="shrink-0 text-link">example</span>
               {EXAMPLE_REQUIREMENT}
             </p>
@@ -206,7 +206,7 @@ export default function Home() {
         id="how"
         className="relative mx-auto -mt-16 w-full max-w-6xl scroll-mt-24 px-4 sm:px-6"
       >
-        <ol className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-3">
+        <ol className="grid gap-px overflow-hidden rounded-card border bg-border sm:grid-cols-3">
           {steps.map((step, index) => (
             <li key={step.title} className="bg-card p-6">
               <span className="font-mono text-xs text-link">

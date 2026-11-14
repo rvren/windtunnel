@@ -23,7 +23,7 @@ export async function GET(
   const origin = publicOrigin(request);
   const back = (outcome: "connected" | "failed") =>
     Response.redirect(
-      `${origin}/app/settings?tab=connectors&${outcome}=${provider}`,
+      `${origin}/app/settings/connectors?${outcome}=${provider}`,
       303,
     );
   if (!LIVE.has(provider)) return back("failed");

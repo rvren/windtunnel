@@ -30,7 +30,7 @@ async function Form({
   if (projects.length === 0) {
     return (
       <div
-        className="rounded-md border border-dashed px-6 py-12 text-center"
+        className="rounded-card border border-dashed px-6 py-12 text-center"
         data-testid="run-form-no-project"
       >
         <h2 className="text-lg font-medium">Create a project first</h2>

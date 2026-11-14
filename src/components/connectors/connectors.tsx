@@ -473,7 +473,7 @@ export function Connectors({
 
         {planned.length === 0 ? (
           <p
-            className="rounded-md border border-dashed px-4 py-10 text-center text-sm text-muted-foreground"
+            className="rounded-card border border-dashed px-4 py-10 text-center text-sm text-muted-foreground"
             data-testid="connectors-none"
           >
             No connector matches.
@@ -493,7 +493,7 @@ export function Connectors({
                     <li
                       key={entry.id}
                       data-testid="connector-planned"
-                      className="flex items-center gap-3 rounded-md border bg-card px-3 py-2.5"
+                      className="flex items-center gap-3 rounded-card border bg-card px-3 py-2.5"
                     >
                       <Tile id={entry.id} name={entry.name} />
                       <span className="min-w-0 flex-1">

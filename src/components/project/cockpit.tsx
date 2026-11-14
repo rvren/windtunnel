@@ -193,7 +193,7 @@ export function Cockpit({ cockpit }: { cockpit: CockpitData }) {
   return (
     <div className="space-y-10" data-testid="cockpit">
       {/* The numbers. Each is a filter. */}
-      <FadeIn className="grid grid-cols-2 gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-3 lg:grid-cols-6">
+      <FadeIn className="grid grid-cols-2 gap-px overflow-hidden rounded-card border bg-border sm:grid-cols-3 lg:grid-cols-6">
         <div className="bg-card px-4 py-4">
           <p className="text-xs text-muted-foreground">Issues</p>
           <p

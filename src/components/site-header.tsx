@@ -24,7 +24,7 @@ export function SiteHeader() {
         </a>
         <nav
           aria-label="Sections"
-          className="hidden items-center rounded-md border bg-card/50 p-1 text-sm text-muted-foreground md:flex"
+          className="hidden items-center rounded-card border bg-card/50 p-1 text-sm text-muted-foreground md:flex"
         >
           {links.map((link) => (
             <a

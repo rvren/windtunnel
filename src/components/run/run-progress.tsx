@@ -50,7 +50,7 @@ export function StageRail({
   return (
     <ol
       className={cn(
-        "grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-3",
+        "grid gap-px overflow-hidden rounded-card border bg-border sm:grid-cols-3",
         repository ? "lg:grid-cols-7" : "lg:grid-cols-6",
       )}
       data-testid="run-stages"
@@ -110,7 +110,7 @@ export function AgentLanes({ feed }: { feed: Feed }) {
         return (
           <li
             key={agent.id}
-            className="flex flex-col rounded-md border bg-card p-4 last:sm:col-span-2 last:lg:col-span-1"
+            className="flex flex-col rounded-card border bg-card p-4 last:sm:col-span-2 last:lg:col-span-1"
             data-testid={`run-agent-${agent.id}`}
             data-status={lane.status}
           >

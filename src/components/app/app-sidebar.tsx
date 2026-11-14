@@ -1,16 +1,22 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "motion/react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Cpu,
+  Database,
   FolderKanban,
   History,
   PanelLeft,
+  Plug,
   Plus,
   Settings,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
@@ -23,6 +29,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -30,39 +37,109 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-// Only what exists is listed. Crosswind, Fly-off and Black box join this list
-// when they are built.
-const items = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  testId: string;
+  isActive: (path: string | null) => boolean;
+  /** The section has a sidebar of its own, which this row opens. */
+  into?: boolean;
+}
+
+interface NavGroup {
+  /** No label for the first group. */
+  label?: string;
+  items: NavItem[];
+}
+
+// The main menu. Only what exists is listed. Crosswind, Fly-off and Black box
+// join it when they are built.
+const MAIN: NavGroup[] = [
   {
-    href: "/app/projects",
-    label: "Projects",
-    icon: FolderKanban,
-    testId: "app-nav-projects",
-    isActive: (path: string | null) =>
-      Boolean(path?.startsWith("/app/projects")),
+    items: [
+      {
+        href: "/app/projects",
+        label: "Projects",
+        icon: FolderKanban,
+        testId: "app-nav-projects",
+        isActive: (path) => Boolean(path?.startsWith("/app/projects")),
+      },
+      {
+        href: "/app",
+        label: "Runs",
+        icon: History,
+        testId: "app-nav-runs",
+        // Runs owns /app and every /app/runs/... page.
+        isActive: (path) =>
+          path === "/app" || Boolean(path?.startsWith("/app/runs")),
+      },
+    ],
   },
   {
-    href: "/app",
-    label: "Runs",
-    icon: History,
-    testId: "app-nav-runs",
-    // Runs owns /app and every /app/runs/... page.
-    isActive: (path: string | null) =>
-      path === "/app" || Boolean(path?.startsWith("/app/runs")),
-  },
-  {
-    href: "/app/settings",
-    label: "Settings",
-    icon: Settings,
-    testId: "app-nav-settings",
-    isActive: (path: string | null) =>
-      Boolean(path?.startsWith("/app/settings")),
+    label: "Manage",
+    items: [
+      {
+        href: "/app/settings",
+        label: "Settings",
+        icon: Settings,
+        testId: "app-nav-settings",
+        isActive: (path) => Boolean(path?.startsWith("/app/settings")),
+        into: true,
+      },
+    ],
   },
 ];
 
+// Settings' own sidebar: its pages, in groups. It takes the main menu's
+// place while a Settings page is open.
+const SETTINGS: NavGroup[] = [
+  {
+    label: "Engine",
+    items: [
+      {
+        href: "/app/settings",
+        label: "Engine",
+        icon: Cpu,
+        testId: "settings-nav-engine",
+        isActive: (path) => path === "/app/settings",
+      },
+    ],
+  },
+  {
+    label: "Integrations",
+    items: [
+      {
+        href: "/app/settings/connectors",
+        label: "Connectors",
+        icon: Plug,
+        testId: "settings-nav-connectors",
+        isActive: (path) =>
+          Boolean(path?.startsWith("/app/settings/connectors")),
+      },
+    ],
+  },
+  {
+    label: "Data",
+    items: [
+      {
+        href: "/app/settings/sample-data",
+        label: "Sample data",
+        icon: Database,
+        testId: "settings-nav-sample-data",
+        isActive: (path) =>
+          Boolean(path?.startsWith("/app/settings/sample-data")),
+      },
+    ],
+  },
+];
+
+const inSettings = (path: string | null) =>
+  Boolean(path?.startsWith("/app/settings"));
+
 /** A row of the sidebar: quiet until it is the page you are on. */
 const item =
-  "relative h-10 gap-3 rounded-md px-3 text-[15px] text-muted-foreground transition-[color,background-color,transform] duration-200 hover:bg-sidebar-accent hover:text-foreground active:scale-[0.98] data-active:bg-transparent data-active:font-medium data-active:text-foreground [&_svg]:size-[18px] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center";
+  "relative h-10 gap-3 rounded-tile px-3 text-[15px] text-muted-foreground transition-[color,background-color,transform] duration-200 hover:bg-sidebar-accent hover:text-foreground active:scale-[0.98] data-active:bg-transparent data-active:font-medium data-active:text-foreground [&_svg]:size-[18px] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center";
 
 /** The collapse control, in the sidebar's own header. */
 function Collapse() {
@@ -82,6 +159,143 @@ function Collapse() {
     >
       <PanelLeft />
     </Button>
+  );
+}
+
+/** One menu: its groups, the current page marked with a chip that glides. */
+function NavList({
+  groups,
+  pathname,
+  onEnter,
+}: {
+  groups: NavGroup[];
+  pathname: string | null;
+  /** A row that opens a sidebar of its own, while its section is open. */
+  onEnter?: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-5 group-data-[collapsible=icon]:gap-2">
+      {groups.map((group, index) => (
+        <SidebarGroup
+          key={group.label ?? index}
+          className="p-0 group-data-[collapsible=icon]:border-t group-data-[collapsible=icon]:pt-2 group-data-[collapsible=icon]:first:border-0 group-data-[collapsible=icon]:first:pt-0"
+        >
+          {group.label ? (
+            <SidebarGroupLabel className="mb-0.5 h-8 px-3 text-sm font-normal text-muted-foreground group-data-[collapsible=icon]:hidden">
+              {group.label}
+            </SidebarGroupLabel>
+          ) : null}
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5 group-data-[collapsible=icon]:items-center">
+              {group.items.map((entry) => {
+                const active = entry.isActive(pathname);
+                return (
+                  <SidebarMenuItem key={entry.href}>
+                    <SidebarMenuButton
+                      render={<Link href={entry.href} />}
+                      tooltip={entry.label}
+                      isActive={active}
+                      data-testid={entry.testId}
+                      className={item}
+                      onClick={(event) => {
+                        // Back into a section that is already open: only
+                        // the sidebar changes, the page stays.
+                        if (entry.into && active && onEnter) {
+                          event.preventDefault();
+                          onEnter();
+                        }
+                      }}
+                    >
+                      {active ? (
+                        <motion.span
+                          layoutId="app-nav-active"
+                          aria-hidden="true"
+                          transition={{ duration: 0.35, ease: EASE }}
+                          className="absolute inset-0 rounded-tile bg-foreground/[0.09]"
+                        />
+                      ) : null}
+                      <entry.icon className="relative" />
+                      <span className="relative flex-1">{entry.label}</span>
+                      {entry.into ? (
+                        <ChevronRight
+                          className="relative size-3.5! text-muted-foreground group-data-[collapsible=icon]:hidden"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
+    </div>
+  );
+}
+
+/** The way up from a section's own sidebar to the main menu: "‹ Settings". */
+function SidebarUp({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <SidebarMenu className="mb-3 group-data-[collapsible=icon]:items-center">
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          onClick={onClick}
+          tooltip="Back to the main menu"
+          aria-label="Back to the main menu"
+          data-testid="sidebar-up"
+          className="group/up h-10 gap-2 rounded-tile px-2 text-[15px] font-semibold text-foreground transition-[background-color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.98] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center"
+        >
+          <ChevronLeft className="size-4! text-muted-foreground transition-transform duration-200 group-hover/up:-translate-x-0.5 group-hover/up:text-foreground" />
+          <span>{label}</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+const swap = {
+  enter: (direction: number) => ({ opacity: 0, x: direction * 24 }),
+  center: { opacity: 1, x: 0 },
+  exit: (direction: number) => ({
+    opacity: 0,
+    x: direction * -24,
+    transition: { duration: 0.12 },
+  }),
+};
+
+/**
+ * Slides one sidebar list over the other: in to a section's own list from
+ * the right, and back up to the main menu from the left.
+ */
+function SidebarSwap({
+  view,
+  depth,
+  children,
+}: {
+  view: string;
+  depth: number;
+  children: React.ReactNode;
+}) {
+  const [last, setLast] = useState(depth);
+  const direction = depth >= last ? 1 : -1;
+  if (depth !== last) setLast(depth);
+  return (
+    <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+      <motion.div
+        key={view}
+        custom={direction}
+        variants={swap}
+        initial="enter"
+        animate="center"
+        exit="exit"
+        transition={{ duration: 0.22, ease: EASE }}
+        className="flex min-h-0 flex-col"
+      >
+        {/* Each list has its own chip, so it never glides across lists. */}
+        <LayoutGroup id={view}>{children}</LayoutGroup>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -125,9 +339,13 @@ export function AppSidebarFor({
   // From a project's page, a new run starts in that project.
   const projectId =
     /^\/app\/projects\/([0-9a-f-]{36})/.exec(pathname ?? "")?.[1] ?? null;
+  // On a Settings page the sidebar is Settings' own. "‹ Settings" goes up to
+  // the main menu without leaving the page; any navigation resets it.
+  const [up, setUp] = useState<{ at: string | null } | null>(null);
+  const own = inSettings(pathname) && up?.at !== pathname;
   return (
     <Sidebar collapsible="icon" variant="floating">
-      <SidebarHeader className="gap-0 px-3.5 pt-5 group-data-[collapsible=icon]:px-1">
+      <SidebarHeader className="gap-0 border-b px-3.5 pt-5 pb-4 group-data-[collapsible=icon]:px-1">
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
           <Link
             href="/app/projects"
@@ -139,45 +357,33 @@ export function AppSidebarFor({
           </Link>
           <Collapse />
         </div>
-        {/* One scope card: the project the page is about. */}
-        <div className="mt-4 border-t pt-4 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-          {switcher}
-        </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-3.5 pt-2 group-data-[collapsible=icon]:px-1">
-        <SidebarGroup className="p-0">
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5 group-data-[collapsible=icon]:items-center">
-              {items.map((entry) => {
-                const active = entry.isActive(pathname);
-                return (
-                  <SidebarMenuItem key={entry.href}>
-                    <SidebarMenuButton
-                      render={<Link href={entry.href} />}
-                      tooltip={entry.label}
-                      isActive={active}
-                      data-testid={entry.testId}
-                      className={item}
-                    >
-                      {/* The current page's chip. It glides to the next one. */}
-                      {active ? (
-                        <motion.span
-                          layoutId="app-nav-active"
-                          aria-hidden="true"
-                          transition={{ duration: 0.35, ease: EASE }}
-                          className="absolute inset-0 rounded-md bg-foreground/[0.09]"
-                        />
-                      ) : null}
-                      <entry.icon className="relative" />
-                      <span className="relative">{entry.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="overflow-x-hidden px-3.5 pt-4 group-data-[collapsible=icon]:px-1">
+        <SidebarSwap view={own ? "settings" : "main"} depth={own ? 1 : 0}>
+          {own ? (
+            <>
+              <SidebarUp
+                label="Settings"
+                onClick={() => setUp({ at: pathname })}
+              />
+              <NavList groups={SETTINGS} pathname={pathname} />
+            </>
+          ) : (
+            <>
+              {/* One scope card: the project the page is about. Part of the
+                  main menu, so it slides away with it in Settings. */}
+              <div className="mb-4 border-b pb-4 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+                {switcher}
+              </div>
+              <NavList
+                groups={MAIN}
+                pathname={pathname}
+                onEnter={() => setUp(null)}
+              />
+            </>
+          )}
+        </SidebarSwap>
       </SidebarContent>
 
       <SidebarFooter className="gap-0 px-3.5 pb-4 group-data-[collapsible=icon]:px-1">
@@ -196,7 +402,7 @@ export function AppSidebarFor({
               }
               tooltip="New run"
               data-testid="app-nav-new-run"
-              className="h-11 justify-center gap-2.5 rounded-md bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-[opacity,transform] duration-200 hover:bg-primary hover:text-primary-foreground hover:opacity-90 active:scale-[0.98] active:bg-primary active:text-primary-foreground group-data-[collapsible=icon]:size-10!"
+              className="h-11 justify-center gap-2.5 rounded-tile bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-[opacity,transform] duration-200 hover:bg-primary hover:text-primary-foreground hover:opacity-90 active:scale-[0.98] active:bg-primary active:text-primary-foreground group-data-[collapsible=icon]:size-10!"
             >
               <Plus />
               <span className="flex-none group-data-[collapsible=icon]:hidden">

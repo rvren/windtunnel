@@ -153,7 +153,7 @@ export function RepoSourceFields({
           </Select>
         </div>
       ) : (
-        <p className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">
+        <p className="rounded-card border border-dashed px-4 py-6 text-sm text-muted-foreground">
           No folders yet. Put a repository in the server&apos;s repositories
           folder (`repos/` in the Windtunnel project) and reload this page.
         </p>

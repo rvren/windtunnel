@@ -27,7 +27,7 @@ export function LiveFindings({ feed }: { feed: Feed }) {
           Not judged yet
         </span>
       </h2>
-      <ul className="mt-3 divide-y rounded-md border bg-card px-4">
+      <ul className="mt-3 divide-y rounded-card border bg-card px-4">
         <AnimatePresence initial={false}>
           {feed.live.map((finding) => (
             <FadeInItem

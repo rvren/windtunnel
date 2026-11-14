@@ -133,7 +133,7 @@ export function ProjectLink({
           <>
             8090 is not connected.{" "}
             <Link
-              href="/app/settings?tab=connectors"
+              href="/app/settings/connectors"
               className="text-link underline-offset-4 hover:underline"
             >
               Connect it

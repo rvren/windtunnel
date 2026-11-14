@@ -18,7 +18,18 @@ interface Step {
 
 function trail(pathname: string | null): Step[] {
   if (pathname === null) return [];
-  if (pathname.startsWith("/app/settings")) return [{ label: "Settings" }];
+  if (pathname.startsWith("/app/settings/connectors"))
+    return [
+      { label: "Settings", href: "/app/settings" },
+      { label: "Connectors" },
+    ];
+  if (pathname.startsWith("/app/settings/sample-data"))
+    return [
+      { label: "Settings", href: "/app/settings" },
+      { label: "Sample data" },
+    ];
+  if (pathname.startsWith("/app/settings"))
+    return [{ label: "Settings", href: "/app/settings" }, { label: "Engine" }];
   if (pathname === "/app/projects") return [{ label: "Projects" }];
   if (pathname.startsWith("/app/projects/"))
     return [{ label: "Projects", href: "/app/projects" }, { label: "Cockpit" }];
