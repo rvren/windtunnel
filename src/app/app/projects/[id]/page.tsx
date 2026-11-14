@@ -94,15 +94,21 @@ async function ProjectPage({
       project && picked.length > 0
         ? await runStore().list({ projectId: id, workspaces: picked })
         : runs;
-    // The cockpit shows the latest run that finished.
-    const finished = runs.find((run) => run.status === "completed");
+    // The cockpit shows the latest finished run of the project's code: a
+    // requirement run reads no code, so it has no components to draw. Only
+    // a project with no code run yet shows its latest requirement run.
+    const completed = runs.filter((run) => run.status === "completed");
+    const finished =
+      completed.find((run) => run.workspaces.length > 0) ?? completed[0];
     const record = finished ? await runStore().get(finished.id) : null;
     if (record) {
       cockpit = buildCockpit(record);
       earlier = runs
         .filter(
           (run) =>
-            run.status === "completed" && run.createdAt < record.createdAt,
+            run.status === "completed" &&
+            run.createdAt < record.createdAt &&
+            run.workspaces.length > 0 === Boolean(record.source),
         )
         .reverse()
         .map((run) => ({
