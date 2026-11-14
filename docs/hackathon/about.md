@@ -67,7 +67,29 @@ Then it **closes the loop**. For a security issue, Windtunnel writes a fix and c
 
 ## What's next
 
-- Evals for every agent before production: requirements, the judge alone, the fix agent, the design model.
-- Pull request review mode: scan an incoming PR's impact across all services.
-- Scheduled scans with cost caps, plus Slack and email alerts.
-- More connectors (Jira, Linear, GitHub Issues) beside 8090 Software Factory.
+The roadmap keeps the wind tunnel metaphor. Each stage works with Windtunnel alone (plain input in, plain output out), and connectors stay optional.
+
+**Before production: evals for every agent.** The first eval (the agents on code, scored against 98 known flaws) is built. Next come:
+
+- The agents on a requirement, with gaps and contradictions planted in written specs.
+- The judge alone: it keeps real findings, drops false ones, and never excuses a real flaw because a description calls it deliberate.
+- The fix agent: the patch applies and actually closes the flaw, checked on the code afterwards.
+- The design model, against hand-written models of sample requirements.
+
+**1. Tunnel run, version 2.** What we have today, extended:
+
+- Check a repository against the findings of an earlier requirement run, so the risks raised by an idea are tracked into the code that implements it.
+- Sign-in, organizations and per-user access to projects.
+- Trends across a project's runs, and scheduled runs with cost caps.
+
+**2. Crosswind.** _"What happens if we change our authentication architecture?"_ The agents simulate the effect of a change on every requirement, component, API, test and downstream feature, and show the architecture before and after as an impact graph. Pointed at an incoming pull request, this becomes a review of its reach across every service, not just its diff.
+
+**3. Fly-off.** No single agent designs a feature alone. Several agents each propose an architecture and challenge the others' decisions, and a judge picks the strongest design with its evidence. The output is a reviewed blueprint. (In aviation, a fly-off is a contest between rival prototypes.)
+
+**4. Black box.** Production feedback starts the full loop: find the affected requirement, locate the implementation, write the fix, run the tests, open the pull request and update the project's context.
+
+**Connectors.** All behind one interface, so the core never depends on one:
+
+- **8090 Software Factory** (built): work orders out today, with requirements from Refinery and blueprints from Foundry coming in next.
+- **GitHub Issues** (planned): work orders out.
+- **Jira, Linear, Slack and email** (planned): alerts for new critical issues and merged fixes.
