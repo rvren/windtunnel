@@ -32,6 +32,7 @@ async function call<T>(
   method: string,
   path: string,
   body?: unknown,
+  step?: string,
 ): Promise<T> {
   const token = githubToken();
   if (!token) {
@@ -54,10 +55,11 @@ async function call<T>(
     const detail = (await response.json().catch(() => null)) as {
       message?: string;
     } | null;
+    const where = step ? ` while ${step}` : "";
     throw new GitHubError(
       response.status === 403 || response.status === 404
-        ? `GitHub refused (${response.status}). The token needs Contents and Pull requests write access to this repository.`
-        : `GitHub answered ${response.status}: ${detail?.message ?? "no detail"}.`,
+        ? `GitHub refused (${response.status})${where}. ${step?.includes("pull request") ? "The token needs Pull requests: write" : "The token needs Contents: write"} on this repository.`
+        : `GitHub answered ${response.status}${where}: ${detail?.message ?? "no detail"}.`,
       response.status,
     );
   }
@@ -118,28 +120,42 @@ export async function openPullRequest(input: {
     "GET",
     `/repos/${repo}/git/commits/${head.object.sha}`,
   );
-  const tree = await call<{ sha: string }>("POST", `/repos/${repo}/git/trees`, {
-    base_tree: parent.tree.sha,
-    tree: await Promise.all(
-      input.files.map(async (file) => {
-        const blob = await call<{ sha: string }>(
-          "POST",
-          `/repos/${repo}/git/blobs`,
-          { content: file.text, encoding: "utf-8" },
-        );
-        return { path: file.path, mode: "100644", type: "blob", sha: blob.sha };
-      }),
-    ),
-  });
+  const tree = await call<{ sha: string }>(
+    "POST",
+    `/repos/${repo}/git/trees`,
+    {
+      base_tree: parent.tree.sha,
+      tree: await Promise.all(
+        input.files.map(async (file) => {
+          const blob = await call<{ sha: string }>(
+            "POST",
+            `/repos/${repo}/git/blobs`,
+            { content: file.text, encoding: "utf-8" },
+            "writing the changed file",
+          );
+          return {
+            path: file.path,
+            mode: "100644",
+            type: "blob",
+            sha: blob.sha,
+          };
+        }),
+      ),
+    },
+    "building the commit",
+  );
   const commit = await call<{ sha: string }>(
     "POST",
     `/repos/${repo}/git/commits`,
     { message: input.message, tree: tree.sha, parents: [head.object.sha] },
+    "building the commit",
   );
-  await call("POST", `/repos/${repo}/git/refs`, {
-    ref: `refs/heads/${input.branch}`,
-    sha: commit.sha,
-  });
+  await call(
+    "POST",
+    `/repos/${repo}/git/refs`,
+    { ref: `refs/heads/${input.branch}`, sha: commit.sha },
+    "creating the branch",
+  );
   const pull = await call<{ number: number; html_url: string }>(
     "POST",
     `/repos/${repo}/pulls`,
@@ -149,6 +165,7 @@ export async function openPullRequest(input: {
       base: input.base,
       body: input.body,
     },
+    "opening the pull request",
   );
   return { number: pull.number, url: pull.html_url };
 }
