@@ -363,12 +363,18 @@ Projects and workspaces: `src/server/projects/store.ts`. Older runs with no
 project are gathered under "Demo project" by `src/server/projects/adopt.ts`.
 Sample data: `src/server/projects/demo.ts`.
 
+A requirement run's results are probable risks of an idea. One switch,
+`termsFor(probable)` in `src/lib/labels.ts`, gives the words everywhere
+(run page, story, cockpit, lists, exports, 8090 work orders), and tracked
+requirement issues (`issues.origin = "requirement"`) are reconciled only
+against earlier versions of the same requirement.
+
 ## 8. The data
 
 ```mermaid
 erDiagram
   projects ||--o{ workspaces : has
-  projects ||--o{ runs : "owns (kept if deleted)"
+  projects ||--o{ runs : "owns (deleted with it, or kept)"
   projects ||--o{ project_links : "sends to"
   runs ||--o{ agent_reports : "one per agent"
   runs ||--o{ run_events : "in order"

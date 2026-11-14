@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
  * checked against the base branch and nothing is written. When the patch
  * is missing or no longer fits, the fix agent can write a fresh one (on a
  * demo project for free; otherwise on the owner's key, said plainly first).
- * Nothing reaches GitHub until "Create pull request".
+ * Nothing reaches GitHub until "Create Pull Request".
  */
 
 interface TargetPreview {
@@ -215,7 +215,7 @@ export function PullRequestDialog({
                 data-testid="pr-write-fix"
               >
                 <Wand2 />
-                {demo ? "Write a fix" : "Write a fix on my key"}
+                {demo ? "Write A Fix" : "Write A Fix On My Key"}
               </Button>
             </div>
           ) : null}
@@ -320,7 +320,7 @@ export function PullRequestDialog({
               data-testid="pr-create"
             >
               <GitPullRequest />
-              Create pull request
+              Create Pull Request
             </Button>
           ) : null}
         </DialogFooter>

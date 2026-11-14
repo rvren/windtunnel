@@ -6,6 +6,12 @@ import { PageHeader, PageLoading } from "@/components/app/page-header";
 import { Mark } from "@/components/brand/logo";
 import { LocalTime } from "@/components/local-time";
 import { StatusBadge } from "@/components/run/badges";
+import { Badge } from "@/components/ui/badge";
+import {
+  RunCheck,
+  RunCheckAll,
+  RunSelection,
+} from "@/components/run/run-delete";
 import { RunFilters, WorkspaceChips } from "@/components/run/run-filters";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -71,13 +77,16 @@ async function RunsTable({
           className={buttonVariants({ className: "mt-6" })}
         >
           <Plus />
-          New run
+          New Run
         </Link>
       </div>
     );
   }
 
   const nameOf = new Map(projects.map((item) => [item.id, item.name]));
+  const deletable = runs
+    .filter((run) => run.status !== "running")
+    .map((run) => run.id);
   const current = projects.find((item) => item.id === projectId);
   return (
     <>
@@ -90,77 +99,105 @@ async function RunsTable({
         }))}
         workspaces={current?.workspaces.map((item) => item.name) ?? []}
       />
-      <div className="overflow-hidden rounded-card border bg-card">
-        <Table data-testid="runs-table">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Run</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Workspaces</TableHead>
-              <TableHead>State</TableHead>
-              <TableHead className="text-right">Findings</TableHead>
-              <TableHead className="text-right">Work orders</TableHead>
-              <TableHead className="text-right">Started</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {runs.length === 0 ? (
+      <RunSelection ids={deletable}>
+        <div className="overflow-hidden rounded-card border bg-card">
+          <Table data-testid="runs-table">
+            <TableHeader>
               <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="py-10 text-center text-muted-foreground"
-                  data-testid="runs-none-match"
-                >
-                  No run matches these filters.
-                </TableCell>
+                <TableHead className="w-10">
+                  <RunCheckAll ids={deletable} />
+                </TableHead>
+                <TableHead>Run</TableHead>
+                <TableHead>Project</TableHead>
+                <TableHead>Workspaces</TableHead>
+                <TableHead>State</TableHead>
+                <TableHead className="text-right">Findings</TableHead>
+                <TableHead className="text-right">Work orders</TableHead>
+                <TableHead className="text-right">Started</TableHead>
               </TableRow>
-            ) : null}
-            {runs.map((run) => (
-              <TableRow key={run.id}>
-                <TableCell className="max-w-md whitespace-normal">
-                  <Link
-                    href={`/app/runs/${run.id}`}
-                    data-testid="runs-row-link"
-                    className="line-clamp-2 font-medium underline-offset-4 hover:underline"
+            </TableHeader>
+            <TableBody>
+              {runs.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="py-10 text-center text-muted-foreground"
+                    data-testid="runs-none-match"
                   >
-                    {/* A run of a project's code is titled after the project,
-                        which the next column already shows. */}
-                    {run.projectId && run.title === nameOf.get(run.projectId)
-                      ? "Code run"
-                      : run.title}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  {run.projectId && nameOf.has(run.projectId) ? (
+                    No run matches these filters.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {runs.map((run) => (
+                <TableRow key={run.id}>
+                  <TableCell>
+                    <RunCheck
+                      id={run.id}
+                      title={run.title}
+                      disabled={run.status === "running"}
+                    />
+                  </TableCell>
+                  <TableCell className="max-w-md whitespace-normal">
                     <Link
-                      href={`/app/projects/${run.projectId}`}
-                      data-testid="runs-row-project"
-                      className="underline-offset-4 hover:underline"
+                      href={`/app/runs/${run.id}`}
+                      data-testid="runs-row-link"
+                      className="line-clamp-2 font-medium underline-offset-4 hover:underline"
                     >
-                      {nameOf.get(run.projectId)}
+                      {/* A run of a project's code is titled after the project,
+                        which the next column already shows. */}
+                      {run.projectId && run.title === nameOf.get(run.projectId)
+                        ? "Code run"
+                        : run.title}
                     </Link>
-                  ) : (
-                    <span className="text-muted-foreground">No project</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <WorkspaceChips names={run.workspaces} />
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={run.status} />
-                </TableCell>
-                <TableCell className="text-right">{run.findingCount}</TableCell>
-                <TableCell className="text-right">
-                  {run.workOrderCount}
-                </TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  <LocalTime iso={run.createdAt} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                    {run.workspaces.length === 0 ? (
+                      <Badge
+                        variant="secondary"
+                        className="mt-1"
+                        title="Tests an idea: its findings are probable risks."
+                      >
+                        Requirement
+                      </Badge>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
+                    {run.projectId && nameOf.has(run.projectId) ? (
+                      <Link
+                        href={`/app/projects/${run.projectId}`}
+                        data-testid="runs-row-project"
+                        className="underline-offset-4 hover:underline"
+                      >
+                        {nameOf.get(run.projectId)}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">No project</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <WorkspaceChips names={run.workspaces} />
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={run.status} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {run.findingCount}
+                    {run.workspaces.length === 0 ? (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        {run.findingCount === 1 ? "risk" : "risks"}
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {run.workOrderCount}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    <LocalTime iso={run.createdAt} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </RunSelection>
     </>
   );
 }
@@ -178,7 +215,7 @@ export default function RunsPage({ searchParams }: PageProps<"/app/runs">) {
           className={buttonVariants()}
         >
           <Plus />
-          New run
+          New Run
         </Link>
       </PageHeader>
       <Suspense fallback={<PageLoading label="Reading the runs" />}>

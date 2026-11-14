@@ -215,7 +215,7 @@ function Section({
           className="text-xs text-link hover:underline"
           onClick={() => setAll(!all)}
         >
-          {all ? "Show fewer" : `Show all ${items.length}`}
+          {all ? "Show Fewer" : `Show All ${items.length}`}
         </button>
       ) : null}
     </section>
@@ -414,7 +414,7 @@ export function RefineSheet({
                         setText(draft);
                       }}
                     >
-                      Start again from your answers
+                      Start Again From Your Answers
                     </button>
                   ) : null}
                 </div>
@@ -482,7 +482,7 @@ export function RefineSheet({
                   onClick={() => picker.current?.click()}
                 >
                   <Paperclip />
-                  Add files
+                  Add Files
                 </Button>
               </div>
             </div>
@@ -499,7 +499,7 @@ export function RefineSheet({
                 </p>
               )}
               <div className="rounded-tile p-4 ring-1 ring-foreground/10">
-                <p className="text-sm font-medium">Run version {nextNumber}?</p>
+                <p className="text-sm font-medium">Run Version {nextNumber}?</p>
                 <p
                   className="mt-1 text-sm text-muted-foreground"
                   data-testid="refine-cost"
@@ -560,7 +560,7 @@ export function RefineSheet({
                 ) : (
                   <Play />
                 )}
-                Run version {nextNumber}
+                Run Version {nextNumber}
               </Button>
             )}
           </div>

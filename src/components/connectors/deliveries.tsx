@@ -134,7 +134,7 @@ export function DeliveryStrip({
           data-testid="delivery-send"
         >
           <Send />
-          {failed.length > 0 ? "Send again" : "Send to 8090"}
+          {failed.length > 0 ? "Send Again" : "Send To 8090"}
         </Button>
       ) : null}
       {error ? (

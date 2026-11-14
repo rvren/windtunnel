@@ -136,7 +136,7 @@ export function ProjectLink({
               href="/app/settings/connectors"
               className="text-link underline-offset-4 hover:underline"
             >
-              Connect it
+              Connect It
             </Link>
           </>
         ) : externalId ? (

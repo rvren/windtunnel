@@ -244,7 +244,7 @@ function SoftwareFactory({
             data-testid="connector-connect"
           >
             {spin("connect", <Plug />)}
-            {connection.status === "expired" ? "Sign in again" : "Connect"}
+            {connection.status === "expired" ? "Sign In Again" : "Connect"}
           </Button>
         )}
       </div>

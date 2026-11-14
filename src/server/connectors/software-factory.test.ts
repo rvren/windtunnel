@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import { executeRun, newRun } from "../engine/run";
+import { SAMPLE_SCRIPT, ScriptedLlm } from "../engine/sample";
+import { MemoryRunStore } from "../engine/store";
 import {
   labelListed,
   parseConnectorUrl,
   projectsInText,
+  PROPOSAL_LABEL,
+  toFactoryWorkOrder,
 } from "./software-factory";
 
 describe("the Software Factory connector URL", () => {
@@ -63,5 +68,35 @@ describe("the labels, as Software Factory lists them", () => {
     expect(labelListed("Billing", null, text)).toBe(true);
     expect(labelListed("dvna", null, text)).toBe(false);
     expect(labelListed("wind", null, text)).toBe(false);
+  });
+});
+
+describe("work orders from a requirement run", () => {
+  it("are proposals: requirements work, labelled, and saying so first", async () => {
+    const run = await executeRun(
+      {
+        llm: new ScriptedLlm(SAMPLE_SCRIPT),
+        store: new MemoryRunStore(),
+        publish: () => {},
+        now: () => new Date("2026-11-14T10:00:05Z"),
+      },
+      newRun(
+        "req-1",
+        { requirement: "A shop.", documents: [] },
+        { reasoning: "r", agents: "a" },
+        new Date("2026-11-14T10:00:00Z"),
+        true,
+      ),
+    );
+    expect(run.workOrders.length).toBeGreaterThan(0);
+    for (const workOrder of run.workOrders) {
+      const sent = toFactoryWorkOrder(run, workOrder);
+      expect(sent.type).toBe("requirements");
+      expect(sent.label_titles).toContain(PROPOSAL_LABEL);
+      expect(
+        sent.description.startsWith("> Proposed from a requirement run"),
+      ).toBe(true);
+      expect(sent.description).not.toContain("## Findings this settles");
+    }
   });
 });

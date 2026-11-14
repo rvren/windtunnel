@@ -16,7 +16,7 @@ export default function AppNotFound() {
         data-testid="not-found-runs"
         className={buttonVariants({ variant: "outline", className: "mt-6" })}
       >
-        Back to runs
+        Back To Runs
       </Link>
     </div>
   );

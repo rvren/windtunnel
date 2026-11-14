@@ -119,6 +119,17 @@ export async function setPullRequest(
     .where(eq(issues.id, id));
 }
 
+/** The run and every earlier version it refines, by following parents. */
+async function versionsBefore(run: RunRecord): Promise<Set<string>> {
+  const ids = new Set([run.id]);
+  let parent = run.parentRunId;
+  while (parent && !ids.has(parent)) {
+    ids.add(parent);
+    parent = (await runStore().get(parent))?.parentRunId;
+  }
+  return ids;
+}
+
 /**
  * Folds one finished project run into the project's tracked issues of the
  * same origin: a requirement run never settles code issues, nor the reverse.
@@ -128,8 +139,15 @@ export async function reconcileRun(run: RunRecord): Promise<void> {
   const project = await getProject(run.projectId);
   if (!project) return;
   const origin = originOf(run);
+  // A requirement run settles only the risks of its own requirement: those
+  // first raised by this run or one of its earlier versions. Another
+  // requirement in the same project is left alone.
+  const thread = origin === "requirement" ? await versionsBefore(run) : null;
   const tracked = (await listIssues(run.projectId)).filter(
-    (issue) => issue.origin === origin,
+    (issue) =>
+      issue.origin === origin &&
+      (thread === null ||
+        (issue.firstRunId !== null && thread.has(issue.firstRunId))),
   );
   const seen = seenIn(run);
   const all = project.workspaces.map((item) => item.name);

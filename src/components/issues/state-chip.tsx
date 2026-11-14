@@ -12,14 +12,35 @@ import { cn } from "@/lib/utils";
 
 /*
  * Where a tracked issue is in its life: open, a pull request open, merged
- * and waiting for a rescan, fixed, reopened, or not found again.
+ * and waiting for a rescan, fixed, reopened, or not found again. A
+ * requirement run's risk is only raised, raised again or no longer raised.
  */
 
 export interface TrackedState {
   id: string;
   state: "open" | "pr_open" | "merged" | "fixed" | "reopened" | "gone";
   pr: { number: number; url: string; state: string } | null;
+  /** "requirement" for a requirement run's probable risk. */
+  origin?: "code" | "requirement";
 }
+
+/** A risk of an idea is raised or not; it is never fixed or reopened. */
+const RISK_LOOK: Partial<
+  Record<TrackedState["state"], { label: string; className: string }>
+> = {
+  open: {
+    label: "Raised",
+    className: "text-muted-foreground ring-foreground/15",
+  },
+  reopened: {
+    label: "Raised again",
+    className: "text-muted-foreground ring-foreground/25",
+  },
+  gone: {
+    label: "No longer raised",
+    className: "text-muted-foreground ring-foreground/15",
+  },
+};
 
 const LOOK: Record<
   TrackedState["state"],
@@ -66,7 +87,11 @@ export function StateChip({
   tracked: TrackedState;
   className?: string;
 }) {
-  const look = LOOK[tracked.state];
+  const risk =
+    tracked.origin === "requirement" ? RISK_LOOK[tracked.state] : undefined;
+  const look = risk
+    ? { label: () => risk.label, className: risk.className, icon: undefined }
+    : LOOK[tracked.state];
   const Icon = look.icon;
   const body = (
     <>

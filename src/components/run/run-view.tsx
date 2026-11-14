@@ -32,10 +32,11 @@ import type {
 } from "@/server/engine/schema";
 
 import { ConfirmRunDialog, type RunCost } from "./confirm-run";
+import { DeleteRunButton } from "./run-delete";
 import { RefineSheet } from "./refine/refine-sheet";
 import { RequirementDiff, VersionSwitcher } from "./refine/versions";
 
-import { SampleBadge, StatusBadge } from "./badges";
+import { ProbableTag, SampleBadge, StatusBadge } from "./badges";
 import { Stepper } from "./story/stepper";
 import { Story, type ReportTab } from "./story/story";
 import { seconds } from "./stage-time";
@@ -159,7 +160,7 @@ function RunAgain({ run, cost }: { run: RunRecord; cost: RunCost }) {
         data-testid="run-again"
       >
         {starting ? <LoaderCircle className="animate-spin" /> : <RotateCcw />}
-        Run again
+        Run Again
       </Button>
       <ConfirmRunDialog
         open={open}
@@ -293,7 +294,7 @@ export function RunView({
                     })}
                   >
                     <FolderKanban />
-                    Project cockpit
+                    Project Cockpit
                   </Link>
                   {run.source ? (
                     <RunAgain run={run} cost={context.cost} />
@@ -310,12 +311,13 @@ export function RunView({
                     >
                       <Button size="sm" data-testid="run-refine">
                         <PencilLine />
-                        Refine requirement
+                        Refine Requirement
                       </Button>
                     </RefineSheet>
                   )}
                 </>
               ) : null}
+              <DeleteRunButton runId={run.id} />
               <a
                 href={`/api/runs/${run.id}/export?format=md`}
                 download
@@ -340,6 +342,15 @@ export function RunView({
         <h1 className="max-w-4xl text-2xl leading-tight font-semibold tracking-[-0.03em] text-balance sm:text-3xl">
           {run.title}
         </h1>
+        {!run.source ? (
+          <p
+            className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+            data-testid="run-probable-note"
+          >
+            <ProbableTag />
+            Tests an idea: every risk is probable until it is built.
+          </p>
+        ) : null}
         {context.versions.length > 1 ? (
           <VersionSwitcher versions={context.versions} current={run.id} />
         ) : null}
@@ -479,6 +490,7 @@ export function RunView({
 
       {!ended || run.status !== "completed" || storyOpen ? (
         <Story
+          probable={!run.source}
           chapters={chapters}
           feed={feed}
           times={times}
@@ -514,7 +526,7 @@ export function RunView({
                 data-testid="run-tab-findings"
                 className="flex-none px-4"
               >
-                Issues
+                {run.source ? "Issues" : "Risks"}
                 <span className="font-mono text-xs text-muted-foreground">
                   {run.groups.length}
                 </span>
@@ -524,7 +536,7 @@ export function RunView({
                 data-testid="run-tab-work-orders"
                 className="flex-none px-4"
               >
-                Work orders
+                {run.source ? "Work orders" : "Proposed work orders"}
                 <span className="font-mono text-xs text-muted-foreground">
                   {run.workOrders.length}
                 </span>

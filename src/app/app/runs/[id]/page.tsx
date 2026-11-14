@@ -85,7 +85,9 @@ async function Run({ params }: { params: Promise<{ id: string }> }) {
           (item) =>
             item.id !== run.id &&
             item.status === "completed" &&
-            item.createdAt < run.createdAt,
+            item.createdAt < run.createdAt &&
+            // Compare like with like: code with code, idea with idea.
+            item.workspaces.length > 0 === Boolean(run.source),
         )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       const previous = earlier[0] ?? null;
@@ -117,7 +119,12 @@ async function Run({ params }: { params: Promise<{ id: string }> }) {
             .filter((item) => item.lastRunId === run.id && item.lastGroupId)
             .map((item) => [
               item.lastGroupId!,
-              { id: item.id, state: item.state, pr: item.pr },
+              {
+                id: item.id,
+                state: item.state,
+                pr: item.pr,
+                origin: item.origin,
+              },
             ]),
         ),
       };

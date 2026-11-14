@@ -68,17 +68,47 @@ const issues: Issue[] = [
     state: "reopened",
     openedAt: day(3),
   }),
+  // Probable risks of an idea, and one in the code project.
+  issue({ id: "h", projectId: "p3", origin: "requirement" }),
+  issue({ id: "i", projectId: "p3", origin: "requirement", state: "gone" }),
+  issue({
+    id: "j",
+    projectId: "p1",
+    origin: "requirement",
+    severity: "critical",
+  }),
 ];
 
 const runs = [
-  { id: "r1", projectId: "p1", createdAt: day(2), status: "completed" },
-  { id: "r2", projectId: "p1", createdAt: day(1), status: "completed" },
+  {
+    id: "r1",
+    projectId: "p1",
+    createdAt: day(2),
+    status: "completed",
+    workspaces: ["web"],
+  },
+  {
+    id: "r2",
+    projectId: "p1",
+    createdAt: day(1),
+    status: "completed",
+    workspaces: ["web"],
+  },
+  // A requirement run: no workspaces.
+  {
+    id: "r3",
+    projectId: "p3",
+    createdAt: day(1),
+    status: "completed",
+    workspaces: [],
+  },
 ] as RunSummary[];
 
 const numbers = homeNumbers({
   projects: [
     { id: "p1", name: "Shop" },
     { id: "p2", name: "Billing" },
+    { id: "p3", name: "Idea" },
   ],
   issues,
   runs,
@@ -103,5 +133,21 @@ describe("the home page's numbers", () => {
     expect(shop.bySeverity).toMatchObject({ critical: 1, high: 1 });
     expect(shop.lastRun?.id).toBe("r2");
     expect(numbers.projects.find((p) => p.id === "p2")!.lastRun).toBeNull();
+  });
+
+  it("counts requirement risks apart from issues in code", () => {
+    const shop = numbers.projects.find((p) => p.id === "p1")!;
+    // The requirement risk "j" is not an open issue and not in % fixed.
+    expect(shop.open).toBe(3);
+    expect(shop.bySeverity.critical).toBe(1);
+    expect(shop.risks).toBe(1);
+    const idea = numbers.projects.find((p) => p.id === "p3")!;
+    expect(idea).toMatchObject({ open: 0, fixedShare: 0, risks: 1 });
+    expect(idea.requirementRunId).toBe("r3");
+    expect(idea.next).toEqual({
+      kind: "refine",
+      label: "Refine The Requirement",
+      href: "/app/runs/r3",
+    });
   });
 });

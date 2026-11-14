@@ -58,6 +58,44 @@ export const SEVERITY_LABEL = {
 
 export const SEVERITY_ORDER = ["critical", "high", "medium", "low"] as const;
 
+/**
+ * The words for a run's results. A requirement run tests an idea: nothing
+ * is built yet, so what it finds are probable risks, its fixes are
+ * suggested changes and its work orders are proposals. A code run's
+ * findings are issues in real code.
+ */
+export function termsFor(probable: boolean) {
+  return probable
+    ? {
+        issue: "risk",
+        issues: "risks",
+        Issue: "Risk",
+        Issues: "Risks",
+        severity: (severity: keyof typeof SEVERITY_LABEL) =>
+          `${SEVERITY_LABEL[severity]} risk`,
+        fix: "Suggested change",
+        workOrders: "Proposed work orders",
+        workOrder: "Proposed work order",
+        accepted: "kept by the judge",
+        found: "raised",
+      }
+    : {
+        issue: "issue",
+        issues: "issues",
+        Issue: "Issue",
+        Issues: "Issues",
+        severity: (severity: keyof typeof SEVERITY_LABEL) =>
+          SEVERITY_LABEL[severity] as string,
+        fix: "Fix",
+        workOrders: "Work orders",
+        workOrder: "Work order",
+        accepted: "accepted by the judge",
+        found: "found",
+      };
+}
+
+export type Terms = ReturnType<typeof termsFor>;
+
 export const PRIORITY_LABEL = {
   p0: "P0",
   p1: "P1",

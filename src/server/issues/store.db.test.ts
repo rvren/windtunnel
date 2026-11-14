@@ -52,6 +52,7 @@ async function finishedRun(
   groups: FindingGroup[],
   at: string,
   kind: "code" | "requirement" = "code",
+  parentRunId?: string,
 ): Promise<RunRecord> {
   const run = newRun(
     randomUUID(),
@@ -59,6 +60,7 @@ async function finishedRun(
       requirement: "",
       documents: [],
       projectRef: { id: projectId, demo: true },
+      ...(parentRunId ? { parentRunId } : {}),
     },
     { reasoning: "r", agents: "a" },
     new Date(at),
@@ -218,5 +220,37 @@ describe("tracking a project's issues across runs", () => {
     expect(tracked.find((issue) => issue.origin === "requirement")?.state).toBe(
       "open",
     );
+  });
+
+  it("settles a requirement's risks only in its own versions", async () => {
+    const project = await createProject({ name: "Ideas", description: "" });
+    const risk = {
+      ...group("r1", "Nobody may refund an order", "x"),
+      type: "missing_requirement" as const,
+      location: undefined,
+    };
+    const first = await finishedRun(
+      project.id,
+      [risk],
+      "2026-10-01T10:00:00Z",
+      "requirement",
+    );
+    await reconcileRun(first);
+    // Another requirement in the same project raises nothing: the risk stays.
+    await reconcileRun(
+      await finishedRun(project.id, [], "2026-10-02T10:00:00Z", "requirement"),
+    );
+    expect((await listIssues(project.id))[0].state).toBe("open");
+    // The next version of the same requirement no longer raises it.
+    await reconcileRun(
+      await finishedRun(
+        project.id,
+        [],
+        "2026-10-03T10:00:00Z",
+        "requirement",
+        first.id,
+      ),
+    );
+    expect((await listIssues(project.id))[0].state).toBe("gone");
   });
 });

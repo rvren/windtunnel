@@ -209,6 +209,18 @@ shows `v1 · v2 · v3`, what changed in the text, and what got better (gaps
 closed, assumptions now stated, issues gone). Nothing is sent to the model
 until you start the run, and every run asks first.
 
+A requirement run's results are shown as **probable risks**: nothing is
+built yet, so they read "High risk", with suggested changes and proposed
+work orders, and they don't count toward a project's fixed share on the
+home page.
+
+## Deleting
+
+Delete a run from its page, several from the runs list (tick them), or a
+project from its cockpit or the projects list. Deleting a project offers to
+delete its runs too (ticked by default); untick it to keep them in the list
+of runs. A run that is still going can't be deleted.
+
 ## Every run belongs to a project
 
 A run is started in a project: on a written requirement, or on the code of

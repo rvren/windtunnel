@@ -25,6 +25,11 @@ import {
 import { ProjectLink } from "@/components/connectors/project-link";
 import { ProjectLive } from "@/components/project/project-live";
 import { SampleBadge, StatusBadge } from "@/components/run/badges";
+import {
+  RunCheck,
+  RunCheckAll,
+  RunSelection,
+} from "@/components/run/run-delete";
 import { RunFilters, WorkspaceChips } from "@/components/run/run-filters";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -123,7 +128,12 @@ async function ProjectPage({
             .filter((item) => item.lastRunId === record.id && item.lastGroupId)
             .map((item) => [
               item.lastGroupId!,
-              { id: item.id, state: item.state, pr: item.pr },
+              {
+                id: item.id,
+                state: item.state,
+                pr: item.pr,
+                origin: item.origin,
+              },
             ]),
         );
         mergedCount = all.filter((item) => item.state === "merged").length;
@@ -215,7 +225,7 @@ async function ProjectPage({
         data-testid="project-run"
       >
         <Play />
-        Run project
+        Run Project
       </Button>
     </RunProjectDialog>
   );
@@ -233,7 +243,10 @@ async function ProjectPage({
             <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted-foreground">
               {cockpit ? (
                 <>
-                  Last run <LocalTime iso={cockpit.ranAt} />
+                  {cockpit.fromRequirement
+                    ? "Last requirement run"
+                    : "Last run"}{" "}
+                  <LocalTime iso={cockpit.ranAt} />
                   {cockpit.sample ? <SampleBadge /> : null}
                 </>
               ) : (
@@ -257,7 +270,11 @@ async function ProjectPage({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <DeleteProjectDialog projectId={project.id} name={project.name}>
+            <DeleteProjectDialog
+              projectId={project.id}
+              name={project.name}
+              runs={runs.length}
+            >
               <Button
                 variant="ghost"
                 size="icon"
@@ -367,68 +384,93 @@ async function ProjectPage({
           <RunFilters
             workspaces={project.workspaces.map((item) => item.name)}
           />
-          <Panel className="overflow-hidden">
-            <Table data-testid="project-runs">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Workspaces</TableHead>
-                  <TableHead>State</TableHead>
-                  <TableHead className="text-right">Issues</TableHead>
-                  <TableHead className="text-right">Work orders</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {shownRuns.length === 0 ? (
+          <RunSelection
+            ids={shownRuns
+              .filter((run) => run.status !== "running")
+              .map((run) => run.id)}
+          >
+            <Panel className="overflow-hidden">
+              <Table data-testid="project-runs">
+                <TableHeader>
                   <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="py-8 text-center text-muted-foreground"
-                      data-testid="project-runs-none-match"
-                    >
-                      No run read{" "}
-                      {picked.length === 1
-                        ? "that workspace"
-                        : "all of those workspaces"}
-                      .
-                    </TableCell>
+                    <TableHead className="w-10">
+                      <RunCheckAll
+                        ids={shownRuns
+                          .filter((run) => run.status !== "running")
+                          .map((run) => run.id)}
+                      />
+                    </TableHead>
+                    <TableHead>Started</TableHead>
+                    <TableHead>Workspaces</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead className="text-right">Issues</TableHead>
+                    <TableHead className="text-right">Work orders</TableHead>
+                    <TableHead />
                   </TableRow>
-                ) : null}
-                {shownRuns.map((run) => (
-                  <TableRow key={run.id}>
-                    <TableCell>
-                      <LocalTime iso={run.createdAt} />
-                    </TableCell>
-                    <TableCell>
-                      <WorkspaceChips names={run.workspaces} />
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={run.status} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {run.findingCount}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {run.workOrderCount}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        href={`/app/runs/${run.id}`}
-                        data-testid="project-run-link"
-                        className={buttonVariants({
-                          variant: "link",
-                          size: "sm",
-                        })}
+                </TableHeader>
+                <TableBody>
+                  {shownRuns.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="py-8 text-center text-muted-foreground"
+                        data-testid="project-runs-none-match"
                       >
-                        Open
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Panel>
+                        No run read{" "}
+                        {picked.length === 1
+                          ? "that workspace"
+                          : "all of those workspaces"}
+                        .
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  {shownRuns.map((run) => (
+                    <TableRow key={run.id}>
+                      <TableCell>
+                        <RunCheck
+                          id={run.id}
+                          title={run.title}
+                          disabled={run.status === "running"}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <LocalTime iso={run.createdAt} />
+                      </TableCell>
+                      <TableCell>
+                        <WorkspaceChips names={run.workspaces} />
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={run.status} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {run.findingCount}
+                        {run.workspaces.length === 0 ? (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            {run.findingCount === 1 ? "risk" : "risks"}
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {run.workOrderCount}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link
+                          href={`/app/runs/${run.id}`}
+                          data-testid="project-run-link"
+                          className={buttonVariants({
+                            variant: "link",
+                            size: "sm",
+                          })}
+                        >
+                          Open
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Panel>
+          </RunSelection>
         </section>
       ) : null}
 

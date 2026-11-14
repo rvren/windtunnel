@@ -37,7 +37,7 @@ export function ConfirmRunDialog({
   starting,
   error,
   onConfirm,
-  confirmLabel = "Start run",
+  confirmLabel = "Start Run",
   children,
 }: {
   open: boolean;

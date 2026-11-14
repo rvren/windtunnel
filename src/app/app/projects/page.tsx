@@ -2,12 +2,15 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 import { PageHeader, PageLoading } from "@/components/app/page-header";
 import { Mark } from "@/components/brand/logo";
 import { LocalTime } from "@/components/local-time";
-import { NewProjectDialog } from "@/components/project/project-dialogs";
+import {
+  DeleteProjectDialog,
+  NewProjectDialog,
+} from "@/components/project/project-dialogs";
 import { StatusBadge } from "@/components/run/badges";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -31,12 +34,16 @@ async function ProjectsTable() {
   await connection();
   let projects: Project[];
   let latest: Map<string, RunSummary>;
+  const runCount = new Map<string, number>();
   try {
     await ensureDatabase();
     projects = await listProjects();
     // Runs come newest first, so the first one seen for a project is its latest.
     latest = new Map();
     for (const run of await runStore().list()) {
+      if (run.projectId) {
+        runCount.set(run.projectId, (runCount.get(run.projectId) ?? 0) + 1);
+      }
       if (run.projectId && !latest.has(run.projectId)) {
         latest.set(run.projectId, run);
       }
@@ -67,7 +74,7 @@ async function ProjectsTable() {
         <NewProjectDialog>
           <Button className="mt-6" data-testid="projects-empty-new">
             <Plus />
-            New project
+            New Project
           </Button>
         </NewProjectDialog>
       </div>
@@ -84,6 +91,9 @@ async function ProjectsTable() {
             <TableHead>Last run</TableHead>
             <TableHead className="text-right">Issues</TableHead>
             <TableHead className="text-right">Work orders</TableHead>
+            <TableHead className="w-12">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -134,6 +144,22 @@ async function ProjectsTable() {
                 <TableCell className="text-right">
                   {run?.status === "completed" ? run.workOrderCount : "—"}
                 </TableCell>
+                <TableCell className="text-right">
+                  <DeleteProjectDialog
+                    projectId={project.id}
+                    name={project.name}
+                    runs={runCount.get(project.id) ?? 0}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Delete ${project.name}`}
+                      data-testid="projects-row-delete"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </DeleteProjectDialog>
+                </TableCell>
               </TableRow>
             );
           })}
@@ -153,7 +179,7 @@ export default function ProjectsPage() {
         <NewProjectDialog>
           <Button data-testid="projects-new">
             <Plus />
-            New project
+            New Project
           </Button>
         </NewProjectDialog>
       </PageHeader>

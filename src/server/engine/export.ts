@@ -7,9 +7,9 @@ import {
   OUTCOME_LABEL,
   PRIORITY_LABEL,
   RUN_STATUS_LABEL,
-  SEVERITY_LABEL,
   SEVERITY_ORDER,
   STAGE_LABEL,
+  termsFor,
 } from "@/lib/labels";
 
 import {
@@ -47,7 +47,12 @@ export function totalUsage(run: RunRecord) {
 }
 
 export function runToJson(run: RunRecord): string {
-  return JSON.stringify(run, null, 2);
+  // "kind" says how to read the findings: a requirement run's are probable.
+  return JSON.stringify(
+    { kind: run.source ? "code" : "requirement", ...run },
+    null,
+    2,
+  );
 }
 
 export function runToMarkdown(run: RunRecord): string {
@@ -69,6 +74,14 @@ export function runToMarkdown(run: RunRecord): string {
     out.push("", "> **Sample run.** This data did not come from the model.");
   }
   if (run.error) out.push("", `> **Error:** ${run.error}`);
+  const probable = !run.source;
+  const terms = termsFor(probable);
+  if (probable) {
+    out.push(
+      "",
+      "> **Requirement run.** These are probable risks of an idea: nothing is built yet, so none of them is a defect. Fixes are suggested changes and work orders are proposals.",
+    );
+  }
 
   if (run.source) {
     out.push(
@@ -84,16 +97,18 @@ export function runToMarkdown(run: RunRecord): string {
 
   out.push("", "## Summary", "");
   out.push(
-    `- ${count(run.groups.length, "finding")} from ${count(findings.size, "report")} by the agents`,
+    `- ${count(run.groups.length, probable ? "risk" : "finding")} from ${count(findings.size, "report")} by the agents`,
   );
   for (const type of FINDING_TYPE_ORDER) {
     const count = run.groups.filter((group) => group.type === type).length;
     out.push(`  - ${FINDING_TYPE_LABEL[type]}: ${count}`);
   }
-  out.push(`- ${count(run.workOrders.length, "work order")}`);
+  out.push(
+    `- ${count(run.workOrders.length, probable ? "proposed work order" : "work order")}`,
+  );
   out.push(`- ${count(run.rejected.length, "report")} rejected by the judge`);
 
-  out.push("", "## Findings");
+  out.push("", probable ? "## Probable risks" : "## Findings");
   for (const type of FINDING_TYPE_ORDER) {
     const groups = run.groups
       .filter((group) => group.type === type)
@@ -107,7 +122,7 @@ export function runToMarkdown(run: RunRecord): string {
     for (const group of groups) {
       out.push("", `#### ${group.title}`, "");
       out.push(
-        `\`${group.id}\` · ${SEVERITY_LABEL[group.severity]}${group.reviewed ? "" : " · not reviewed by the judge"}`,
+        `\`${group.id}\` · ${terms.severity(group.severity)}${group.reviewed ? "" : " · not reviewed by the judge"}`,
         "",
         group.summary,
       );
@@ -119,7 +134,7 @@ export function runToMarkdown(run: RunRecord): string {
       }
       const record = run.remediations?.[group.id];
       if (record?.status === "made") {
-        out.push("", "**Remediation**", "");
+        out.push("", probable ? "**Suggested change**" : "**Remediation**", "");
         const refs = [
           record.cwe
             ? `[${record.cwe.id} ${record.cwe.name}](${record.cwe.url})`
@@ -181,7 +196,7 @@ export function runToMarkdown(run: RunRecord): string {
     }
   }
 
-  out.push("", "## Work orders");
+  out.push("", probable ? "## Proposed work orders" : "## Work orders");
   for (const workOrder of run.workOrders) {
     out.push(
       "",

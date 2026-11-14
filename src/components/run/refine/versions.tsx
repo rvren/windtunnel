@@ -139,13 +139,13 @@ export function VersionWidget({
           items={nowStated}
         />
         <Row
-          label="Issues gone"
+          label="Risks gone"
           count={issues.gone.length}
           good
           items={issues.gone.map((group) => group.title)}
         />
         <Row
-          label="New issues"
+          label="New risks"
           count={issues.found.length}
           good={false}
           items={issues.found.map((group) => group.title)}

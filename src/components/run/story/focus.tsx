@@ -77,7 +77,7 @@ export function RunFocus({
             onClick={() => onOpen("findings")}
             className="inline-flex items-center gap-1 text-xs text-link hover:underline"
           >
-            Open the report
+            Open The Report
             <ArrowRight className="size-3.5" aria-hidden="true" />
           </button>
         ) : null}
@@ -88,7 +88,7 @@ export function RunFocus({
           className="flex items-center gap-1 rounded-md bg-card/80 px-2 py-1 text-xs ring-1 ring-foreground/10 hover:bg-muted"
         >
           <Minimize2 className="size-3.5" aria-hidden="true" />
-          Exit focus
+          Exit Focus
           <kbd className="ml-1 font-mono text-[10px] text-muted-foreground">
             Esc
           </kbd>
@@ -114,6 +114,7 @@ export function RunFocus({
             <RunSummary run={run} times={times} onOpen={onOpen} />
           ) : running.length + failed.length > 0 ? (
             <Story
+              probable={!run.source}
               chapters={[...running, ...failed]}
               feed={feed}
               times={times}
@@ -136,6 +137,7 @@ export function RunFocus({
               {done.map((chapter) => (
                 <div key={chapter.stage} id={`focus-chapter-${chapter.stage}`}>
                   <Story
+                    probable={!run.source}
                     chapters={[chapter]}
                     feed={feed}
                     times={times}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, ShieldCheck } from "lucide-react";
+import { Check, Copy, Lightbulb, ShieldCheck } from "lucide-react";
 
 import { InfoTip } from "@/components/info-tip";
 import { FileChanges } from "@/components/tuff/file-changes";
@@ -16,7 +16,14 @@ import type { RemediationRecord } from "@/server/engine/schema";
  * patch leaves to do. The patch is never applied.
  */
 
-export function Remediation({ record }: { record: RemediationRecord }) {
+export function Remediation({
+  record,
+  probable = false,
+}: {
+  record: RemediationRecord;
+  /** A requirement run's risk: a suggested change, not a fix. */
+  probable?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const diff = toUnifiedDiff(record.edits);
   const files = remediationFiles(record);
@@ -28,7 +35,8 @@ export function Remediation({ record }: { record: RemediationRecord }) {
         data-testid="remediation"
         data-status="failed"
       >
-        No remediation could be written for this finding: {record.error}
+        No {probable ? "suggested change" : "remediation"} could be written for
+        this finding: {record.error}
       </div>
     );
   }
@@ -50,10 +58,20 @@ export function Remediation({ record }: { record: RemediationRecord }) {
       data-status="made"
     >
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <ShieldCheck className="size-4 text-ok" aria-hidden="true" />
+        {probable ? (
+          <Lightbulb
+            className="size-4 text-muted-foreground"
+            aria-hidden="true"
+          />
+        ) : (
+          <ShieldCheck className="size-4 text-ok" aria-hidden="true" />
+        )}
         <h4 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-          Remediation
-          <InfoTip about="remediation" label="Remediation" />
+          {probable ? "Suggested change" : "Remediation"}
+          <InfoTip
+            about={probable ? "remediationProbable" : "remediation"}
+            label={probable ? "Suggested change" : "Remediation"}
+          />
         </h4>
         {record.cwe ? (
           <a
@@ -114,7 +132,7 @@ export function Remediation({ record }: { record: RemediationRecord }) {
                   className="h-7"
                 >
                   {copied ? <Check /> : <Copy />}
-                  {copied ? "Copied" : "Copy patch"}
+                  {copied ? "Copied" : "Copy Patch"}
                 </Button>
               </>
             }

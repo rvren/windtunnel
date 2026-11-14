@@ -5,6 +5,10 @@ import type { Issue } from "@/server/issues/store";
 /*
  * The home page's numbers, across every project, from tracked issues, runs
  * and pull requests. Pure; nothing estimated.
+ *
+ * Health counts only issues found in code. A requirement run's issues are
+ * probable risks of an idea: they cannot be fixed or merged, so they are
+ * counted on their own line.
  */
 
 const OPEN = new Set(["open", "reopened"]);
@@ -25,7 +29,11 @@ export function homeNumbers(input: {
 
   // Each project at a glance, with the one thing to do next.
   const perProject = projects.map((project) => {
-    const mine = issues.filter((issue) => issue.projectId === project.id);
+    const all = issues.filter((issue) => issue.projectId === project.id);
+    const mine = all.filter((issue) => issue.origin !== "requirement");
+    const risks = all.filter(
+      (issue) => issue.origin === "requirement" && OPEN.has(issue.state),
+    ).length;
     const own = mine.filter((issue) => LIVE.has(issue.state));
     const fixedCount = mine.filter((issue) => issue.state === "fixed").length;
     const mergedCount = mine.filter((issue) => issue.state === "merged").length;
@@ -35,23 +43,48 @@ export function homeNumbers(input: {
         issue.kind === "security_vulnerability" &&
         (issue.severity === "critical" || issue.severity === "high"),
     ).length;
-    const last = runs
+    const theirs = runs
       .filter((run) => run.projectId === project.id)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-    const next: { kind: "rescan" | "fix" | "run" | "open"; label: string } =
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const last = theirs[0];
+    const lastCode = theirs.find((run) => run.workspaces.length > 0);
+    const lastRequirement = theirs.find(
+      (run) => run.workspaces.length === 0 && run.status === "completed",
+    );
+    const next: {
+      kind: "rescan" | "fix" | "run" | "open" | "refine";
+      label: string;
+      href: string;
+    } =
       mergedCount > 0
         ? {
             kind: "rescan",
-            label: `Rescan to confirm ${mergedCount} ${mergedCount === 1 ? "fix" : "fixes"}`,
+            label: `Rescan To Confirm ${mergedCount} ${mergedCount === 1 ? "Fix" : "Fixes"}`,
+            href: `/app/projects/${project.id}`,
           }
         : unfixed > 0
           ? {
               kind: "fix",
-              label: `Fix ${unfixed} serious security ${unfixed === 1 ? "issue" : "issues"}`,
+              label: `Fix ${unfixed} Serious Security ${unfixed === 1 ? "Issue" : "Issues"}`,
+              href: `/app/projects/${project.id}`,
             }
-          : !last
-            ? { kind: "run", label: "Run the project" }
-            : { kind: "open", label: "Open the cockpit" };
+          : !lastCode && risks > 0 && lastRequirement
+            ? {
+                kind: "refine",
+                label: "Refine The Requirement",
+                href: `/app/runs/${lastRequirement.id}`,
+              }
+            : !last
+              ? {
+                  kind: "run",
+                  label: "Run The Project",
+                  href: `/app/projects/${project.id}`,
+                }
+              : {
+                  kind: "open",
+                  label: "Open The Cockpit",
+                  href: `/app/projects/${project.id}`,
+                };
     return {
       id: project.id,
       name: project.name,
@@ -73,6 +106,10 @@ export function homeNumbers(input: {
       lastRun: last
         ? { id: last.id, at: last.createdAt, status: last.status }
         : null,
+      /** Probable risks from requirement runs, still raised. */
+      risks,
+      /** The latest finished requirement run, where the risks are. */
+      requirementRunId: lastRequirement?.id ?? null,
       next,
     };
   });

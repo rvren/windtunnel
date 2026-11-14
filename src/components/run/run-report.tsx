@@ -144,7 +144,9 @@ export function WorkOrdersTab({ run }: { run: RunRecord }) {
     return (
       <Empty>
         {run.status === "completed"
-          ? "No work orders: there were no accepted findings."
+          ? run.source
+            ? "No work orders: there were no accepted findings."
+            : "No proposed work orders: the judge kept no risks."
           : "No work orders yet."}
       </Empty>
     );
@@ -152,8 +154,11 @@ export function WorkOrdersTab({ run }: { run: RunRecord }) {
 
   return (
     <div className="space-y-4">
-      <SectionTitle count={run.workOrders.length} about="workOrders">
-        Work orders
+      <SectionTitle
+        count={run.workOrders.length}
+        about={run.source ? "workOrders" : "workOrdersProbable"}
+      >
+        {run.source ? "Work orders" : "Proposed work orders"}
       </SectionTitle>
       <DeliveryStrip
         total={run.workOrders.length}

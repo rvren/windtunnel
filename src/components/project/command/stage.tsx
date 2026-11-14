@@ -179,7 +179,7 @@ export function Stage<V extends string>({
           className="flex items-center gap-1 text-xs text-link hover:underline"
           data-testid="cockpit-open-run"
         >
-          Open the run
+          Open The Run
           <ArrowUpRight className="size-3.5" aria-hidden="true" />
         </Link>
         {focus ? (
@@ -190,7 +190,7 @@ export function Stage<V extends string>({
             className="flex items-center gap-1 rounded-md bg-card/80 px-2 py-1 text-xs ring-1 ring-foreground/10 hover:bg-muted"
           >
             <Minimize2 className="size-3.5" aria-hidden="true" />
-            Exit focus
+            Exit Focus
             <kbd className="ml-1 font-mono text-[10px] text-muted-foreground">
               Esc
             </kbd>
@@ -264,7 +264,7 @@ export function Stage<V extends string>({
             ) : (
               <ChevronUp className="size-3" aria-hidden="true" />
             )}
-            {docked ? "Hide cards" : "Show cards"}
+            {docked ? "Hide Cards" : "Show Cards"}
           </button>
         ) : null}
         {secrets > 0 ? (

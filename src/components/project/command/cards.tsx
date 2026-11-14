@@ -139,7 +139,11 @@ export function SummaryCards({
       data-testid="cockpit-cards"
     >
       {/* 1. How many, how bad, better or worse */}
-      <Card title="Issues" about="issues" testId="card-issues">
+      <Card
+        title={cockpit.fromRequirement ? "Risks" : "Issues"}
+        about={cockpit.fromRequirement ? "issuesProbable" : "issues"}
+        testId="card-issues"
+      >
         <div className="flex items-baseline gap-3">
           <RollingNumber
             value={String(totals.issues)}
@@ -199,8 +203,8 @@ export function SummaryCards({
 
       {/* 2. What to do first */}
       <Card
-        title="Fix first"
-        about="fixFirst"
+        title={cockpit.fromRequirement ? "Biggest risks" : "Fix first"}
+        about={cockpit.fromRequirement ? "fixFirstProbable" : "fixFirst"}
         testId="card-fix-first"
         action={
           fixFirst.length > 0 ? (
@@ -214,7 +218,7 @@ export function SummaryCards({
                 })
               }
             >
-              View all
+              View All
             </button>
           ) : null
         }
@@ -288,7 +292,7 @@ export function SummaryCards({
       {/* 4. How ready the fixes are */}
       <Card title="Readiness" about="readiness" testId="card-readiness">
         <div className="space-y-4">
-          {security.length > 0 ? (
+          {security.length > 0 && !cockpit.fromRequirement ? (
             <Meter
               label="Security issues with a checked patch"
               value={patched}
@@ -404,8 +408,12 @@ export function DockCards({
     <div className="grid h-full grid-cols-4 gap-2" data-testid="cockpit-dock">
       <section className={glass} data-testid="dock-issues">
         <h3 className={title}>
-          Issues
-          <InfoTip about="issues" label="Issues" className="size-3.5" />
+          {cockpit.fromRequirement ? "Risks" : "Issues"}
+          <InfoTip
+            about={cockpit.fromRequirement ? "issuesProbable" : "issues"}
+            label={cockpit.fromRequirement ? "Risks" : "Issues"}
+            className="size-3.5"
+          />
         </h3>
         <div className="flex items-baseline gap-2">
           <RollingNumber
@@ -457,8 +465,12 @@ export function DockCards({
 
       <section className={glass} data-testid="dock-fix-first">
         <h3 className={title}>
-          Fix first
-          <InfoTip about="fixFirst" label="Fix first" className="size-3.5" />
+          {cockpit.fromRequirement ? "Biggest risks" : "Fix first"}
+          <InfoTip
+            about={cockpit.fromRequirement ? "fixFirstProbable" : "fixFirst"}
+            label={cockpit.fromRequirement ? "Biggest risks" : "Fix first"}
+            className="size-3.5"
+          />
         </h3>
         {fixFirst.length > 0 ? (
           <ul className="space-y-1">
@@ -530,7 +542,7 @@ export function DockCards({
           <InfoTip about="readiness" label="Readiness" className="size-3.5" />
         </h3>
         <div className="space-y-1.5">
-          {security.length > 0 ? (
+          {security.length > 0 && !cockpit.fromRequirement ? (
             <DockMeter
               label="Patched"
               value={patched}

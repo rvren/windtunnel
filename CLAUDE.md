@@ -95,6 +95,21 @@ take something away.
   dialog says so before it runs. A merged fix waits for a rescan, which the
   owner starts (it asks first). The home page (`/app`) is a projects board: one card per project with its next action;
   runs are at `/app/runs`.
+- **Requirement runs are probable.** A requirement run tests an idea, so
+  its results are probable risks: the UI says "Risks" with a **Probable**
+  tag, "High risk", "Suggested change" and "Proposed work orders", from one
+  switch (`termsFor(probable)` in `src/lib/labels.ts`; `probable` is
+  `!run.source`, `Cockpit.fromRequirement` or `Issue.origin ===
+"requirement"`). Never word them as defects, fixes or "accepted". Home
+  health (% fixed, open issues, "Fix N…") counts code issues only;
+  requirement risks get their own line. They settle only within their own
+  requirement's versions. Exports say so, and 8090 gets them as
+  `requirements` work with the `proposal` label.
+- **Calls to action** are in title case, every word ("Open The Cockpit");
+  `src/lib/cta-case.test.ts` checks plain-text button labels.
+- **Deleting.** One run (run page), several (checkboxes in run tables), or
+  a project with or without its runs (`DELETE /api/projects/[id]?runs=1`,
+  `src/server/runs/delete.ts`). A run in progress is never deleted.
 - **Refining a requirement.** A finished requirement run's "Refine
   requirement" opens a sheet (`src/components/run/refine/`): questions built
   from the run (coverage gaps, items the model assumed, requirement issues;
@@ -125,7 +140,7 @@ take something away.
   fixed height (640px, 700px from `xl`) for every view, so switching never
   moves the page; everything else floats on it: the top bar (view name,
   switcher, way to the run), the filters and legend, and a glass card dock
-  that folds away. Flow views are laid out to fit the box exactly by
+  that folds away. The sidebar folds on a cockpit only when the project has a workspace. Flow views are laid out to fit the box exactly by
   `src/lib/viz/stage-layout.ts` (even slots, rings sized to the room).
   Every workspace and node is always shown; never fold them into "+N more"
   (the owner asked): a crowded column puts names beside smaller rings.

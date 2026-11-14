@@ -117,7 +117,7 @@ export function questions(run: RunRecord): Question[] {
     .map((group) => ({
       id: `issue:${group.id}`,
       kind: "issue",
-      section: "Issues the agents found",
+      section: "Risks the agents raised",
       text: group.title,
       hint: group.summary || undefined,
     }));

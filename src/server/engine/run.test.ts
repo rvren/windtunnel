@@ -339,10 +339,12 @@ describe("export", () => {
     for (const heading of [
       "# Windtunnel report:",
       "## Requirement",
-      "## Findings",
+      // A requirement run: probable risks of an idea, not defects.
+      "> **Requirement run.**",
+      "## Probable risks",
       "### Security vulnerabilities",
       "#### Who may change permissions is not stated",
-      "## Work orders",
+      "## Proposed work orders",
       "- [ ] The requirement lists every permission by name.",
       "## Scoreboard",
       "## Design model",
@@ -358,6 +360,10 @@ describe("export", () => {
       "_A member raises their own permissions_, step 1:",
     );
 
-    expect(JSON.parse(runToJson(done))).toEqual(done);
+    expect(markdown).toMatch(/· (Critical|High|Medium|Low) risk/);
+    expect(JSON.parse(runToJson(done))).toEqual({
+      kind: "requirement",
+      ...done,
+    });
   });
 });

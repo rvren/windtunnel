@@ -128,7 +128,7 @@ function IssueDetail({ issue, runId }: { issue: CockpitIssue; runId: string }) {
         href={`/app/runs/${runId}`}
         className="inline-flex items-center gap-1 text-sm text-link hover:underline"
       >
-        Open in the run
+        Open In The Run
         <ArrowUpRight className="size-4" aria-hidden="true" />
       </Link>
     </div>

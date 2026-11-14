@@ -170,7 +170,7 @@ export function NewProjectDialog({
               data-testid="project-form-create"
             >
               {saving ? <LoaderCircle className="animate-spin" /> : null}
-              Create project
+              Create Project
             </Button>
           </DialogFooter>
         </form>
@@ -313,7 +313,7 @@ export function AddWorkspaceDialog({
               data-testid="workspace-form-add"
             >
               {saving ? <LoaderCircle className="animate-spin" /> : <Plus />}
-              Add workspace
+              Add Workspace
             </Button>
           </DialogFooter>
         </form>
@@ -422,7 +422,7 @@ export function RunProjectDialog({
             data-testid="run-project-confirm"
           >
             {starting ? <LoaderCircle className="animate-spin" /> : <Play />}
-            Start run
+            Start Run
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -433,26 +433,49 @@ export function RunProjectDialog({
 export function DeleteProjectDialog({
   projectId,
   name,
+  runs,
   children,
 }: {
   projectId: string;
   name: string;
+  /** How many runs the project has. */
+  runs: number;
   children: React.ReactElement;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [withRuns, setWithRuns] = useState(true);
+  const runWord = runs === 1 ? "run" : "runs";
   return (
     <Dialog>
       <DialogTrigger render={children} />
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        data-testid="project-delete-dialog"
+      >
         <DialogHeader>
           <DialogTitle>Delete {name}?</DialogTitle>
           <DialogDescription>
-            The project and its workspaces are removed. Its runs are kept and
-            stay in the list of runs. This cannot be undone.
+            {runs > 0 && withRuns
+              ? `The project, its workspaces and its ${runs} ${runWord} are removed. This cannot be undone.`
+              : runs > 0
+                ? `The project and its workspaces are removed. Its ${runs} ${runWord} are kept in the list of runs. This cannot be undone.`
+                : "The project and its workspaces are removed. This cannot be undone."}
           </DialogDescription>
         </DialogHeader>
+        {runs > 0 ? (
+          <label className="flex items-center gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={withRuns}
+              onChange={(event) => setWithRuns(event.target.checked)}
+              className="size-4 accent-[var(--brand)]"
+              data-testid="project-delete-runs"
+            />
+            Also Delete Its {runs} {runs === 1 ? "Run" : "Runs"}
+          </label>
+        ) : null}
         <FormError error={error} testId="project-delete-error" />
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="outline" />}>
@@ -465,7 +488,10 @@ export function DeleteProjectDialog({
             data-testid="project-delete-confirm"
             onClick={async () => {
               setBusy(true);
-              const result = await send(`/api/projects/${projectId}`, "DELETE");
+              const result = await send(
+                `/api/projects/${projectId}${withRuns && runs > 0 ? "?runs=1" : ""}`,
+                "DELETE",
+              );
               if (!result.ok) {
                 setError(result.error);
                 setBusy(false);
@@ -475,7 +501,7 @@ export function DeleteProjectDialog({
               router.refresh();
             }}
           >
-            Delete project
+            Delete Project
           </Button>
         </DialogFooter>
       </DialogContent>

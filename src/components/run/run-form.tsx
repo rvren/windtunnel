@@ -303,7 +303,7 @@ export function RunForm({
               setError(null);
             }}
           >
-            Use the example
+            Use The Example
           </Button>
         </div>
         <Textarea
@@ -388,7 +388,7 @@ export function RunForm({
           onClick={() => picker.current?.click()}
         >
           <Paperclip />
-          Add files
+          Add Files
         </Button>
       </div>
 
@@ -407,7 +407,7 @@ export function RunForm({
           disabled={Boolean(stopped) || starting || over || !project}
         >
           {starting ? <LoaderCircle className="animate-spin" /> : <Play />}
-          {starting ? "Starting" : "Start run"}
+          {starting ? "Starting" : "Start Run"}
         </Button>
         <p className="max-w-md text-xs text-muted-foreground">
           {project?.demo

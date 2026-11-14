@@ -74,12 +74,12 @@ export function RunSummary({
     <div className="space-y-3" data-testid="run-summary">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Tile
-          label="Issues accepted"
+          label={run.source ? "Issues accepted" : "Risks kept"}
           value={run.groups.length}
           onClick={() => onOpen("findings")}
         >
           <SegmentedBar
-            label="Issues by severity"
+            label={run.source ? "Issues by severity" : "Risks by severity"}
             max={Math.max(run.groups.length, 1)}
             size="sm"
             segments={bySeverity
@@ -114,7 +114,7 @@ export function RunSummary({
           onClick={() => onOpen("findings")}
         />
         <Tile
-          label="Work orders"
+          label={run.source ? "Work orders" : "Proposed work orders"}
           value={run.workOrders.length}
           onClick={() => onOpen("work-orders")}
         />

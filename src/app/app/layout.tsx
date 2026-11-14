@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: { default: "Runs", template: "%s · Windtunnel" },
 };
 
-/** The projects, read once per request for the top bar. */
+/** The projects, read once per request for the sidebar and the top bar. */
 const projectList = cache(async () => {
   await connection();
   try {
@@ -20,12 +20,21 @@ const projectList = cache(async () => {
     return (await listProjects()).map((project) => ({
       id: project.id,
       name: project.name,
+      workspaces: project.workspaces.length,
     }));
   } catch {
     // With no database the pages say so; the top bar names no project.
     return [];
   }
 });
+
+/** The sidebar, told which projects have code for the cockpit to fill. */
+async function Sidebar() {
+  const withCode = (await projectList())
+    .filter((project) => project.workspaces > 0)
+    .map((project) => project.id);
+  return <AppSidebar foldFor={withCode} />;
+}
 
 async function Topbar() {
   return <AppTopbar projects={await projectList()} />;
@@ -41,7 +50,7 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
           id in its address only knows at request time. Until then they are
           shown with nothing marked as current. */}
       <Suspense fallback={<AppSidebarFor pathname={null} />}>
-        <AppSidebar />
+        <Sidebar />
       </Suspense>
       {/* min-w-0: a wide chart scrolls inside itself, never the page. */}
       <SidebarInset className="min-w-0">

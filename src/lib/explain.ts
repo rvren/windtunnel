@@ -61,16 +61,30 @@ export const EXPLAIN = {
   versions:
     "Each time you refine a requirement and run it again, the run is a new version. Versions are numbered in the order they were started.",
   sinceVersion:
-    "This version against the one it refines: coverage gaps closed and new (by their wording), items the earlier version assumed that this one states, issues gone and new (same kind and most title words shared), permission cells specified, and work orders.",
+    "This version against the one it refines: coverage gaps closed and new (by their wording), items the earlier version assumed that this one states, risks gone and new (same kind and most title words shared), permission cells specified, and work orders.",
   whatChanged:
     "This run against the project's previous finished run: each number now, and how much it went up or down.",
   projectsHealth:
-    "Each project: the ring is the share of its tracked issues confirmed fixed, the bar its open issues by severity, then its open fix pull requests, its last run and the one thing to do next.",
+    "Each project: the ring is the share of the issues found in its code that are confirmed fixed, the bar its open code issues by severity, then its open fix pull requests, its last run and the one thing to do next. Risks from requirement runs are probable, not built yet, so they get their own line and do not count here.",
   recentPrs:
     "The latest fix pull requests Windtunnel opened, and where each is now.",
   recentRuns: "The latest runs, newest first.",
   remediation:
     "A fix for this security issue: steps, its CWE and OWASP mapping, and a patch whose lines matched the real files. It is never applied.",
+
+  // A requirement run: nothing is built yet, so its results are probable.
+  findingsProbable:
+    "Probable risks of the idea, by kind: what could go wrong if the requirement is built as written. Each merges the agents' findings about the same point, with the scenario steps that back it. Nothing is built yet, so none of it is a defect.",
+  issuesProbable:
+    "Risks the judge kept, merged into one per point. Probable: the requirement is an idea and nothing is built yet. Select a severity to filter.",
+  issuesListProbable:
+    "Every risk the judge kept for this requirement. Each is probable until the product is built; answer or change the requirement to settle it.",
+  fixFirstProbable:
+    "The critical and high risks, most severe first: the points to settle in the requirement before anything is built.",
+  workOrdersProbable:
+    "Proposed work orders: a decision to make or a change to the requirement for each risk the judge kept. Proposals, since nothing is built yet.",
+  remediationProbable:
+    "A suggested change for this risk: steps, and its CWE and OWASP mapping. No code exists yet, so there is no patch.",
 } as const;
 
 export type ExplainKey = keyof typeof EXPLAIN;

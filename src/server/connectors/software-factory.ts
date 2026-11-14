@@ -1,4 +1,4 @@
-import { SEVERITY_LABEL } from "@/lib/labels";
+import { termsFor } from "@/lib/labels";
 import { toUnifiedDiff } from "@/lib/patch";
 
 import { workspaceOf } from "../engine/architecture";
@@ -39,6 +39,8 @@ export function softwareFactoryTarget(mcpUrl: string): McpTarget {
 
 /** The label every work order from Windtunnel carries. */
 export const ORIGIN_LABEL = "windtunnel";
+/** Marks a work order proposed from a requirement run. */
+export const PROPOSAL_LABEL = "proposal";
 
 const PRIORITY = { p0: "urgent", p1: "high", p2: "medium", p3: "low" } as const;
 
@@ -88,14 +90,24 @@ export function toFactoryWorkOrder(
     }
   }
 
+  // A requirement run tests an idea: its work orders are proposals.
+  const proposal = !run.source;
   // Something to build or repair, or something the design must still say.
-  const repair = groups.some(
-    (group) =>
-      group.type === "security_vulnerability" ||
-      group.type === "architecture_weakness",
-  );
+  const repair =
+    !proposal &&
+    groups.some(
+      (group) =>
+        group.type === "security_vulnerability" ||
+        group.type === "architecture_weakness",
+    );
 
   const lines = [
+    ...(proposal
+      ? [
+          "> Proposed from a requirement run: nothing is built yet, so the risks below are probable, not defects.",
+          "",
+        ]
+      : []),
     "## Summary",
     "",
     workOrder.description,
@@ -105,12 +117,16 @@ export function toFactoryWorkOrder(
     ...workOrder.acceptanceCriteria.map((criterion) => `- ${criterion}`),
   ];
   if (groups.length > 0) {
-    lines.push("", "## Findings this settles", "");
+    lines.push(
+      "",
+      proposal ? "## Probable risks this settles" : "## Findings this settles",
+      "",
+    );
     for (const group of groups) {
       const [first] = citedBy(group);
       const where = first ? ` (\`${first.path}:${first.startLine}\`)` : "";
       lines.push(
-        `- **${SEVERITY_LABEL[group.severity]}: ${group.title}.** ${group.summary}${where}`,
+        `- **${termsFor(proposal).severity(group.severity)}: ${group.title}.** ${group.summary}${where}`,
       );
     }
   }
@@ -120,7 +136,7 @@ export function toFactoryWorkOrder(
     return record?.status === "made" ? [{ group, record }] : [];
   });
   if (fixes.length > 0) {
-    lines.push("", "## Remediation");
+    lines.push("", proposal ? "## Suggested changes" : "## Remediation");
     for (const { group, record } of fixes) {
       lines.push("", `### ${group.title}`, "");
       const refs = [
@@ -169,9 +185,11 @@ export function toFactoryWorkOrder(
     status: "backlog",
     priority: PRIORITY[workOrder.priority],
     // Software Factory keeps a label to 50 characters.
-    label_titles: [ORIGIN_LABEL, ...workspaces].map((title) =>
-      title.slice(0, 50),
-    ),
+    label_titles: [
+      ORIGIN_LABEL,
+      ...(proposal ? [PROPOSAL_LABEL] : []),
+      ...workspaces,
+    ].map((title) => title.slice(0, 50)),
   };
 }
 

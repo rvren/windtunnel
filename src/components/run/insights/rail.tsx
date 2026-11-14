@@ -270,7 +270,7 @@ export function DeliveryWidget({
         onClick={onOpen}
         className="mt-4 inline-flex items-center gap-1 text-xs text-link hover:underline"
       >
-        Work orders
+        Work Orders
         <ArrowRight className="size-3.5" aria-hidden="true" />
       </button>
     </Widget>

@@ -9,7 +9,7 @@ import { AgentIcon } from "@/components/run/badges";
 import { ProgressBar, SegmentedBar } from "@/components/tuff/progress-bar";
 import { RollingNumber } from "@/components/tuff/rolling-number";
 import { AGENTS } from "@/lib/agents";
-import { SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/labels";
+import { SEVERITY_LABEL, SEVERITY_ORDER, termsFor } from "@/lib/labels";
 import type { Feed } from "@/lib/run-feed";
 import { cn } from "@/lib/utils";
 import { SEVERITY_TONE } from "@/lib/viz/cockpit-views";
@@ -56,12 +56,16 @@ function Go({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 function Result({
+  probable = false,
   result,
   onOpen,
 }: {
+  /** A requirement run: risks, suggested changes, proposed work orders. */
+  probable?: boolean;
   result: StoryResult;
   onOpen: (tab: ReportTab) => void;
 }) {
+  const terms = termsFor(probable);
   switch (result.kind) {
     case "survey":
       return (
@@ -97,7 +101,7 @@ function Result({
                 {role}
               </span>
             ))}
-            <Go label="Design model" onClick={() => onOpen("model")} />
+            <Go label="Design Model" onClick={() => onOpen("model")} />
           </div>
         </div>
       );
@@ -178,11 +182,14 @@ function Result({
       return (
         <div className="space-y-4">
           <div className="grid gap-6 sm:grid-cols-[auto_auto_1fr] sm:items-center">
-            <Big value={result.accepted} label="issues accepted" />
+            <Big
+              value={result.accepted}
+              label={probable ? "risks kept" : "issues accepted"}
+            />
             <Big value={result.rejected} label="rejected" />
             <div>
               <SegmentedBar
-                label="Issues by severity"
+                label={`${terms.Issues} by severity`}
                 max={Math.max(result.accepted, 1)}
                 segments={SEVERITY_ORDER.filter(
                   (severity) => result.bySeverity[severity] > 0,
@@ -227,7 +234,7 @@ function Result({
             </ul>
           ) : null}
           <Go
-            label={`See the ${result.accepted} ${result.accepted === 1 ? "issue" : "issues"}`}
+            label={`See The ${result.accepted} ${result.accepted === 1 ? terms.Issue : terms.Issues}`}
             onClick={() => onOpen("findings")}
           />
         </div>
@@ -250,20 +257,20 @@ function Result({
               kind="meter"
             />
             <Go
-              label="Fixes in the findings"
+              label="Fixes In The Findings"
               onClick={() => onOpen("findings")}
             />
           </div>
         </div>
       ) : (
         <div className="flex flex-wrap items-end gap-8">
-          <Big value={result.made} label="fixes written" />
+          <Big value={result.made} label="suggested changes" />
           <p className="max-w-sm text-xs text-muted-foreground">
-            Steps and a CWE and OWASP mapping for each security issue. This run
-            read no code, so there are no patches.
+            Steps and a CWE and OWASP mapping for each security risk. Nothing is
+            built yet, so there are no patches.
           </p>
           <Go
-            label="Fixes in the findings"
+            label="See The Suggested Changes"
             onClick={() => onOpen("findings")}
           />
         </div>
@@ -271,8 +278,14 @@ function Result({
     case "work_orders":
       return (
         <div className="flex flex-wrap items-end gap-8">
-          <Big value={result.total} label="work orders" />
-          <Go label="Work orders" onClick={() => onOpen("work-orders")} />
+          <Big
+            value={result.total}
+            label={probable ? "proposed work orders" : "work orders"}
+          />
+          <Go
+            label={probable ? "Proposed Work Orders" : "Work Orders"}
+            onClick={() => onOpen("work-orders")}
+          />
         </div>
       );
   }
@@ -356,8 +369,11 @@ export function Story({
   times,
   liveMap,
   onOpen,
+  probable = false,
 }: {
   chapters: Chapter[];
+  /** A requirement run: its results are probable risks. */
+  probable?: boolean;
   feed: Feed;
   /** When each part of the run happened, for the agents' lanes. */
   times?: RunTimes;
@@ -454,7 +470,11 @@ export function Story({
               >
                 {chapter.state === "done" && chapter.result ? (
                   <div className="space-y-5">
-                    <Result result={chapter.result} onOpen={onOpen} />
+                    <Result
+                      result={chapter.result}
+                      onOpen={onOpen}
+                      probable={probable}
+                    />
                     {chapter.stage === "agents" && times ? (
                       <AgentLanes times={times} feed={feed} live={false} />
                     ) : null}

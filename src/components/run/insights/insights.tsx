@@ -74,6 +74,7 @@ export function Insights({
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <IssueList
           rows={rows}
+          probable={!run.source}
           tracked={context.tracked}
           pr={pr}
           agent={picked ? { id: picked.id, name: picked.name } : null}

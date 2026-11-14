@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { Search } from "lucide-react";
 
+import { termsFor } from "@/lib/labels";
+
 import { InfoTip } from "@/components/info-tip";
 import { FadeInItem } from "@/components/motion";
 import { Segmented } from "@/components/tuff/segmented-control";
@@ -43,8 +45,11 @@ export function IssueList({
   pr = null,
   agent,
   onClearAgent,
+  probable = false,
 }: {
   rows: IssueRow[];
+  /** A requirement run: its results are probable risks of an idea. */
+  probable?: boolean;
   /** Each issue's tracked state, by its group id. */
   tracked?: Record<string, TrackedState>;
   /** What a pull request needs; null when the run read no GitHub code. */
@@ -53,6 +58,7 @@ export function IssueList({
   agent: { id: AgentId; name: string } | null;
   onClearAgent: () => void;
 }) {
+  const terms = termsFor(probable);
   const [kind, setKind] = useState<Kind>("all");
   const [sort, setSort] = useState<IssueSort>("severity");
   const [query, setQuery] = useState("");
@@ -108,7 +114,7 @@ export function IssueList({
       <header className="space-y-3 border-b px-4 py-3">
         <div className="-mx-1 overflow-x-auto px-1">
           <Segmented
-            label="Kind of issue"
+            label={`Kind of ${terms.issue}`}
             value={kind}
             onValueChange={(next) => setKind(next as Kind)}
             options={[
@@ -142,8 +148,11 @@ export function IssueList({
             <span className="font-mono text-foreground tabular-nums">
               {shown.length}
             </span>{" "}
-            {shown.length === 1 ? "issue" : "issues"} shown
-            <InfoTip about="findings" label="Issues" />
+            {shown.length === 1 ? terms.issue : terms.issues} shown
+            <InfoTip
+              about={probable ? "findingsProbable" : "findings"}
+              label={terms.Issues}
+            />
           </p>
           {agent ? (
             <button
@@ -162,7 +171,7 @@ export function IssueList({
             <SelectTrigger
               size="sm"
               className="w-44"
-              aria-label="Sort issues"
+              aria-label={`Sort ${terms.issues}`}
               data-testid="insights-sort"
             >
               <SelectValue>Sort: {SORT_LABEL[sort]}</SelectValue>
@@ -184,8 +193,8 @@ export function IssueList({
               ref={search}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search issues"
-              aria-label="Search issues"
+              placeholder={`Search ${terms.issues}`}
+              aria-label={`Search ${terms.issues}`}
               className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
               data-testid="insights-search"
             />
@@ -203,6 +212,7 @@ export function IssueList({
               <FadeInItem key={row.id}>
                 <IssueRowView
                   row={row}
+                  probable={probable}
                   tracked={tracked[row.id]}
                   onAction={act}
                 />
@@ -213,13 +223,16 @@ export function IssueList({
       ) : (
         <p className="px-5 py-12 text-center text-sm text-muted-foreground">
           {rows.length === 0
-            ? "The agents found no flaws that the judge accepted."
-            : "No issue matches."}
+            ? probable
+              ? "The agents raised no risks that the judge kept."
+              : "The agents found no flaws that the judge accepted."
+            : `No ${terms.issue} matches.`}
         </p>
       )}
 
       <IssueDrawer
         row={open?.row ?? null}
+        probable={probable}
         focus={open?.focus ?? null}
         tracked={open ? tracked[open.row.id] : undefined}
         pr={pr}

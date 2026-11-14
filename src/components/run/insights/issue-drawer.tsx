@@ -5,7 +5,7 @@ import { GitPullRequest } from "lucide-react";
 
 import { PullRequestDialog } from "@/components/issues/pr-dialog";
 import { StateChip, type TrackedState } from "@/components/issues/state-chip";
-import { AgentIcon, SeverityBadge } from "@/components/run/badges";
+import { AgentIcon, ProbableTag, SeverityBadge } from "@/components/run/badges";
 import { Button } from "@/components/ui/button";
 import { Remediation } from "@/components/run/remediation";
 import {
@@ -34,8 +34,11 @@ export function IssueDrawer({
   onClose,
   tracked,
   pr,
+  probable = false,
 }: {
   row: IssueRow | null;
+  /** A requirement run's risk. */
+  probable?: boolean;
   focus: DrawerFocus;
   onClose: () => void;
   /** The tracked issue behind this row, in a project run. */
@@ -61,7 +64,8 @@ export function IssueDrawer({
           <>
             <SheetHeader className="gap-1.5 border-b px-6 pt-6 pb-4">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <SeverityBadge severity={row.severity} />
+                <SeverityBadge severity={row.severity} probable={probable} />
+                {probable ? <ProbableTag /> : null}
                 <span>{FINDING_TYPE_LABEL[row.type]}</span>
                 {row.where ? <span>· {row.where}</span> : null}
               </div>
@@ -86,7 +90,7 @@ export function IssueDrawer({
                     data-testid="drawer-open-pr"
                   >
                     <GitPullRequest />
-                    Open a pull request
+                    Open A Pull Request
                   </Button>
                 </div>
               ) : null}
@@ -176,7 +180,7 @@ export function IssueDrawer({
 
               {row.remediation ? (
                 <section data-part="fix" className="scroll-mt-4">
-                  <Remediation record={row.remediation} />
+                  <Remediation record={row.remediation} probable={probable} />
                 </section>
               ) : null}
 
@@ -185,7 +189,9 @@ export function IssueDrawer({
                   data-part="work-order"
                   className="scroll-mt-4 space-y-3"
                 >
-                  <h3 className={heading}>Work order</h3>
+                  <h3 className={heading}>
+                    {probable ? "Proposed work order" : "Work order"}
+                  </h3>
                   <div className="rounded-tile bg-muted/40 p-4">
                     <p className="text-xs text-muted-foreground">
                       {PRIORITY_LABEL[row.workOrder.priority]} priority

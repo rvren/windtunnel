@@ -10,7 +10,7 @@ import { FadeIn, FadeInItem } from "@/components/motion";
 import { InfoTip } from "@/components/info-tip";
 import { StateChip, type TrackedState } from "@/components/issues/state-chip";
 import { Panel } from "@/components/panel";
-import { AgentIcon, SeverityBadge } from "@/components/run/badges";
+import { AgentIcon, ProbableTag, SeverityBadge } from "@/components/run/badges";
 import { Button } from "@/components/ui/button";
 import { AGENTS } from "@/lib/agents";
 import {
@@ -18,6 +18,7 @@ import {
   FINDING_TYPE_ORDER,
   SEVERITY_LABEL,
   SEVERITY_ORDER,
+  termsFor,
 } from "@/lib/labels";
 import type { ExplainKey } from "@/lib/explain";
 import { cn } from "@/lib/utils";
@@ -128,10 +129,13 @@ function Issue({
   issue,
   runId,
   tracked,
+  probable = false,
 }: {
   issue: CockpitIssue;
   runId: string;
   tracked?: TrackedState;
+  /** A requirement run's risk. */
+  probable?: boolean;
 }) {
   return (
     <details className="group px-4 py-3" data-testid="cockpit-issue">
@@ -157,7 +161,8 @@ function Issue({
         {tracked && tracked.state !== "open" ? (
           <StateChip tracked={tracked} />
         ) : null}
-        <SeverityBadge severity={issue.severity} />
+        {probable ? <ProbableTag /> : null}
+        <SeverityBadge severity={issue.severity} probable={probable} />
       </summary>
       <div className="mt-3 space-y-3 pl-[1.125rem] text-sm">
         <p className="max-w-3xl leading-relaxed text-muted-foreground">
@@ -175,7 +180,7 @@ function Issue({
             data-testid="cockpit-issue-open-run"
             className="text-link underline-offset-4 hover:underline"
           >
-            Open in the run
+            Open In The Run
           </Link>
         </div>
       </div>
@@ -219,13 +224,22 @@ export function Cockpit({
   };
   const views = (
     [
-      { value: "flow", label: "Issue flow", on: Boolean(flows.flow) },
+      {
+        value: "flow",
+        label: cockpit.fromRequirement ? "Risk flow" : "Issue flow",
+        on: Boolean(flows.flow),
+      },
       {
         value: "architecture",
         label: "Architecture",
         on: cockpit.components.length > 0,
       },
-      { value: "security", label: "Security", on: Boolean(flows.security) },
+      // Patches and OWASP readiness need code; an idea has none.
+      {
+        value: "security",
+        label: "Security",
+        on: Boolean(flows.security) && !cockpit.fromRequirement,
+      },
     ] as const
   ).filter((view) => view.on);
   const asked = params.get("view") as ViewId | null;
@@ -346,9 +360,15 @@ export function Cockpit({
   if (cockpit.totals.issues === 0 && cockpit.components.length === 0) {
     return (
       <Panel className="px-6 py-12 text-center" data-testid="cockpit-clean">
-        <h2 className="text-lg font-medium">The last run found no issues</h2>
+        <h2 className="text-lg font-medium">
+          {cockpit.fromRequirement
+            ? "The last run raised no risks"
+            : "The last run found no issues"}
+        </h2>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Nothing the agents filed was accepted by the judge.
+          {cockpit.fromRequirement
+            ? "Nothing the agents raised was kept by the judge."
+            : "Nothing the agents filed was accepted by the judge."}
         </p>
       </Panel>
     );
@@ -503,11 +523,11 @@ export function Cockpit({
 
       <FadeIn delay={0.15} className="pt-4">
         <SectionTitle
-          title="Issues"
-          about="issuesList"
+          title={cockpit.fromRequirement ? "Risks" : "Issues"}
+          about={cockpit.fromRequirement ? "issuesListProbable" : "issuesList"}
           note={
             shown.length === cockpit.issues.length
-              ? `${cockpit.issues.length} accepted by the judge`
+              ? `${cockpit.issues.length} ${termsFor(cockpit.fromRequirement).accepted}`
               : `${shown.length} of ${cockpit.issues.length}`
           }
         />
@@ -568,6 +588,7 @@ export function Cockpit({
                       issue={issue}
                       runId={cockpit.runId}
                       tracked={tracked[issue.id]}
+                      probable={cockpit.fromRequirement}
                     />
                   </FadeInItem>
                 ))}
@@ -618,7 +639,10 @@ export function Cockpit({
           </Panel>
         </section>
       ) : null}
-      <SecurityView issues={cockpit.issues} />
+      {/* Fixes, patches and readiness need code; an idea has none yet. */}
+      {cockpit.fromRequirement ? null : (
+        <SecurityView issues={cockpit.issues} />
+      )}
       {cockpit.privacy ? <PrivacyView privacy={cockpit.privacy} /> : null}
       <CockpitDrawer
         drill={drill}

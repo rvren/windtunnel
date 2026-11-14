@@ -7,6 +7,8 @@ import {
   FolderPlus,
   GitMerge,
   GitPullRequest,
+  Lightbulb,
+  PencilLine,
   Play,
   ShieldAlert,
 } from "lucide-react";
@@ -36,6 +38,7 @@ const NEXT_ICON = {
   fix: ShieldAlert,
   run: Play,
   open: ArrowRight,
+  refine: PencilLine,
 } as const;
 
 /** A ring that fills to the share of the project's issues fixed. */
@@ -77,7 +80,10 @@ function Ring({ share }: { share: number }) {
 
 function ProjectCard({ project }: { project: Project }) {
   const Next = NEXT_ICON[project.next.kind];
-  const urgent = project.next.kind === "rescan" || project.next.kind === "fix";
+  const urgent =
+    project.next.kind === "rescan" ||
+    project.next.kind === "fix" ||
+    project.next.kind === "refine";
   return (
     <article
       className="flex h-full flex-col gap-4 rounded-card bg-card p-5 ring-1 ring-transparent transition-shadow duration-300 hover:ring-foreground/10"
@@ -158,8 +164,22 @@ function ProjectCard({ project }: { project: Project }) {
         ) : null}
       </p>
 
+      {project.risks > 0 && project.requirementRunId ? (
+        <Link
+          href={`/app/runs/${project.requirementRunId}`}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          data-testid="home-project-risks"
+        >
+          <Lightbulb className="size-3.5" aria-hidden="true" />
+          <span className="font-mono text-foreground tabular-nums">
+            {project.risks}
+          </span>
+          probable {project.risks === 1 ? "risk" : "risks"} in the requirement
+        </Link>
+      ) : null}
+
       <Link
-        href={`/app/projects/${project.id}`}
+        href={project.next.href}
         className={cn(
           "mt-auto flex items-center gap-2 rounded-tile px-3 py-2 text-sm ring-1 transition-colors",
           urgent
@@ -201,7 +221,7 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
             href="/app/projects"
             className="text-xs text-link hover:underline"
           >
-            Manage projects
+            Manage Projects
           </Link>
         </div>
         {numbers.projects.length === 0 ? (
@@ -210,7 +230,7 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
             className="flex flex-col items-center gap-2 rounded-card border border-dashed px-6 py-12 text-center text-sm text-muted-foreground hover:text-foreground"
           >
             <FolderPlus className="size-5" aria-hidden="true" />
-            Add your first project
+            Add Your First Project
           </Link>
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -235,7 +255,7 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
               href="/app/runs"
               className="text-xs text-link hover:underline"
             >
-              All runs
+              All Runs
             </Link>
           </div>
           <ul className="divide-y">

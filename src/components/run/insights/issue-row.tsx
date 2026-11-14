@@ -6,14 +6,15 @@ import {
   FileWarning,
   Route,
   ShieldAlert,
+  Lightbulb,
   Wrench,
 } from "lucide-react";
 
 import { StateChip, type TrackedState } from "@/components/issues/state-chip";
-import { AgentIcon } from "@/components/run/badges";
+import { AgentIcon, ProbableTag } from "@/components/run/badges";
 import { SegmentedBar } from "@/components/tuff/progress-bar";
 import { AGENTS } from "@/lib/agents";
-import { FINDING_TYPE_LABEL, SEVERITY_LABEL } from "@/lib/labels";
+import { FINDING_TYPE_LABEL, termsFor } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { SEVERITY_TONE } from "@/lib/viz/cockpit-views";
 import type { IssueRow } from "@/lib/viz/insights";
@@ -38,8 +39,11 @@ export function IssueRowView({
   row,
   tracked,
   onAction,
+  probable = false,
 }: {
   row: IssueRow;
+  /** A requirement run's risk: tagged Probable, "High risk". */
+  probable?: boolean;
   /** Where the tracked issue is now, for a project run. */
   tracked?: TrackedState;
   onAction: (row: IssueRow, action: RowAction) => void;
@@ -52,9 +56,17 @@ export function IssueRowView({
     icon: typeof Wrench;
   } | null =
     row.remediation?.status === "made"
-      ? { action: "fix", label: "View fix", icon: Wrench }
+      ? {
+          action: "fix",
+          label: probable ? "Suggested Change" : "View Fix",
+          icon: probable ? Lightbulb : Wrench,
+        }
       : row.workOrder
-        ? { action: "work-order", label: "Work order", icon: ClipboardList }
+        ? {
+            action: "work-order",
+            label: probable ? "Proposed Work Order" : "Work Order",
+            icon: ClipboardList,
+          }
         : null;
   const challenged = row.challenge.support + row.challenge.dispute;
 
@@ -90,8 +102,9 @@ export function IssueRowView({
                 className="size-1.5 rounded-full"
                 style={{ background: tone }}
               />
-              {SEVERITY_LABEL[row.severity]}
+              {termsFor(probable).severity(row.severity)}
             </span>
+            {probable ? <ProbableTag /> : null}
             {tracked && tracked.state !== "open" ? (
               <StateChip tracked={tracked} />
             ) : null}

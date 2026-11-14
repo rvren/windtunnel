@@ -334,16 +334,18 @@ function SidebarSwap({
 }
 
 /** A project's own page: /app/projects/<id>. */
-const COCKPIT = /^\/app\/projects\/[0-9a-f-]{36}\/?$/;
+const COCKPIT = /^\/app\/projects\/([0-9a-f-]{36})\/?$/;
 
 /** The sidebar for the page being shown. Needs a Suspense boundary above it. */
-export function AppSidebar() {
+export function AppSidebar({ foldFor }: { foldFor: string[] }) {
   const pathname = usePathname();
   // A project's cockpit gets the whole width: the sidebar folds to its rail
   // on the way in and opens again on the way to any other page. It is only
   // moved when the page changes, so the collapse control still works there.
+  // A project with no workspace has nothing wide to show, so it stays open.
   const { setOpen } = useSidebar();
-  const cockpit = COCKPIT.test(pathname ?? "");
+  const id = COCKPIT.exec(pathname ?? "")?.[1] ?? null;
+  const cockpit = id !== null && foldFor.includes(id);
   // setOpen is a new function after every toggle. It is kept in a ref so
   // that only a change of page moves the sidebar, never the toggle itself.
   const move = useRef(setOpen);
@@ -427,13 +429,13 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
                   }
                 />
               }
-              tooltip="New run"
+              tooltip="New Run"
               data-testid="app-nav-new-run"
               className="h-11 justify-center gap-2.5 rounded-tile bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-[opacity,transform] duration-200 hover:bg-primary hover:text-primary-foreground hover:opacity-90 active:scale-[0.98] active:bg-primary active:text-primary-foreground group-data-[collapsible=icon]:size-10!"
             >
               <Plus />
               <span className="flex-none group-data-[collapsible=icon]:hidden">
-                New run
+                New Run
               </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -443,13 +445,13 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 render={<Link href="/" />}
-                tooltip="Back to site"
+                tooltip="Back To Site"
                 data-testid="app-nav-back-to-site"
                 className={item}
               >
                 <ArrowLeft />
                 <span className="group-data-[collapsible=icon]:hidden">
-                  Back to site
+                  Back To Site
                 </span>
               </SidebarMenuButton>
             </SidebarMenuItem>

@@ -186,6 +186,27 @@ function resultOf(stage: Stage, run: RunRecord): StoryResult | null {
 }
 
 /** The stages this run goes through, as chapters, in order. */
+/**
+ * A requirement run's stage summaries, in its own words: the engine saved
+ * them as text, so older runs are reworded when shown.
+ */
+export function probableSummary(text: string): string {
+  return text
+    .replace(/\bfindings? accepted\b/g, (match) =>
+      match.startsWith("findings") ? "risks kept" : "risk kept",
+    )
+    .replace(/\bremediations?\b/g, (match) =>
+      match.endsWith("s") ? "suggested changes" : "suggested change",
+    )
+    .replace(/\bNo security findings\b/g, "No security risks")
+    .replace(/\bNo work orders needed\b/g, "No work orders proposed")
+    .replace(
+      /\b(\d+) work orders?\b/g,
+      (match, count) =>
+        `${count} proposed ${Number(count) === 1 ? "work order" : "work orders"}`,
+    );
+}
+
 export function storyOf(
   run: RunRecord,
   feed: Feed,
@@ -220,7 +241,9 @@ export function storyOf(
         state,
         line:
           state === "done" && live.summary
-            ? live.summary
+            ? run.source
+              ? live.summary
+              : probableSummary(live.summary)
             : state === "failed"
               ? (run.error ?? "This stage failed.")
               : STAGE_DESCRIPTION[stage],

@@ -13,7 +13,7 @@ import {
   OUTCOME_LABEL,
   PRIORITY_LABEL,
   RUN_STATUS_LABEL,
-  SEVERITY_LABEL,
+  termsFor,
 } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { RunStatus, Severity } from "@/server/engine/schema";
@@ -44,11 +44,35 @@ const SEVERITY_DOT: Record<Severity, string> = {
   low: "bg-sev-low",
 };
 
-export function SeverityBadge({ severity }: { severity: Severity }) {
+export function SeverityBadge({
+  severity,
+  probable = false,
+}: {
+  severity: Severity;
+  /** A requirement run's risk: "High risk" rather than "High". */
+  probable?: boolean;
+}) {
   return (
     <Badge variant="outline" className="gap-1.5">
       <span className={cn("size-1.5 rounded-full", SEVERITY_DOT[severity])} />
-      {SEVERITY_LABEL[severity]}
+      {termsFor(probable).severity(severity)}
+    </Badge>
+  );
+}
+
+export const PROBABLE_NOTE =
+  "Nothing is built yet: this is what could go wrong if the requirement is built as written.";
+
+/** Marks a requirement run's result: a probable risk of an idea. */
+export function ProbableTag({ className }: { className?: string }) {
+  return (
+    <Badge
+      variant="secondary"
+      title={PROBABLE_NOTE}
+      className={className}
+      data-testid="probable-tag"
+    >
+      Probable
     </Badge>
   );
 }

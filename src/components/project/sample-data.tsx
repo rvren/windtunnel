@@ -96,7 +96,7 @@ export function SampleData({
           data-testid="sample-data-add-empty"
         >
           {spin("empty", <Plus />)}
-          Add sample project
+          Add Sample Project
         </Button>
         <Button
           variant="outline"
@@ -105,7 +105,7 @@ export function SampleData({
           data-testid="sample-data-add-complete"
         >
           {spin("complete", <Plus />)}
-          Add complete sample and run it
+          Add Complete Sample And Run It
         </Button>
         <Button
           variant="destructive"
@@ -114,7 +114,7 @@ export function SampleData({
           data-testid="sample-data-remove"
         >
           {spin("remove", <Trash2 />)}
-          Remove sample data
+          Remove Sample Data
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">

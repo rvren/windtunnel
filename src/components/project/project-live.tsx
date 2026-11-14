@@ -36,7 +36,7 @@ export function ProjectLive({
           data-testid="project-live-open-run"
           className="text-sm text-link underline-offset-4 hover:underline"
         >
-          Open the run
+          Open The Run
         </Link>
       </div>
       <LiveMap feed={feed} expected={expected} />

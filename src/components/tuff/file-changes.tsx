@@ -496,7 +496,7 @@ export function FileChanges({
             </p>
             {onDiscard && (
               <Button variant="quiet" onClick={onDiscard} disabled={applying}>
-                Discard all
+                Discard All
               </Button>
             )}
             <Button

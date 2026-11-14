@@ -41,7 +41,7 @@ async function Form({
           href="/app/projects"
           className={buttonVariants({ className: "mt-6" })}
         >
-          Go to projects
+          Go To Projects
         </Link>
       </div>
     );
