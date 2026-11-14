@@ -15,6 +15,11 @@ import {
   ScanSearch,
   ShieldAlert,
   Wrench,
+  FlaskConical,
+  Plane,
+  Plug,
+  Swords,
+  Wind,
 } from "lucide-react";
 
 import { HeroVisual } from "@/components/brand/hero-visual";
@@ -367,6 +372,53 @@ const SLIDES: Slide[] = [
     ),
   },
   {
+    id: "roadmap",
+    body: (
+      <div>
+        <Eyebrow>What&apos;s next</Eyebrow>
+        <Title>
+          From finding flaws
+          <br />
+          <span className="text-muted-foreground">
+            to a software factory that heals itself.
+          </span>
+        </Title>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Tile
+            icon={FlaskConical}
+            title="Evals for every agent"
+            body="Before production. The agents on code are scored against 98 known flaws today; the judge, the fix agent and requirements come next."
+          />
+          <Tile
+            icon={RefreshCw}
+            title="Tunnel run, version 2"
+            body="Track an idea's risks into the code that builds it, sign-in for teams, trends across runs, and scheduled runs with cost caps."
+          />
+          <Tile
+            icon={Wind}
+            title="Crosswind"
+            body="&ldquo;What if we change our auth architecture?&rdquo; See the impact on every service before and after, and review a pull request's real reach."
+          />
+          <Tile
+            icon={Swords}
+            title="Fly-off"
+            body="Rival agents each propose a design and challenge the others. A judge picks the strongest, with its evidence."
+          />
+          <Tile
+            icon={Plane}
+            title="Black box"
+            body="Production feedback starts the loop: find the requirement, locate the code, write the fix, run the tests, open the pull request."
+          />
+          <Tile
+            icon={Plug}
+            title="Connectors"
+            body="8090 Software Factory today; GitHub Issues, Jira, Linear, Slack and email next. Always optional."
+          />
+        </div>
+      </div>
+    ),
+  },
+  {
     id: "close",
     body: (
       <div className="text-center">
@@ -400,14 +452,22 @@ function slideFromHash(): number {
 
 export function SlideDeck() {
   const reduced = useReducedMotion();
-  const [state, setState] = useState({ index: 0, direction: 1 });
-  const { index, direction } = state;
+  // `ready` turns on with the first move, which is reading the address:
+  // until then the address is not written, so a link to #5 opens slide 5.
+  const [state, setState] = useState({ index: 0, direction: 1, ready: false });
+  const { index, direction, ready } = state;
 
   const go = useCallback((next: number) => {
     setState((current) => {
       const target = Math.max(0, Math.min(SLIDES.length - 1, next));
-      if (target === current.index) return current;
-      return { index: target, direction: target > current.index ? 1 : -1 };
+      if (target === current.index) {
+        return current.ready ? current : { ...current, ready: true };
+      }
+      return {
+        index: target,
+        direction: target > current.index ? 1 : -1,
+        ready: true,
+      };
     });
   }, []);
 
@@ -421,11 +481,12 @@ export function SlideDeck() {
 
   // Keep the address on the slide shown, without adding history entries.
   useEffect(() => {
+    if (!ready) return;
     const hash = `#${index + 1}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, "", hash);
     }
-  }, [index]);
+  }, [index, ready]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
