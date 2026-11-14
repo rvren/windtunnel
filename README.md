@@ -197,6 +197,28 @@ sent twice, and a failed send can be tried again from the run's Work orders
 tab. Sample runs are sent only when you ask, or when "Also send sample runs"
 is on. The sign-in's tokens stay in the database on the server.
 
+## Security: remediation, personal data and secrets
+
+Repository and project runs look at the code from a security angle:
+
+- **Remediation.** Every accepted security finding gets a remediation: what
+  is wrong, the steps to fix it, a suggested patch, and its CWE and OWASP
+  Top 10 (2021) category. A stage on the reasoning model reads the code again
+  to write it; every edit in the patch is checked against the real file and
+  dropped if it does not match. Patches are never applied. Shown under the
+  finding, in the cockpit's Security section, in the work orders sent to
+  8090 and in the exports.
+- **Personal data.** A scan in code (no model) finds names that hold
+  personal data (contact, identity, financial, location, health,
+  credentials, online ids) and where they reach logs, outside calls, storage
+  and responses. The agents get a summary; the cockpit shows a Data and
+  privacy section. It works by name, so it can include false positives.
+- **Secrets.** Known key formats and hard-coded secrets in the code become
+  critical findings with a remediation (move it out, rotate it). A secret's
+  value is never saved or shown.
+
+Not covered yet: known-vulnerable dependencies.
+
 ## Works on its own
 
 Windtunnel is a standalone product. This is a rule, not a preference:

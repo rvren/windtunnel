@@ -1,6 +1,8 @@
 import { AGENTS, type AgentDefinition } from "@/lib/agents";
 
 import { normalizeArchitecture } from "./architecture";
+import { remediate, scrubDeep, secretGroups } from "./remediation";
+import { takeInventory } from "./repo/inventory";
 import { findCoverage, modelIds, normalizeModel } from "./coverage";
 import { loadExpertise } from "./expertise";
 import { RunError, type LlmClient } from "./llm";
@@ -25,7 +27,9 @@ import {
   JUDGE_SYSTEM,
   MODEL_SYSTEM,
   REPO_AGENT_SYSTEM,
+  ARCHITECTURE_SYSTEM,
   REPO_MODEL_SYSTEM,
+  architecturePrompt,
   WORK_ORDER_SYSTEM,
   agentPrompt,
   agentSharedContext,
@@ -43,7 +47,7 @@ import {
   Challenges,
   DesignModel,
   RepoAgentSummary,
-  RepoDesignModel,
+  Architecture,
   Verdict,
   WorkOrders,
   ZERO_USAGE,
@@ -235,9 +239,14 @@ export async function executeRun(
     return queue;
   };
 
+  // Secrets found in the code: kept in memory to scrub what the run writes,
+  // never saved.
+  let secretValues: string[] = [];
+  // What is saved never holds a secret found in the code, wherever it
+  // turned up (a quote an agent cited, a line a patch replaces).
   const save = async () => {
     run.updatedAt = now().toISOString();
-    await store.save(run);
+    await store.save(scrubDeep(run, secretValues));
   };
 
   const stage = async (name: Stage, work: () => Promise<string>) => {
@@ -299,6 +308,13 @@ export async function executeRun(
           reader = new RepoReader(fetched.root, survey);
         }
         repo = { survey, reader, outline: outline(survey) };
+        // Personal data and secrets, found by name in code. No model call.
+        const taken = await takeInventory(
+          survey.files.filter((file) => file.readable).map((file) => file.path),
+          (path) => reader.allLines(path),
+        );
+        run.inventory = taken.inventory;
+        secretValues = taken.secretValues;
         source.files = survey.files.length;
         source.languages = survey.languages
           .slice(0, 4)
@@ -324,7 +340,7 @@ export async function executeRun(
             effort: "high",
             system: REPO_MODEL_SYSTEM,
             prompt: repoModelPrompt(run, code.outline),
-            schema: RepoDesignModel,
+            schema: DesignModel,
             tools: readTools(code.reader.fork(), () => {}),
             maxTurns: MODEL_TURNS,
           })
@@ -344,18 +360,40 @@ export async function executeRun(
         );
       }
       const { model, warnings } = normalizeModel(result.value);
-      const { architecture } = result.value as Partial<RepoDesignModel>;
-      if (source && architecture) {
-        const checked = normalizeArchitecture(
-          architecture,
-          source.workspaces?.map((workspace) => workspace.name) ?? [],
-        );
-        source.architecture = checked.architecture;
-        warnings.push(...checked.warnings);
-        await emit({
-          type: "architecture.ready",
-          architecture: checked.architecture,
-        });
+      // How the application is put together: a second, small call, so the
+      // model stage's answer format stays within what the API accepts.
+      if (source && code) {
+        try {
+          const drawn = await llm.call({
+            stage: "model",
+            model: run.models.reasoning,
+            effort: "medium",
+            system: ARCHITECTURE_SYSTEM,
+            prompt: architecturePrompt(run, code.outline, model),
+            schema: Architecture,
+          });
+          run.usage.model = addUsage(
+            run.usage.model ?? ZERO_USAGE,
+            drawn.usage,
+          );
+          if (drawn.kind === "ok") {
+            const checked = normalizeArchitecture(
+              drawn.value,
+              source.workspaces?.map((workspace) => workspace.name) ?? [],
+            );
+            source.architecture = checked.architecture;
+            warnings.push(...checked.warnings);
+            await emit({
+              type: "architecture.ready",
+              architecture: checked.architecture,
+            });
+          }
+        } catch (error) {
+          // The diagram is not worth failing a run over.
+          warnings.push(
+            `The architecture could not be drawn: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
       }
       if (model.roles.length === 0 || model.operations.length === 0) {
         throw new RunError(
@@ -646,7 +684,40 @@ export async function executeRun(
       return `${plural(run.groups.length, "finding")} accepted, ${run.rejected.length} rejected`;
     });
 
-    // 6. Work orders: what to do about each accepted finding.
+    // Secrets in the code are certain: they join the accepted findings.
+    if (run.inventory && run.inventory.secrets.length > 0) {
+      run.groups = [...run.groups, ...secretGroups(run.inventory)];
+      await save();
+    }
+
+    // 6. Remediation: how to fix each security finding, checked against the
+    // code. Best effort: a remediation that fails never fails the run.
+    await stage("remediation", async () => {
+      const security = run.groups.filter(
+        (group) => group.type === "security_vulnerability",
+      );
+      if (security.length === 0) return "No security findings";
+      run.remediations = {};
+      const done = await remediate({
+        llm,
+        run,
+        reader: code?.reader ?? null,
+        secretValues,
+        onReady: async (record) => {
+          run.remediations = { ...run.remediations, [record.groupId]: record };
+          await save();
+          await emit({ type: "remediation.ready", groupId: record.groupId });
+        },
+      });
+      run.usage.remediation = done.usage;
+      const made = Object.values(done.records).filter(
+        (record) => record.status === "made",
+      );
+      const patches = made.filter((record) => record.edits.length > 0).length;
+      return `${plural(made.length, "remediation")}, ${plural(patches, "with a patch", "with a patch")}`;
+    });
+
+    // 7. Work orders: what to do about each accepted finding.
     await stage("work_orders", async () => {
       if (run.groups.length === 0) return "No work orders needed";
       const result = await llm.call({
@@ -696,5 +767,5 @@ export async function executeRun(
     prepared.map((item) => item.cleanup().catch(() => undefined)),
   );
   await queue.catch(() => undefined);
-  return run;
+  return scrubDeep(run, secretValues);
 }

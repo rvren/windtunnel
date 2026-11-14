@@ -198,6 +198,13 @@ orders`, run by
   A real send writes into the owner's 8090 project: ask before each one.
   The catalog is `lib/connectors.ts`; logos are generated
   (`scripts/build-connector-icons.mjs`).
+- **Security** (`remediation.ts`, `repo/inventory.ts`, `security-refs.ts`):
+  a remediation's edits are kept only if they match the file exactly
+  (`checkEdits`); never apply a patch to a repository. A secret's value is
+  never saved, shown, logged or sent: the inventory keeps kind, place and a
+  masked line, and `scrubDeep` masks values in everything `executeRun`
+  saves and returns. Keep it that way when adding any field that can hold
+  code. CWE and OWASP ids must come from `security-refs.ts`.
 - **Never run `next typegen` while `pnpm dev` is running.** It sends the dev
   server into a rebuild loop that reloads every page. Stop the server first.
 - **Expertise** for each agent is Markdown in `expertise/`. Improve an

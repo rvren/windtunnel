@@ -13,6 +13,7 @@ import type {
   Architecture,
   Challenges,
   DesignModel,
+  RemediationAnswer,
   Usage,
   Verdict,
   WorkOrders,
@@ -46,6 +47,8 @@ export interface Script {
   tools?: Partial<
     Record<"model" | AgentId, { tool: string; input: unknown }[]>
   >;
+  /** Remediations for security findings, by group id. */
+  remediations?: Record<string, Scripted<RemediationAnswer>>;
   /** What each agent says about the others' findings. Default: nothing. */
   challenges?: Partial<Record<AgentId, Scripted<Challenges>>>;
   judge: Scripted<Verdict>;
@@ -80,6 +83,16 @@ export class ScriptedLlm implements LlmClient {
     const { stage } = request;
     if (stage === "model" || stage === "judge" || stage === "work_orders") {
       return [stage, this.script[stage]];
+    }
+    if (stage === "remediation") {
+      const id = /<finding id="([^"]+)">/.exec(request.prompt)?.[1] ?? "";
+      return [
+        `remediation:${id}`,
+        this.script.remediations?.[id] ?? {
+          kind: "error",
+          message: "No remediation was scripted for this finding.",
+        },
+      ];
     }
     const agent = AGENTS.find((item) =>
       request.prompt.includes(`You are the agent "${item.name}"`),
@@ -168,17 +181,15 @@ export class ScriptedLlm implements LlmClient {
       request.onText?.(text.slice(0, Math.ceil(text.length * part)));
     }
 
-    // In a repository run the model stage also returns the architecture.
-    const value =
-      key === "model"
-        ? {
-            architecture: this.script.architecture ?? {
-              components: [],
-              connections: [],
-            },
-            ...(entry.value as object),
-          }
-        : entry.value;
+    // A repository run asks the model stage a second question: the
+    // architecture. It is answered from the script's architecture.
+    const architecture =
+      key === "model" && this.script.architecture
+        ? request.schema.safeParse(this.script.architecture)
+        : null;
+    const value = architecture?.success
+      ? this.script.architecture
+      : entry.value;
     const parsed = request.schema.safeParse(value);
     if (!parsed.success) {
       throw new RunError(
@@ -620,6 +631,43 @@ const SAMPLE_WORK_ORDERS: WorkOrders = {
 
 export const SAMPLE_SCRIPT: Script = {
   model: { kind: "ok", value: SAMPLE_MODEL },
+  // A requirement run has no code: steps and the mapping, no edits.
+  remediations: {
+    g1: {
+      kind: "ok",
+      value: {
+        summary:
+          "The design never says who may change a user's permissions, so the first build will most likely let any signed-in user call the permission endpoints. Any member could then make themselves an admin.",
+        steps: [
+          "State in the requirement that only organization admins may change permissions, and only within their own organization.",
+          "Enforce it on the server for every permission change, not only by hiding the button.",
+          "Record every permission change with who made it and when.",
+        ],
+        cwe: "CWE-862",
+        owasp: "A01:2021 Broken Access Control",
+        edits: [],
+        notes: [
+          "Decide whether an admin may remove their own admin role, and what happens to the last admin.",
+        ],
+      },
+    },
+    g2: {
+      kind: "ok",
+      value: {
+        summary:
+          "Admin operations take a user id without checking the user's organization. An admin of one organization can change users of another by guessing their ids.",
+        steps: [
+          "Scope every admin query to the admin's organization on the server.",
+          "Look users up by organization and id together, never by id alone.",
+          "Add a test: an admin of organization A changing a user of organization B is refused.",
+        ],
+        cwe: "CWE-639",
+        owasp: "A01:2021 Broken Access Control",
+        edits: [],
+        notes: [],
+      },
+    },
+  },
   agents: Object.fromEntries(
     Object.entries(SAMPLE_AGENTS).map(([id, value]) => [
       id,

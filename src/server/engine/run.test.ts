@@ -107,6 +107,7 @@ describe("executeRun", () => {
         "agents",
         "challenge",
         "judge",
+        "remediation",
         "work_orders",
       ].flatMap((stage) => [
         `stage.started:${stage}`,
@@ -153,7 +154,13 @@ describe("executeRun", () => {
       "challenge:product_critic",
       "challenge:scale",
     ]);
-    expect(llm.calls.slice(11)).toEqual(["judge", "work_orders"]);
+    expect(llm.calls.slice(11)).toEqual([
+      "judge",
+      // The sample's two security findings, one remediation each.
+      "remediation:g1",
+      "remediation:g2",
+      "work_orders",
+    ]);
   });
 
   it("carries on when the model declines one agent", async () => {

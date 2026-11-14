@@ -105,6 +105,11 @@ export class RepoReader {
     return lines;
   }
 
+  /** Every line of a file, for code that scans the repository. */
+  async allLines(input: string): Promise<string[]> {
+    return this.lines(this.clean(input));
+  }
+
   /** Does this file exist and do these lines exist in it? Used to check findings. */
   async slice(
     input: string,

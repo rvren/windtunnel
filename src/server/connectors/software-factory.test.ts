@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseConnectorUrl, projectsInText } from "./software-factory";
+import {
+  labelListed,
+  parseConnectorUrl,
+  projectsInText,
+} from "./software-factory";
 
 describe("the Software Factory connector URL", () => {
   it("takes 8090's own MCP address, with or without a trailing slash", () => {
@@ -42,5 +46,22 @@ describe("the list of projects, as Software Factory writes it", () => {
       { id: "11111111-2222-4333-8444-555555555555", name: "Shop (beta)" },
     ]);
     expect(projectsInText("No projects.")).toEqual([]);
+  });
+});
+
+describe("the labels, as Software Factory lists them", () => {
+  const text = [
+    "Project: test-project (7f301498-4422-4836-8fc4-73271746ac53)",
+    "",
+    "8 label(s) (page 1 of 1)",
+    "",
+    "billing  [gray]",
+    "windtunnel  [purple]",
+  ].join("\n");
+  it("finds a label by its title, ignoring case", () => {
+    expect(labelListed("windtunnel", null, text)).toBe(true);
+    expect(labelListed("Billing", null, text)).toBe(true);
+    expect(labelListed("dvna", null, text)).toBe(false);
+    expect(labelListed("wind", null, text)).toBe(false);
   });
 });

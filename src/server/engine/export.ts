@@ -1,3 +1,4 @@
+import { toUnifiedDiff } from "@/lib/patch";
 import { agentById } from "@/lib/agents";
 import {
   FINDING_TYPE_LABEL,
@@ -110,6 +111,39 @@ export function runToMarkdown(run: RunRecord): string {
         "",
         group.summary,
       );
+      if (group.foundBy === "code" && group.location) {
+        out.push(
+          "",
+          `Found by the secret scan at \`${group.location.path}:${group.location.startLine}\` (value hidden).`,
+        );
+      }
+      const record = run.remediations?.[group.id];
+      if (record?.status === "made") {
+        out.push("", "**Remediation**", "");
+        const refs = [
+          record.cwe
+            ? `[${record.cwe.id} ${record.cwe.name}](${record.cwe.url})`
+            : null,
+          record.owasp
+            ? `[OWASP ${record.owasp.id} ${record.owasp.name}](${record.owasp.url})`
+            : null,
+        ].filter(Boolean);
+        if (refs.length > 0) out.push(refs.join(" · "), "");
+        out.push(record.summary);
+        if (record.steps.length > 0) {
+          out.push(
+            "",
+            ...record.steps.map((step, index) => `${index + 1}. ${step}`),
+          );
+        }
+        const diff = toUnifiedDiff(record.edits);
+        if (diff) out.push("", "```diff", diff.trimEnd(), "```");
+        if (record.notes.length > 0) {
+          out.push("", ...record.notes.map((note) => `- ${note}`));
+        }
+      } else if (record?.status === "failed") {
+        out.push("", `_No remediation could be written: ${record.error}_`);
+      }
       for (const uid of group.findingIds) {
         const finding = findings.get(uid);
         if (!finding) continue;

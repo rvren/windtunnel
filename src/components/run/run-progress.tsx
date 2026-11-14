@@ -50,8 +50,8 @@ export function StageRail({
   return (
     <ol
       className={cn(
-        "grid gap-px overflow-hidden rounded-card border bg-border sm:grid-cols-3",
-        repository ? "lg:grid-cols-7" : "lg:grid-cols-6",
+        "grid gap-px overflow-hidden rounded-card border bg-border sm:grid-cols-4",
+        repository ? "2xl:grid-cols-8" : "2xl:grid-cols-7",
       )}
       data-testid="run-stages"
     >

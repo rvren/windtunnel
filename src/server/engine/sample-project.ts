@@ -1033,6 +1033,18 @@ const WORK_ORDERS: {
     groupIds: ["g-web-failed"],
   },
   {
+    id: "wo-secret",
+    title: "Take the payment gateway password out of the code, and rotate it",
+    priority: "p0",
+    description:
+      "Read it from the environment, and rotate it at the gateway: it is in the history.",
+    acceptanceCriteria: [
+      "No secret is found in the code by a secret scan.",
+      "The old password no longer works at the gateway.",
+    ],
+    groupIds: ["secret-1"],
+  },
+  {
     id: "wo-decide",
     title: "Decide refunds and the limit on sign-in attempts",
     priority: "p2",
@@ -1186,6 +1198,271 @@ const MODEL: DesignModel = {
   ],
 };
 
+interface SampleRemediation {
+  service: SampleService;
+  summary: string;
+  steps: string[];
+  cwe: string;
+  owasp: string;
+  /** Paths inside the service's repository; lines match samples/storefront. */
+  edits: {
+    path: string;
+    startLine: number;
+    endLine: number;
+    before: string;
+    after: string;
+  }[];
+  notes: string[];
+}
+
+/** Remediations for the security findings, by group id. */
+const REMEDIATIONS: Record<string, SampleRemediation> = {
+  "g-web-token": {
+    service: "web",
+    summary:
+      "The session token is kept in local storage, where any script on the page can read it. One cross-site scripting flaw anywhere in the shop is then enough to take every buyer's session.",
+    steps: [
+      "Have the auth service set the session as a cookie with HttpOnly, Secure and SameSite=Lax.",
+      "Stop storing the token in the frontend: remove saveSession and sessionToken from web/src/session.ts.",
+      'Send requests with credentials: "include" instead of an Authorization header in web/src/api.ts.',
+    ],
+    cwe: "CWE-922",
+    owasp: "A07:2021 Identification and Authentication Failures",
+    edits: [
+      {
+        path: "src/session.ts",
+        startLine: 1,
+        endLine: 7,
+        before:
+          'export function saveSession(token: string) {\n  localStorage.setItem("token", token);\n}\n\nexport function sessionToken(): string | null {\n  return localStorage.getItem("token");\n}',
+        after:
+          "// The session lives in an HttpOnly cookie set by the auth service.\n// Scripts on the page cannot read it, so nothing is stored here.\nexport function sessionToken(): null {\n  return null;\n}",
+      },
+    ],
+    notes: [
+      "The auth service must set the cookie; that change is in storefront-auth.",
+    ],
+  },
+  "g-web-xss": {
+    service: "web",
+    summary:
+      "Search results write each product name into the page as HTML. A product named with a script tag runs that script in every buyer's browser who searches for it.",
+    steps: [
+      "Write the name as text with textContent instead of innerHTML in web/src/search.ts.",
+    ],
+    cwe: "CWE-79",
+    owasp: "A03:2021 Injection",
+    edits: [
+      {
+        path: "src/search.ts",
+        startLine: 8,
+        endLine: 8,
+        before: "    row.innerHTML = product.name;",
+        after: "    row.textContent = product.name;",
+      },
+    ],
+    notes: [],
+  },
+  "g-gw-identity": {
+    service: "gateway",
+    summary:
+      "The gateway takes the user's id from the X-User-Id header, which any caller can set, and passes it on as the authenticated user. Anyone can act as any buyer.",
+    steps: [
+      "Resolve the user from the session with the auth service on every order request.",
+      "Drop X-User-Id and X-Authenticated-User from incoming requests before setting your own.",
+      "Answer 401 when there is no valid session.",
+    ],
+    cwe: "CWE-290",
+    owasp: "A01:2021 Broken Access Control",
+    edits: [
+      {
+        path: "main.go",
+        startLine: 14,
+        endLine: 15,
+        before:
+          '\t\tuserID := r.Header.Get("X-User-Id")\n\t\tr.Header.Set("X-Authenticated-User", userID)',
+        after:
+          '\t\tr.Header.Del("X-User-Id")\n\t\tuserID, err := userFromSession(r)\n\t\tif err != nil {\n\t\t\thttp.Error(w, "sign in first", http.StatusUnauthorized)\n\t\t\treturn\n\t\t}\n\t\tr.Header.Set("X-Authenticated-User", userID)',
+      },
+    ],
+    notes: [
+      "userFromSession calls the auth service's token lookup; add it next to proxy in proxy.go.",
+    ],
+  },
+  "g-auth-md5": {
+    service: "auth",
+    summary:
+      "Passwords are hashed with MD5 and no salt. Anyone with a copy of the users table can recover most passwords in minutes with ready-made tables.",
+    steps: [
+      "Hash new passwords with scrypt from node:crypto, with a random salt per password.",
+      "At each sign-in, if the stored hash is an old MD5 one, check it, then store the scrypt hash instead.",
+      "After 90 days, force a reset for accounts still on MD5.",
+    ],
+    cwe: "CWE-916",
+    owasp: "A02:2021 Cryptographic Failures",
+    edits: [
+      {
+        path: "src/password.ts",
+        startLine: 1,
+        endLine: 5,
+        before:
+          'import { createHash } from "node:crypto";\n\nexport function hashPassword(password: string): string {\n  return createHash("md5").update(password).digest("hex");\n}',
+        after:
+          'import { randomBytes, scryptSync } from "node:crypto";\n\nexport function hashPassword(password: string): string {\n  const salt = randomBytes(16).toString("hex");\n  const hash = scryptSync(password, salt, 64).toString("hex");\n  return `scrypt$${salt}$${hash}`;\n}',
+      },
+    ],
+    notes: [
+      "login.ts compares hashes directly; it must verify with the stored salt instead (timingSafeEqual).",
+    ],
+  },
+  "g-auth-expiry": {
+    service: "auth",
+    summary:
+      "A session is stored with no expiry and nothing ends it, so a stolen token works for ever.",
+    steps: [
+      "Store an expiry with each session, for example 12 hours.",
+      "Refuse a token whose session has expired in userOf.",
+      "Add a sign-out that deletes the session.",
+    ],
+    cwe: "CWE-613",
+    owasp: "A07:2021 Identification and Authentication Failures",
+    edits: [
+      {
+        path: "src/session.ts",
+        startLine: 7,
+        endLine: 7,
+        before: "  await sessions.insert({ token, userId });",
+        after:
+          "  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);\n  await sessions.insert({ token, userId, expiresAt });",
+      },
+    ],
+    notes: [
+      "The sessions table needs an expires_at column, and userOf must check it.",
+    ],
+  },
+  "g-cat-sqli": {
+    service: "catalog",
+    summary:
+      "The search text is joined into the SQL string, so a buyer can read or change any table through the search box.",
+    steps: [
+      "Pass the search text as a query parameter, with the wildcards added to the value, not to the SQL.",
+    ],
+    cwe: "CWE-89",
+    owasp: "A03:2021 Injection",
+    edits: [
+      {
+        path: "search.py",
+        startLine: 5,
+        endLine: 6,
+        before:
+          '    sql = "SELECT id, name, price FROM products WHERE name LIKE \'%" + query + "%\'"\n    return catalog_db.execute(sql).fetchall()',
+        after:
+          '    sql = "SELECT id, name, price FROM products WHERE name LIKE %s"\n    return catalog_db.execute(sql, ("%" + query + "%",)).fetchall()',
+      },
+    ],
+    notes: [],
+  },
+  "g-ord-price": {
+    service: "orders",
+    summary:
+      "The order total comes from the request body, and the card is charged that amount. A buyer can set their own price.",
+    steps: [
+      "Work the total out on the server from the items and the catalog's stored prices.",
+      "Ignore any total the client sends.",
+    ],
+    cwe: "CWE-602",
+    owasp: "A04:2021 Insecure Design",
+    edits: [
+      {
+        path: "orders.py",
+        startLine: 7,
+        endLine: 7,
+        before: '    total = body["total"]',
+        after:
+          '    total = sum(price_of(item["product_id"]) * item["quantity"] for item in body["items"])',
+      },
+    ],
+    notes: [
+      "price_of reads the catalog's price; import it from the catalog client.",
+    ],
+  },
+  "g-ord-list": {
+    service: "orders",
+    summary:
+      "The list of orders returns every order to whoever asks, and all of them at once.",
+    steps: [
+      "Filter by the asking user's id.",
+      "Return one page at a time, with a limit and a cursor.",
+    ],
+    cwe: "CWE-639",
+    owasp: "A01:2021 Broken Access Control",
+    edits: [
+      {
+        path: "orders.py",
+        startLine: 14,
+        endLine: 15,
+        before: "def list_orders(user_id):\n    return orders.find_all()",
+        after:
+          "def list_orders(user_id, limit=50, after=None):\n    return orders.find_by_user(user_id, limit=min(limit, 100), after=after)",
+      },
+    ],
+    notes: [],
+  },
+  "g-bill-log": {
+    service: "billing",
+    summary:
+      "Every charge writes the full card number to the log, so anyone who can read logs can read cards. That also puts the logs in scope for PCI DSS.",
+    steps: [
+      "Log a reference to the charge, never the card number.",
+      "Remove card numbers from the logs kept so far, and from any log index.",
+    ],
+    cwe: "CWE-532",
+    owasp: "A09:2021 Security Logging and Monitoring Failures",
+    edits: [
+      {
+        path: "charge.go",
+        startLine: 11,
+        endLine: 11,
+        before: '\tlog.Printf("charging card %s for %d", card, amount)',
+        after:
+          '\tlog.Printf("charging card ending %s for %d", last4(card), amount)',
+      },
+    ],
+    notes: ["last4 returns the last four digits; add it in charge.go."],
+  },
+  "secret-1": {
+    service: "billing",
+    summary:
+      "The payment gateway's password is written into the code. Anyone who can read the repository, or its history, can charge cards as this service.",
+    steps: [
+      "Read the password from the environment (or a secret store) at start.",
+      "Rotate the password at the payment gateway now: it is in the history.",
+      "Add a secret scan to the pipeline so it does not happen again.",
+    ],
+    cwe: "CWE-798",
+    owasp: "A07:2021 Identification and Authentication Failures",
+    edits: [
+      {
+        path: "charge.go",
+        startLine: 3,
+        endLine: 6,
+        before: 'import (\n\t"log"\n\t"net/http"\n)',
+        after: 'import (\n\t"log"\n\t"net/http"\n\t"os"\n)',
+      },
+      {
+        path: "charge.go",
+        startLine: 17,
+        endLine: 17,
+        before: 'var gatewayPassword = "b1ll1ng-gateway-2026"',
+        after: 'var gatewayPassword = os.Getenv("PAYMENT_GATEWAY_PASSWORD")',
+      },
+    ],
+    notes: [
+      "Rotating the password is the part that matters: removing it from the code does not remove it from the history.",
+    ],
+  },
+};
+
 export interface SampleWorkspace {
   /** The workspace's name in the project: the first part of its paths. */
   name: string;
@@ -1243,6 +1520,8 @@ export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
     findingIds: keys.flatMap((key) => uids.get(key) ?? []),
   })).filter((group) => group.findingIds.length > 0);
   const groupIds = new Set(groups.map((group) => group.id));
+  // The secret in billing is found by code, not by the judge.
+  if (has("billing")) groupIds.add("secret-1");
   const rejected = Object.entries(REJECTED).flatMap(([key, reason]) =>
     uids.has(key) ? [{ findingId: uids.get(key)!, reason }] : [],
   );
@@ -1308,6 +1587,20 @@ export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
 
   const ok = <T>(value: T) => ({ kind: "ok" as const, value });
   const empty = ok({ scenarios: [], findings: [] });
+  const remediations = Object.fromEntries(
+    Object.entries(REMEDIATIONS)
+      .filter(([, item]) => has(item.service))
+      .map(([id, { service, edits, ...answer }]) => [
+        id,
+        ok({
+          ...answer,
+          edits: edits.map((edit) => ({
+            ...edit,
+            path: pathOf(service, edit.path),
+          })),
+        }),
+      ]),
+  );
   const firstPath = present[0] ? pathOf(present[0], "README.md") : "README.md";
   return {
     model: ok(MODEL),
@@ -1330,6 +1623,7 @@ export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
       ...tools,
     },
     challenges: {},
+    remediations,
     judge: ok({ groups, rejected }),
     work_orders: ok({
       workOrders: WORK_ORDERS.map((order) => ({

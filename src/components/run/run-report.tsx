@@ -1,3 +1,4 @@
+import { Remediation } from "@/components/run/remediation";
 import {
   DeliveryStrip,
   DeliveryTag,
@@ -163,6 +164,20 @@ export function FindingsTab({ run }: { run: RunRecord }) {
                           The judge did not review this finding. It is shown as
                           the agent reported it.
                         </p>
+                      ) : null}
+                      {group.foundBy === "code" && group.location ? (
+                        <figure className="mt-3 overflow-hidden rounded-card border">
+                          <figcaption className="border-b bg-muted/50 px-3 py-1.5 font-mono text-xs text-muted-foreground">
+                            {group.location.path}:{group.location.startLine} ·
+                            found by the secret scan, value hidden
+                          </figcaption>
+                          <pre className="overflow-x-auto px-3 py-2 font-mono text-xs leading-relaxed">
+                            {group.location.quote}
+                          </pre>
+                        </figure>
+                      ) : null}
+                      {run.remediations?.[group.id] ? (
+                        <Remediation record={run.remediations[group.id]} />
                       ) : null}
                       <ul className="mt-5 space-y-5">
                         {members.map((finding) => (

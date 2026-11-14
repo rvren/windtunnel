@@ -216,8 +216,8 @@ function NavList({
                       <span
                         className={
                           entry.into
-                            ? "relative shrink-0"
-                            : "relative flex-1 truncate"
+                            ? "relative shrink-0 group-data-[collapsible=icon]:hidden"
+                            : "relative flex-1 truncate group-data-[collapsible=icon]:hidden"
                         }
                       >
                         {entry.label}
@@ -233,7 +233,7 @@ function NavList({
                         </span>
                       ) : null}
                       {entry.into && !active ? (
-                        <span className="flex-1" />
+                        <span className="flex-1 group-data-[collapsible=icon]:hidden" />
                       ) : null}
                       {entry.into ? (
                         <ChevronRight
@@ -270,7 +270,12 @@ function SectionHead({ label, onBack }: { label: string; onBack: () => void }) {
           className="group/up h-10 gap-2 rounded-tile px-3 text-[15px] font-semibold text-foreground transition-[background-color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.98] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center"
         >
           <ArrowLeft className="size-4! text-muted-foreground transition-transform duration-200 group-hover/up:-translate-x-0.5 group-hover/up:text-foreground" />
-          <span data-testid="sidebar-section-title">{label}</span>
+          <span
+            data-testid="sidebar-section-title"
+            className="group-data-[collapsible=icon]:hidden"
+          >
+            {label}
+          </span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
@@ -449,7 +454,9 @@ export function AppSidebarFor({
                 className={item}
               >
                 <ArrowLeft />
-                <span>Back to site</span>
+                <span className="group-data-[collapsible=icon]:hidden">
+                  Back to site
+                </span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

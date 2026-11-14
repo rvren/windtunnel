@@ -5,9 +5,12 @@ import {
   SEVERITY_ORDER,
 } from "@/lib/labels";
 
-import { placeOf } from "../engine/architecture";
+import { componentOf, workspaceOf } from "../engine/architecture";
 import type {
   AgentId,
+  DataSink,
+  PiiCategory,
+  RemediationRecord,
   Architecture,
   FindingType,
   RunRecord,
@@ -33,6 +36,31 @@ export interface CockpitIssue {
   startLine: number | null;
   /** The agents whose findings were merged into it. */
   agents: AgentId[];
+  /** How to fix it, for a security finding that has one. */
+  remediation: RemediationRecord | null;
+  /** True when code found it (a secret), not an agent. */
+  foundByCode: boolean;
+}
+
+/** Where a project's code handles personal data and holds secrets. */
+export interface CockpitPrivacy {
+  categories: {
+    category: PiiCategory;
+    places: number;
+    workspaces: string[];
+    /** How many places reach each sink. */
+    sinks: Record<DataSink, number>;
+    /** Places that reach a log, an outside call or a response first. */
+    examples: { path: string; line: number; sinks: DataSink[] }[];
+  }[];
+  secrets: {
+    kind: string;
+    path: string;
+    line: number;
+    workspace: string | null;
+  }[];
+  filesScanned: number;
+  truncated: boolean;
 }
 
 export interface SankeyNode {
@@ -79,6 +107,8 @@ export interface Cockpit {
   sankey: { nodes: SankeyNode[]; links: SankeyLink[] };
   components: CockpitComponent[];
   connections: Architecture["connections"];
+  /** Null for a run that read no code. */
+  privacy: CockpitPrivacy | null;
 }
 
 /** The key for issues whose code is in no one workspace or component. */
@@ -99,9 +129,14 @@ export function buildCockpit(run: RunRecord): Cockpit {
 
   const issues: CockpitIssue[] = run.groups.map((group) => {
     const merged = group.findingIds.flatMap((uid) => findings.get(uid) ?? []);
-    const cited = merged.find((finding) => finding.location);
-    const place = cited
-      ? placeOf(cited, workspaces, architecture)
+    // A finding's own place, or, for one found by code, the group's.
+    const location =
+      merged.find((finding) => finding.location)?.location ?? group.location;
+    const place = location
+      ? {
+          workspace: workspaceOf(location.path, workspaces),
+          component: componentOf(location.path, architecture),
+        }
       : { workspace: null, component: null };
     return {
       id: group.id,
@@ -110,9 +145,11 @@ export function buildCockpit(run: RunRecord): Cockpit {
       type: group.type,
       severity: group.severity,
       ...place,
-      path: cited?.location?.path ?? null,
-      startLine: cited?.location?.startLine ?? null,
+      path: location?.path ?? null,
+      startLine: location?.startLine ?? null,
       agents: [...new Set(merged.map((finding) => finding.agentId))],
+      remediation: run.remediations?.[group.id] ?? null,
+      foundByCode: group.foundBy === "code",
     };
   });
   issues.sort(
@@ -185,6 +222,49 @@ export function buildCockpit(run: RunRecord): Cockpit {
     add(`type:${issue.type}`, `severity:${issue.severity}`, issue.severity);
   }
 
+  const inventory = run.inventory;
+  const SINKS: DataSink[] = ["log", "outside", "storage", "response"];
+  const privacy: CockpitPrivacy | null = inventory
+    ? {
+        categories: [...new Set(inventory.pii.map((item) => item.category))]
+          .map((category) => {
+            const places = inventory.pii.filter(
+              (item) => item.category === category,
+            );
+            return {
+              category,
+              places: places.length,
+              workspaces: [
+                ...new Set(
+                  places.flatMap(
+                    (item) => workspaceOf(item.path, workspaces) ?? [],
+                  ),
+                ),
+              ],
+              sinks: Object.fromEntries(
+                SINKS.map((sink) => [
+                  sink,
+                  places.filter((item) => item.sinks.includes(sink)).length,
+                ]),
+              ) as Record<DataSink, number>,
+              examples: places
+                .filter((item) => item.sinks.some((sink) => sink !== "storage"))
+                .slice(0, 5)
+                .map(({ path, line, sinks }) => ({ path, line, sinks })),
+            };
+          })
+          .sort((a, b) => b.places - a.places),
+        secrets: inventory.secrets.map(({ kind, path, line }) => ({
+          kind,
+          path,
+          line,
+          workspace: workspaceOf(path, workspaces),
+        })),
+        filesScanned: inventory.filesScanned,
+        truncated: inventory.truncated,
+      }
+    : null;
+
   return {
     runId: run.id,
     ranAt: run.createdAt,
@@ -212,5 +292,6 @@ export function buildCockpit(run: RunRecord): Cockpit {
       };
     }),
     connections: architecture?.connections ?? [],
+    privacy,
   };
 }

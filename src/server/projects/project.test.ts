@@ -21,6 +21,7 @@ import {
 } from "../engine/sample-project";
 import type { StoredEvent } from "../engine/schema";
 import { MemoryRunStore } from "../engine/store";
+import { runToMarkdown } from "../engine/export";
 import { buildCockpit } from "./cockpit";
 
 const SAMPLES = path.resolve(
@@ -190,11 +191,23 @@ describe("the sample services", () => {
       const { run, llm } = await projectRun(services);
       expect(run.error).toBeNull();
       expect(run.status).toBe("completed");
-      expect(run.modelWarnings).toEqual([]);
+      expect(run.modelWarnings, JSON.stringify(run.modelWarnings)).toEqual([]);
       const refused = llm.toolResults.filter((result) => result.failed);
       expect(refused).toEqual([]);
       expect(run.groups.every((group) => group.reviewed)).toBe(true);
       expect(run.unaddressedGroupIds).toEqual([]);
+      // Every security finding has a remediation, and every scripted edit
+      // matched the real file it changes.
+      const security = run.groups.filter(
+        (group) => group.type === "security_vulnerability",
+      );
+      expect(security.length).toBeGreaterThan(0);
+      for (const group of security) {
+        const record = run.remediations?.[group.id];
+        expect(record?.status, group.id).toBe("made");
+        expect(record?.dropped, group.id).toEqual([]);
+        expect(record?.cwe?.fallback, group.id).toBe(false);
+      }
     },
   );
 });
@@ -207,12 +220,34 @@ describe("the cockpit", () => {
     expect(run.sample).toBe(true);
     expect(run.workspaces).toEqual(ALL);
 
+    // The export carries the remediations; the secret's value never.
+    const markdown = runToMarkdown(run);
+    expect(markdown).toContain("**Remediation**");
+    expect(markdown).toContain("```diff");
+    expect(JSON.stringify(run)).not.toContain("b1ll1ng-gateway-2026");
+    expect(markdown).not.toContain("b1ll1ng-gateway-2026");
+
     const cockpit = buildCockpit(run);
     expect(cockpit.groupedBy).toBe("workspace");
-    expect(cockpit.totals.issues).toBe(22);
-    expect(cockpit.totals.workOrders).toBe(14);
+    expect(cockpit.privacy?.secrets).toEqual([
+      expect.objectContaining({
+        path: "billing/charge.go",
+        line: 17,
+        workspace: "billing",
+      }),
+    ]);
+    expect(
+      cockpit.privacy?.categories.find((item) => item.category === "financial")
+        ?.sinks.log,
+    ).toBeGreaterThan(0);
+    expect(
+      cockpit.issues.find((issue) => issue.id === "secret-1"),
+    ).toMatchObject({ workspace: "billing", foundByCode: true });
+    // 22 found by the agents, and the secret in billing found by code.
+    expect(cockpit.totals.issues).toBe(23);
+    expect(cockpit.totals.workOrders).toBe(15);
     expect(cockpit.totals.bySeverity).toEqual({
-      critical: 6,
+      critical: 7,
       high: 7,
       medium: 8,
       low: 1,
@@ -224,7 +259,7 @@ describe("the cockpit", () => {
       const nodes = cockpit.sankey.nodes.filter(
         (node) => node.column === column,
       );
-      expect(nodes.reduce((sum, node) => sum + node.value, 0)).toBe(22);
+      expect(nodes.reduce((sum, node) => sum + node.value, 0)).toBe(23);
     }
     const sum = (links: { value: number }[]) =>
       links.reduce((total, link) => total + link.value, 0);
@@ -232,12 +267,12 @@ describe("the cockpit", () => {
       sum(
         cockpit.sankey.links.filter((link) => link.target.startsWith("type:")),
       ),
-    ).toBe(22);
+    ).toBe(23);
     expect(
       sum(
         cockpit.sankey.links.filter((link) => link.source.startsWith("type:")),
       ),
-    ).toBe(22);
+    ).toBe(23);
     expect(
       cockpit.sankey.nodes
         .filter((node) => node.column === 0)

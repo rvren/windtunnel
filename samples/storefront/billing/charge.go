@@ -12,3 +12,6 @@ func Charge(card string, amount int) error {
 	_, err := http.Post(gateway, "application/json", body(card, amount))
 	return err
 }
+
+// The account the payment gateway knows this service by.
+var gatewayPassword = "b1ll1ng-gateway-2026"

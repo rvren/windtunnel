@@ -9,6 +9,7 @@ export const STAGE_ORDER = [
   "agents",
   "challenge",
   "judge",
+  "remediation",
   "work_orders",
 ] as const;
 
@@ -19,6 +20,7 @@ export const STAGE_LABEL = {
   agents: "Agents",
   challenge: "Challenge",
   judge: "Judge",
+  remediation: "Remediation",
   work_orders: "Work orders",
 } as const;
 
@@ -29,6 +31,7 @@ export const STAGE_DESCRIPTION = {
   agents: "Five agents walking scenarios against the model",
   challenge: "The agents reviewing each other's findings",
   judge: "Merging, checking and ranking the findings",
+  remediation: "Writing fixes for the security findings",
   work_orders: "Writing work orders with acceptance criteria",
 } as const;
 

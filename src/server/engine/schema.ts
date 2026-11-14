@@ -247,6 +247,7 @@ export const STAGES = [
   "agents",
   "challenge",
   "judge",
+  "remediation",
   "work_orders",
 ] as const;
 export type Stage = (typeof STAGES)[number];
@@ -367,6 +368,12 @@ export interface FindingGroup {
   findingIds: string[];
   /** False when the judge skipped these findings and code kept them. */
   reviewed: boolean;
+  /**
+   * Set when the flaw was found by code, not by an agent (a secret written
+   * into the source): where it is. Its quote never holds the secret.
+   */
+  location?: CodeLocation;
+  foundBy?: "code";
 }
 
 export interface ScoreRow {
@@ -422,6 +429,10 @@ export interface RunRecord {
   unaddressedGroupIds: string[];
   scoreboard: ScoreRow[];
   usage: Partial<Record<Stage, Usage>>;
+  /** Security findings' remediations, by group id. Absent on older runs. */
+  remediations?: Record<string, RemediationRecord>;
+  /** Personal data and secrets in the code, found by name. Code runs only. */
+  inventory?: Inventory;
 }
 
 export interface RunSummary {
@@ -463,6 +474,8 @@ export type RunEvent =
   | { type: "agent.finding"; agentId: AgentId; finding: LiveFinding }
   | { type: "agent.declined"; agentId: AgentId; category: string | null }
   | { type: "agent.failed"; agentId: AgentId; error: string }
+  /** A security finding's remediation is ready (or could not be made). */
+  | { type: "remediation.ready"; groupId: string }
   | { type: "run.completed" }
   | { type: "run.failed"; error: string };
 
@@ -496,4 +509,79 @@ export function addUsage(a: Usage, b: Usage): Usage {
     cacheReadTokens: a.cacheReadTokens + b.cacheReadTokens,
     cacheWriteTokens: a.cacheWriteTokens + b.cacheWriteTokens,
   };
+}
+
+// ── Security: remediation and the data inventory ────────────────────────────
+
+/** The remediation stage's answer for one security finding. */
+export const RemediationAnswer = z.object({
+  summary: z.string(),
+  steps: z.array(z.string()),
+  /** For example "CWE-89". */
+  cwe: z.string(),
+  /** For example "A03:2021 Injection". */
+  owasp: z.string(),
+  /** Each replaces lines of one file. The "before" text must be exact. */
+  edits: z.array(
+    z.object({
+      path: z.string(),
+      startLine: z.number().int(),
+      endLine: z.number().int(),
+      before: z.string(),
+      after: z.string(),
+    }),
+  ),
+  notes: z.array(z.string()),
+});
+export type RemediationAnswer = z.infer<typeof RemediationAnswer>;
+
+export interface RemediationRecord {
+  groupId: string;
+  /** "made", or "failed" when there is no remediation and why is in error. */
+  status: "made" | "failed";
+  summary: string;
+  steps: string[];
+  cwe: { id: string; name: string; url: string; fallback: boolean } | null;
+  owasp: { id: string; name: string; url: string } | null;
+  /** Edits that matched the real file, with context for a diff. */
+  edits: {
+    path: string;
+    startLine: number;
+    before: string[];
+    after: string[];
+    contextBefore: string[];
+    contextAfter: string[];
+    noNewlineAtEnd?: boolean;
+  }[];
+  /** Edits that were not kept, and why. */
+  dropped: { path: string; reason: string }[];
+  notes: string[];
+  error: string | null;
+}
+
+export type PiiCategory =
+  | "contact"
+  | "identity"
+  | "financial"
+  | "location"
+  | "health"
+  | "credentials"
+  | "online";
+
+export type DataSink = "log" | "outside" | "storage" | "response";
+
+export interface Inventory {
+  /** Each place a name that holds personal data appears, by file and line. */
+  pii: {
+    category: PiiCategory;
+    term: string;
+    path: string;
+    line: number;
+    sinks: DataSink[];
+  }[];
+  /** Secrets written into the code: their kind and place, never the value. */
+  secrets: { kind: string; path: string; line: number; masked: string }[];
+  filesScanned: number;
+  /** True when the scan stopped at its limit before reading every file. */
+  truncated: boolean;
 }

@@ -27,7 +27,9 @@ import {
 
 import { ArchitectureDiagram } from "./architecture-diagram";
 import { CountUp } from "./count-up";
+import { PrivacyView } from "./privacy";
 import { Sankey } from "./sankey";
+import { SecurityView } from "./security";
 
 /*
  * The cockpit of one project: the numbers, the flow of issues, the
@@ -360,6 +362,8 @@ export function Cockpit({ cockpit }: { cockpit: CockpitData }) {
           )}
         </Panel>
       </FadeIn>
+      <SecurityView issues={cockpit.issues} />
+      {cockpit.privacy ? <PrivacyView privacy={cockpit.privacy} /> : null}
     </div>
   );
 }

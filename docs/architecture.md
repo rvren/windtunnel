@@ -116,25 +116,27 @@ Rules that hold across modules (from `CLAUDE.md`):
 ```mermaid
 flowchart LR
   start(["Run started<br/>registry.ts startRun"]) --> survey
-  survey["survey<br/>fetch and list files<br/>repository runs only"] --> model
-  model["model<br/>Opus 5.5<br/>design model and architecture"] --> coverage
+  survey["survey<br/>fetch, list files,<br/>data inventory<br/>repository runs only"] --> model
+  model["model<br/>Opus 5.5<br/>design model, then<br/>architecture (2nd call)"] --> coverage
   coverage["coverage<br/>no model call<br/>gaps code can see"] --> agents
   agents["agents<br/>Sonnet 5.5 × 5<br/>in parallel"] --> challenge
   challenge["challenge<br/>Sonnet 5.5 × 5<br/>review each other"] --> judge
-  judge["judge<br/>Opus 5.5<br/>merge, reject, rank"] --> work_orders
+  judge["judge<br/>Opus 5.5<br/>merge, reject, rank<br/>+ secrets found by code"] --> remediation
+  remediation["remediation<br/>Opus 5.5<br/>fix, patch, CWE, OWASP<br/>security findings only"] --> work_orders
   work_orders["work_orders<br/>Opus 5.5<br/>with acceptance criteria"] --> done
   done(["Run completed"]) -. "project linked" .-> deliver["Send work orders<br/>connectors/deliver.ts"]
 ```
 
-| Stage       | Code                                                                                                    | Model      | Checked by                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
-| survey      | `src/server/engine/repo/fetch.ts`, `src/server/engine/repo/survey.ts`                                   | none       | file and size limits                                                                                                  |
-| model       | `src/server/engine/run.ts` with `MODEL_SYSTEM` or `REPO_MODEL_SYSTEM` in `src/server/engine/prompts.ts` | Opus 5.5   | `normalizeModel` in `src/server/engine/coverage.ts`, `normalizeArchitecture` in `src/server/engine/architecture.ts`   |
-| coverage    | `findCoverage` in `src/server/engine/coverage.ts`                                                       | none       | it is code                                                                                                            |
-| agents      | `src/server/engine/run.ts`, briefs in `src/lib/agents.ts`                                               | Sonnet 5.5 | `checkAgentReport` in `src/server/engine/validate.ts`, or `report_finding` in `src/server/engine/repo/agent-tools.ts` |
-| challenge   | `CHALLENGE_SYSTEM` in `src/server/engine/prompts.ts`                                                    | Sonnet 5.5 | `checkChallenges` in `src/server/engine/validate.ts`                                                                  |
-| judge       | `JUDGE_SYSTEM` in `src/server/engine/prompts.ts`                                                        | Opus 5.5   | `reconcileVerdict` in `src/server/engine/validate.ts`                                                                 |
-| work_orders | `WORK_ORDER_SYSTEM` in `src/server/engine/prompts.ts`                                                   | Opus 5.5   | `checkWorkOrders` in `src/server/engine/validate.ts`                                                                  |
+| Stage       | Code                                                                                                         | Model      | Checked by                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------ |
+| survey      | `src/server/engine/repo/fetch.ts`, `src/server/engine/repo/survey.ts`, `src/server/engine/repo/inventory.ts` | none       | file and size limits                                                                                                     |
+| model       | `src/server/engine/run.ts` with `MODEL_SYSTEM` or `REPO_MODEL_SYSTEM` in `src/server/engine/prompts.ts`      | Opus 5.5   | `normalizeModel` in `src/server/engine/coverage.ts`, `normalizeArchitecture` in `src/server/engine/architecture.ts`      |
+| coverage    | `findCoverage` in `src/server/engine/coverage.ts`                                                            | none       | it is code                                                                                                               |
+| agents      | `src/server/engine/run.ts`, briefs in `src/lib/agents.ts`                                                    | Sonnet 5.5 | `checkAgentReport` in `src/server/engine/validate.ts`, or `report_finding` in `src/server/engine/repo/agent-tools.ts`    |
+| challenge   | `CHALLENGE_SYSTEM` in `src/server/engine/prompts.ts`                                                         | Sonnet 5.5 | `checkChallenges` in `src/server/engine/validate.ts`                                                                     |
+| judge       | `JUDGE_SYSTEM` in `src/server/engine/prompts.ts`                                                             | Opus 5.5   | `reconcileVerdict` in `src/server/engine/validate.ts`                                                                    |
+| remediation | `src/server/engine/remediation.ts`, `REMEDIATION_SYSTEM` in `src/server/engine/prompts.ts`                   | Opus 5.5   | `checkEdits` (every edit matches the real file), `resolveCwe` and `resolveOwasp` in `src/server/engine/security-refs.ts` |
+| work_orders | `WORK_ORDER_SYSTEM` in `src/server/engine/prompts.ts`                                                        | Opus 5.5   | `checkWorkOrders` in `src/server/engine/validate.ts`                                                                     |
 
 The stage list is `STAGES` in `src/server/engine/schema.ts`. Models are set
 with `WINDTUNNEL_MODEL_REASONING` and `WINDTUNNEL_MODEL_AGENTS`
@@ -219,7 +221,38 @@ model would, so every check still runs. The Storefront script is
 `src/server/engine/sample-project.ts`, keyed by repository, against the
 files in `samples/storefront/`.
 
-## 5. Live updates
+## 5. Security: remediation, personal data and secrets
+
+Three parts work together. None of them runs code from the repository.
+
+```mermaid
+flowchart TB
+  files["Repository files<br/>after the survey"] --> inv["Data inventory<br/>repo/inventory.ts<br/>no model"]
+  inv --> pii["Personal data by name<br/>contact, identity, financial,<br/>location, health, credentials, online"]
+  inv --> flows["Where it goes<br/>logs · outside calls ·<br/>storage · responses"]
+  inv --> secrets["Secrets<br/>known key formats and<br/>hard-coded literals"]
+  pii & flows & secrets --> ctx["Summary in the agents'<br/>shared context"]
+  secrets --> sg["One critical finding each<br/>secretGroups, after the judge"]
+  judge["Accepted security findings"] --> rem
+  sg --> rem["Remediation stage<br/>reads the code again (12 turns)<br/>3 findings at a time"]
+  rem --> check["checkEdits: exact match with the file,<br/>at most 5 edits and 80 lines,<br/>no lockfiles, vendored or generated files"]
+  rem --> refs["CWE and OWASP Top 10 2021<br/>checked against fixed lists"]
+  check & refs --> record["RemediationRecord on the run<br/>steps · patch · CWE · OWASP · notes"]
+  record --> ui["Run findings · cockpit Security ·<br/>8090 work orders · exports"]
+```
+
+| Part            | Where                                                                                                             | Holds to                                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Data inventory  | `src/server/engine/repo/inventory.ts`                                                                             | Found by name, so it may include false positives; says so on screen                                                            |
+| Secret findings | `secretGroups` in `src/server/engine/remediation.ts`                                                              | A secret's value is never saved: only its kind, file, line and a masked line. `scrubDeep` masks it in everything the run saves |
+| Remediation     | `src/server/engine/remediation.ts`                                                                                | Never fails the run; an edit that does not match the file is dropped with the reason; a patch is never applied                 |
+| References      | `src/server/engine/security-refs.ts`                                                                              | An unknown CWE falls back to its OWASP category's CWE, marked as such                                                          |
+| Diff            | `src/lib/patch.ts`                                                                                                | Three lines of context; `git apply --check` accepts it                                                                         |
+| Screens         | `src/components/run/remediation.tsx`, `src/components/project/security.tsx`, `src/components/project/privacy.tsx` | Colour only in the diff                                                                                                        |
+
+Not covered yet: known-vulnerable dependencies (needs an advisory database).
+
+## 6. Live updates
 
 ```mermaid
 flowchart LR
@@ -238,7 +271,7 @@ what it missed. The event types are `RunEvent` in
 `src/server/engine/schema.ts`; the stream is
 `src/app/api/runs/[id]/events/route.ts`.
 
-## 6. Projects and the cockpit
+## 7. Projects and the cockpit
 
 ```mermaid
 flowchart LR
@@ -256,7 +289,7 @@ Projects and workspaces: `src/server/projects/store.ts`. Older runs with no
 project are gathered under "Demo project" by `src/server/projects/adopt.ts`.
 Sample data: `src/server/projects/demo.ts`.
 
-## 7. The data
+## 8. The data
 
 ```mermaid
 erDiagram
@@ -284,7 +317,7 @@ run are JSON in `runs.data`, shaped by `RunRecord` in
 `src/server/engine/schema.ts`. Migrations are applied at start by
 `src/server/db/ready.ts`.
 
-## 8. Connectors
+## 9. Connectors
 
 ```mermaid
 sequenceDiagram

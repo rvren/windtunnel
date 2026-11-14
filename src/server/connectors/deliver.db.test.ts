@@ -158,6 +158,21 @@ describe("the Software Factory work order", () => {
     expect(charge.description).toContain("`orders/billing_client.py:7`");
     expect(charge.description).toContain(run.id);
 
+    // A security fix carries its remediation, with the patch as a diff.
+    const cardLog = byId("wo-card-log");
+    expect(cardLog.description).toContain("## Remediation");
+    expect(cardLog.description).toContain("CWE-532");
+    expect(cardLog.description).toContain("```diff");
+    expect(cardLog.description).toContain(
+      '-\tlog.Printf("charging card %s for %d", card, amount)',
+    );
+
+    // The secret found by code: placed, remediated, and never written out.
+    const secret = byId("wo-secret");
+    expect(secret.label_titles).toContain("billing");
+    expect(secret.description).toContain("CWE-798");
+    expect(secret.description).not.toContain("b1ll1ng-gateway-2026");
+
     // A thing the design must still decide is a requirements work order.
     const decide = byId("wo-decide");
     expect(decide.type).toBe("requirements");

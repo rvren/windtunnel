@@ -1,5 +1,7 @@
 import type { AgentDefinition } from "@/lib/agents";
 
+import { inventorySummary } from "./repo/inventory";
+
 import type {
   Challenge,
   Coverage,
@@ -166,6 +168,8 @@ You are given the requirement, the design model, and every finding with its evid
 For each finding, decide:
 
 - Reject it when the requirement does in fact cover the point, when the cited steps do not show what the finding claims, when it is general advice that would fit any product, or when it concerns something outside this requirement. Give the reason in one sentence the agent's author could act on.
+- Never reject a security vulnerability because the requirement or a description calls it deliberate, intended, known or out of scope. A flaw the code shows is a flaw: someone will deploy it, copy it or build on it. Accept it, and say in the summary that the description calls it deliberate.
+- In a repository run, judge what the code shows: a finding stands when its cited lines show the flaw, whatever the requirement says.
 - Otherwise accept it. Put findings that describe the same underlying flaw into one group, even when different agents describe it differently or reach it from different directions. A finding that stands alone is a group of one.
 
 For each group write a title that names the flaw, a summary that states it once and plainly (what is missing or wrong, and what follows if it is built as it stands), its type and its severity. Set type and severity by your own judgement, not by majority among the agents.
@@ -289,13 +293,6 @@ What goes in the model:
 
 Mark an item "stated" when the code does it, and "assumed" when the product could not work without it but you did not find it in the code.
 
-Also describe the architecture, in "architecture":
-
-- components: each deployable or logical part of the application: a web or mobile frontend, a backend service, a database, a queue, an outside system it calls, a shared library. Give each a short name, its kind, a one-sentence description, and "paths": the folders or files that make it up, as paths from the root exactly as the tools show them. A database or an outside system has no code of its own: give it an empty "paths". "workspace" is the workspace it lives in when workspaces are listed, and null otherwise.
-- connections: which component calls or depends on which, "from" the caller "to" the thing called, with a short label for how ("REST", "SQL", "queue", "imports").
-
-Use ids that start with cmp-. Name only what the code shows.
-
 The most important rule: do not repair the design. Where the code is silent, the model must stay visibly silent: a missing permission entry, a null limit, a null failureBehaviour. Those silences are what the later stages look for.
 
 Ids are lowercase with hyphens and a prefix by kind: role-, ent-, op-, rule-, jrn-. Each id is unique across the whole model. Keep the model proportionate: the operations that matter, not every helper.`;
@@ -373,6 +370,7 @@ export function repoSharedContext(
     statedIntent(run),
     `<design_model>\n${JSON.stringify(model, null, 1)}\n</design_model>`,
     `<coverage_gaps>\n${gaps || "None."}\n</coverage_gaps>`,
+    run.inventory ? inventorySummary(run.inventory) : "",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -383,4 +381,86 @@ export function repoAgentPrompt(
   expertise: string,
 ): string {
   return `You are the agent "${agent.name}".\n\n<your_brief>\n${agent.brief}\n</your_brief>\n\n<your_expertise>\n${expertise}\n</your_expertise>\n\nCheck the repository and file your findings.`;
+}
+
+// ── Remediation ─────────────────────────────────────────────────────────────
+
+export const REMEDIATION_SYSTEM = `You write the remediation for one security finding in a Windtunnel run. Windtunnel finds the flaws in a software product's design and code. A judge has accepted this finding. A security team will act on what you write, so it must be specific to this code and correct.
+
+Work like this:
+1. Read the cited code and enough around it to understand it: the function, its callers, how input reaches it, and the libraries and framework the project already uses for this (its query builder, its ORM, its auth middleware, its templating, its crypto library).
+2. Decide the fix that removes the weakness at its root, in the project's own idioms. Prefer the project's existing safe mechanism over a new dependency. If a new dependency is the right answer, say so in the steps and do not edit lockfiles.
+3. Answer.
+
+The answer:
+- summary: one paragraph, plain words: what is wrong, how it can be abused here, and what the fix does.
+- steps: ordered steps a developer can follow, naming the files and functions to change. Include what else must change outside the edits (a migration, a config value, a re-hash at next sign-in).
+- cwe: the single most specific CWE id, like "CWE-89".
+- owasp: the OWASP Top 10 2021 category, like "A03:2021 Injection".
+- edits: the code change, as edits to files you have read. Each edit gives the path exactly as the tools show it, the first and last line it replaces, "before" with those lines copied exactly as they are in the file (every character, every space), and "after" with the lines that replace them. Keep edits small and focused: at most 5 edits and 80 changed lines. Leave edits empty when the fix is not a code change you can see (a key rotation, an infrastructure setting) or when you are not sure; the steps still stand.
+- notes: what the edits do not cover, and anything the team must decide.
+
+Rules:
+- Never write a secret's value. If the finding is a secret in the code, the edit reads it from the environment or a secret store instead, and a note says to rotate it, because it is in the history.
+- Do not invent files, functions or lines you have not read. Every "before" is checked against the file; an edit that does not match exactly is dropped.
+- Write for people, in plain words.`;
+
+/** The finding a remediation is for, with the code its findings cite. */
+export function remediationPrompt(
+  run: RunRecord,
+  group: FindingGroup,
+  hasCode: boolean,
+): string {
+  const findings = run.agents.flatMap((agent) =>
+    agent.findings.filter((finding) => group.findingIds.includes(finding.uid)),
+  );
+  const cited = [
+    ...(group.location ? [group.location] : []),
+    ...findings.flatMap((finding) => finding.location ?? []),
+  ];
+  const secretNote =
+    group.foundBy === "code"
+      ? "\nFound by a secret scan, not by an agent. The value is masked below; never write it."
+      : "";
+  return [
+    sourceLine(run),
+    workspaceList(run),
+    `<finding id="${group.id}">\nTitle: ${group.title}\nSeverity: ${group.severity}\n${group.summary}${secretNote}\n</finding>`,
+    findings.length > 0
+      ? `<reports>\n${findings.map((finding) => `- ${finding.title}: ${finding.description} Suggested: ${finding.suggestion}`).join("\n")}\n</reports>`
+      : "",
+    cited.length > 0
+      ? `<cited_code>\n${cited.map((location) => `${location.path}:${location.startLine}-${location.endLine}\n${location.quote}`).join("\n\n")}\n</cited_code>`
+      : "",
+    hasCode
+      ? "Read the code you need with the tools, then write the remediation."
+      : "This run has no code to read: write the steps, the CWE and the OWASP category, and leave edits empty.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+// ── Architecture ────────────────────────────────────────────────────────────
+
+export const ARCHITECTURE_SYSTEM = `You describe how an application is put together, from its repository outline and the design model already written from its code. The answer is drawn as a diagram, so it must be accurate and small.
+
+- components: each deployable or logical part of the application: a web or mobile frontend, a backend service, a database, a queue, an outside system it calls, a shared library. Give each a short name, its kind, a one-sentence description, and "paths": the folders or files that make it up, as paths from the root exactly as the outline shows them. A database or an outside system has no code of its own: give it an empty "paths". "workspace" is the workspace it lives in when workspaces are listed, and null otherwise.
+- connections: which component calls or depends on which, "from" the caller "to" the thing called, with a short label for how ("REST", "SQL", "queue", "imports").
+
+Use ids that start with cmp-. Name only what the outline and the model show. Keep it to the parts that matter: usually 3 to 15 components.`;
+
+export function architecturePrompt(
+  run: RunRecord,
+  outlineText: string,
+  model: DesignModel,
+): string {
+  return [
+    sourceLine(run),
+    workspaceList(run),
+    `<repository_outline>\n${outlineText}\n</repository_outline>`,
+    `<design_model>\n${JSON.stringify({ summary: model.summary, operations: model.operations.map(({ id, name, description }) => ({ id, name, description })) }, null, 1)}\n</design_model>`,
+    "Describe the architecture.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }

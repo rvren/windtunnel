@@ -1,4 +1,5 @@
 import { SEVERITY_LABEL } from "@/lib/labels";
+import { toUnifiedDiff } from "@/lib/patch";
 
 import { workspaceOf } from "../engine/architecture";
 import type { Finding, RunRecord, WorkOrder } from "../engine/schema";
@@ -65,15 +66,20 @@ export function toFactoryWorkOrder(
       agent.findings.map((finding) => [finding.uid, finding] as const),
     ),
   );
-  const cited = (uids: string[]) =>
-    uids.flatMap((uid) => findings.get(uid)?.location ?? []);
+  // A group's code: its findings' places, or its own for one found by code.
+  const citedBy = (group: (typeof groups)[number]) => {
+    const places = group.findingIds.flatMap(
+      (uid) => findings.get(uid)?.location ?? [],
+    );
+    return places.length > 0 || !group.location ? places : [group.location];
+  };
 
   // The workspaces of the code the settled findings cite. A project of one
   // workspace has no workspace in its paths: the run's own name is used.
   const names = run.source?.workspaces?.map((item) => item.name) ?? [];
   const workspaces = new Set<string>();
   for (const group of groups) {
-    for (const location of cited(group.findingIds)) {
+    for (const location of citedBy(group)) {
       const name =
         names.length > 0
           ? workspaceOf(location.path, names)
@@ -101,11 +107,52 @@ export function toFactoryWorkOrder(
   if (groups.length > 0) {
     lines.push("", "## Findings this settles", "");
     for (const group of groups) {
-      const [first] = cited(group.findingIds);
+      const [first] = citedBy(group);
       const where = first ? ` (\`${first.path}:${first.startLine}\`)` : "";
       lines.push(
         `- **${SEVERITY_LABEL[group.severity]}: ${group.title}.** ${group.summary}${where}`,
       );
+    }
+  }
+  // How to fix the security findings it settles, checked against the code.
+  const fixes = groups.flatMap((group) => {
+    const record = run.remediations?.[group.id];
+    return record?.status === "made" ? [{ group, record }] : [];
+  });
+  if (fixes.length > 0) {
+    lines.push("", "## Remediation");
+    for (const { group, record } of fixes) {
+      lines.push("", `### ${group.title}`, "");
+      const refs = [
+        record.cwe
+          ? `[${record.cwe.id} ${record.cwe.name}](${record.cwe.url})`
+          : null,
+        record.owasp
+          ? `[OWASP ${record.owasp.id} ${record.owasp.name}](${record.owasp.url})`
+          : null,
+      ].filter(Boolean);
+      if (refs.length > 0) lines.push(refs.join(" · "), "");
+      lines.push(record.summary);
+      if (record.steps.length > 0) {
+        lines.push(
+          "",
+          ...record.steps.map((step, index) => `${index + 1}. ${step}`),
+        );
+      }
+      const diff = toUnifiedDiff(record.edits);
+      if (diff) {
+        lines.push(
+          "",
+          "Suggested patch (checked against the code, not applied):",
+          "",
+          "```diff",
+          diff.trimEnd(),
+          "```",
+        );
+      }
+      if (record.notes.length > 0) {
+        lines.push("", ...record.notes.map((note) => `- ${note}`));
+      }
     }
   }
   lines.push(
@@ -228,6 +275,32 @@ export async function listFactoryProjects(): Promise<{
   );
 }
 
+/**
+ * Whether a label is in `list_item_labels`' answer. Software Factory writes
+ * it as text, one label to a line: "windtunnel  [purple]".
+ */
+export function labelListed(
+  title: string,
+  data: unknown,
+  text: string,
+): boolean {
+  const wanted = title.toLowerCase();
+  if (
+    JSON.stringify(data ?? "")
+      .toLowerCase()
+      .includes(`"${wanted}"`)
+  ) {
+    return true;
+  }
+  return text.split("\n").some(
+    (line) =>
+      line
+        .trim()
+        .toLowerCase()
+        .replace(/\s+\[[a-z]+\]$/, "") === wanted,
+  );
+}
+
 /** Opens Software Factory for one project and hands over an outbox. */
 export async function withSoftwareFactory<T>(
   projectId: string,
@@ -242,13 +315,17 @@ export async function withSoftwareFactory<T>(
             title,
             page_size: 100,
           });
-          const known = JSON.stringify(data ?? text).toLowerCase();
-          if (known.includes(`"${title.toLowerCase()}"`)) continue;
-          await callTool(client, "create_item_label", {
-            project_id: projectId,
-            title,
-            color: title === ORIGIN_LABEL ? "purple" : "gray",
-          });
+          if (labelListed(title, data, text)) continue;
+          try {
+            await callTool(client, "create_item_label", {
+              project_id: projectId,
+              title,
+              color: title === ORIGIN_LABEL ? "purple" : "gray",
+            });
+          } catch (error) {
+            // Made meanwhile, or listed in a way not read above: it exists.
+            if (!/already exists|409/i.test(String(error))) throw error;
+          }
         }
       },
       async create(workOrder) {

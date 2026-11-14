@@ -97,6 +97,8 @@ export function applyEvent(feed: Feed, event: RunEvent): Feed {
           { name: event.name, label: event.label },
         ],
       };
+    case "remediation.ready":
+      return feed;
     case "architecture.ready":
       return { ...feed, architecture: event.architecture };
     case "agent.started":
