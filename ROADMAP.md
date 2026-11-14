@@ -21,6 +21,31 @@ Done:
 - The live map of a run in progress, and Storefront, a sample application of
   seven services in private repositories, with scripted runs
 
+## Before production: evals for every agent
+
+Required before Windtunnel goes to production. Today nothing measures
+whether the agents find the right flaws: the tests replay fixed answers,
+and a run's own checks only drop malformed output. Each eval needs a
+reviewed answer key, a grader checked on known-good and known-bad output,
+and repeats, since the same repository can give very different runs.
+
+- **The agents on code** (the five agents, the challenge round, the judge):
+  recall and precision per agent against known flaws in Storefront and
+  DVNA. Planned in
+  [evals/agents-on-code/PLAN.md](evals/agents-on-code/PLAN.md).
+- **The agents on a requirement:** known gaps and contradictions planted in
+  written specs.
+- **The judge alone:** keeps real findings, drops false ones, and never
+  rejects a real flaw because a description calls it deliberate (a run of
+  DVNA on 14 November lost 11 real findings that way).
+- **The fix agent:** the patch applies and closes the flaw, checked on the
+  code afterwards.
+- **The design model:** roles, operations and permissions against
+  hand-written models of sample requirements.
+
+Evals run offline, when a prompt, note or model changes; they add nothing
+to what a user's run costs.
+
 ## 1. Tunnel run
 
 **Version 1 is built.** Still to do in this stage:
