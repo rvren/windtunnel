@@ -4,459 +4,342 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import {
   ArrowRight,
-  ExternalLink,
+  FolderPlus,
   GitMerge,
   GitPullRequest,
+  Play,
   ShieldAlert,
 } from "lucide-react";
 
 import { InfoTip } from "@/components/info-tip";
 import { PullRequestRefresher } from "@/components/issues/pr-refresher";
 import { LocalTime } from "@/components/local-time";
-import { EASE, FadeIn } from "@/components/motion";
+import { EASE, FadeIn, FadeInItem } from "@/components/motion";
 import { StatusBadge } from "@/components/run/badges";
 import { SegmentedBar } from "@/components/tuff/progress-bar";
 import { RollingNumber } from "@/components/tuff/rolling-number";
-import type { ExplainKey } from "@/lib/explain";
 import { SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { SEVERITY_TONE } from "@/lib/viz/cockpit-views";
 import type { HomeNumbers } from "@/lib/viz/home";
 
 /*
- * The home page: the fix pipeline across every project. What needs a
- * person first, then where issues stand, how fast they get fixed, each
- * project, and the latest pull requests and runs.
+ * The home page as a board of projects. A thin strip says where every
+ * issue is in the fix pipeline; then one card per project: how much of it
+ * is fixed, its open issues by severity, its pull requests and last run,
+ * and the one thing to do next. Recent runs and pull requests close it.
  */
 
-function Card({
-  title,
-  about,
-  className,
-  children,
-  testId,
-  action,
-}: {
-  title: string;
-  about: ExplainKey;
-  className?: string;
-  children: React.ReactNode;
-  testId: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <section
-      className={cn("flex flex-col rounded-card bg-card p-5", className)}
-      data-testid={testId}
-    >
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-1.5 text-sm font-medium">
-          {title}
-          <InfoTip about={about} label={title} />
-        </h2>
-        {action}
-      </header>
-      {children}
-    </section>
-  );
-}
+type Project = HomeNumbers["projects"][number];
 
-const days = (value: number) =>
-  value < 1
-    ? "under a day"
-    : `${Math.round(value)} ${Math.round(value) === 1 ? "day" : "days"}`;
+const NEXT_ICON = {
+  rescan: GitMerge,
+  fix: ShieldAlert,
+  run: Play,
+  open: ArrowRight,
+} as const;
 
-function Weeks({ weeks }: { weeks: HomeNumbers["open"]["weeks"] }) {
+/** A ring that fills to the share of the project's issues fixed. */
+function Ring({ share }: { share: number }) {
   const reduced = useReducedMotion();
-  const max = Math.max(
-    1,
-    ...weeks.flatMap((week) => [week.opened, week.fixed]),
-  );
+  const r = 22;
+  const length = 2 * Math.PI * r;
   return (
-    <div>
-      <div
-        className="flex h-24 items-end gap-2"
-        aria-label="Opened and fixed per week"
+    <div className="relative size-16 shrink-0">
+      <svg
+        viewBox="-28 -28 56 56"
+        className="size-full -rotate-90"
+        aria-hidden="true"
       >
-        {weeks.map((week) => (
-          <div
-            key={week.end}
-            className="flex flex-1 items-end justify-center gap-0.5"
-          >
-            {[
-              { value: week.opened, color: "var(--sev-high)", label: "opened" },
-              { value: week.fixed, color: "var(--ok)", label: "fixed" },
-            ].map((bar) => (
-              <motion.span
-                key={bar.label}
-                title={`${bar.value} ${bar.label}`}
-                className="w-2.5 rounded-t-sm"
-                style={{ background: bar.color, opacity: bar.value ? 1 : 0.25 }}
-                initial={reduced ? false : { height: 0 }}
-                animate={{ height: `${Math.max(4, (bar.value / max) * 96)}px` }}
-                transition={{ duration: 0.6, ease: EASE }}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
-        <span>8 weeks ago</span>
-        <span className="flex gap-3">
-          <span className="flex items-center gap-1">
-            <span className="size-1.5 rounded-full bg-sev-high" /> opened
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="size-1.5 rounded-full bg-ok" /> fixed
-          </span>
-        </span>
-        <span>this week</span>
-      </div>
+        <circle
+          r={r}
+          fill="none"
+          stroke="var(--surface-raised)"
+          strokeWidth="5"
+        />
+        <motion.circle
+          r={r}
+          fill="none"
+          stroke="var(--ok)"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={length}
+          initial={reduced ? false : { strokeDashoffset: length }}
+          animate={{ strokeDashoffset: length * (1 - share) }}
+          transition={{ duration: 0.9, ease: EASE }}
+        />
+      </svg>
+      <span className="absolute inset-0 grid place-items-center text-xs font-medium tabular-nums">
+        {Math.round(share * 100)}%
+      </span>
     </div>
   );
 }
 
-export function Home({ numbers }: { numbers: HomeNumbers }) {
-  const { needs, open, pipeline, timeToFix } = numbers;
-  const nothingNeeded =
-    needs.awaitingRescan.length +
-      needs.prsOpen.length +
-      needs.unfixedSerious.length ===
-    0;
-  const stages = [
-    { label: "Open", value: pipeline.open, color: "var(--sev-high)" },
-    { label: "PR open", value: pipeline.prOpen, color: "var(--brand)" },
-    { label: "Merged", value: pipeline.merged, color: "var(--sev-medium)" },
-    { label: "Fixed", value: pipeline.fixed, color: "var(--ok)" },
-  ];
-  const widest = Math.max(1, ...stages.map((stage) => stage.value));
-
+function ProjectCard({ project }: { project: Project }) {
+  const Next = NEXT_ICON[project.next.kind];
+  const urgent = project.next.kind === "rescan" || project.next.kind === "fix";
   return (
-    <div className="space-y-4" data-testid="home">
-      <PullRequestRefresher />
-
-      <FadeIn className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <Card title="Needs you" about="needsYou" testId="home-needs">
-          {nothingNeeded ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              Nothing waits on you: no merged fix to confirm, no open pull
-              request, no critical or high issue without a fix.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {needs.awaitingRescan.map((item) => (
-                <li key={item.projectId}>
-                  <Link
-                    href={`/app/projects/${item.projectId}`}
-                    className="flex items-center gap-3 rounded-tile bg-sev-high/10 px-3 py-2.5 text-sm ring-1 ring-sev-high/25 hover:bg-sev-high/15"
-                  >
-                    <GitMerge
-                      className="size-4 shrink-0 text-sev-high"
-                      aria-hidden="true"
-                    />
-                    <span className="flex-1">
-                      <span className="font-medium">{item.name}:</span>{" "}
-                      {item.count}{" "}
-                      {item.count === 1 ? "fix merged" : "fixes merged"}, rescan
-                      to confirm
-                    </span>
-                    <ArrowRight
-                      className="size-4 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </li>
-              ))}
-              {needs.prsOpen.map((item) => (
-                <li key={item.id}>
-                  <a
-                    href={item.pr!.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-3 rounded-tile px-3 py-2.5 text-sm ring-1 ring-foreground/10 hover:bg-muted"
-                  >
-                    <GitPullRequest
-                      className="size-4 shrink-0 text-link"
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">{item.title}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {item.projectName} · #{item.pr!.number} waiting for
-                        review
-                      </span>
-                    </span>
-                    <ExternalLink
-                      className="size-3.5 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </a>
-                </li>
-              ))}
-              {needs.unfixedSerious.map((item) => (
-                <li key={item.id}>
-                  <Link
-                    href={`/app/projects/${item.projectId}`}
-                    className="flex items-center gap-3 rounded-tile px-3 py-2.5 text-sm ring-1 ring-foreground/10 hover:bg-muted"
-                  >
-                    <ShieldAlert
-                      className="size-4 shrink-0"
-                      style={{ color: SEVERITY_TONE[item.severity] }}
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">{item.title}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {item.projectName} · {SEVERITY_LABEL[item.severity]} ·
-                        no fix yet
-                      </span>
-                    </span>
-                    <ArrowRight
-                      className="size-4 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card title="Fix pipeline" about="pipeline" testId="home-pipeline">
-          <ul className="space-y-3">
-            {stages.map((stage) => (
-              <li
-                key={stage.label}
-                className="grid grid-cols-[5rem_1fr_2.5rem] items-center gap-3 text-sm"
-              >
-                <span className="text-muted-foreground">{stage.label}</span>
-                <div className="h-6 overflow-hidden rounded-md bg-foreground/[0.05]">
-                  <motion.div
-                    className="h-full rounded-md"
-                    style={{ background: stage.color, opacity: 0.85 }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(stage.value / widest) * 100}%` }}
-                    transition={{ duration: 0.7, ease: EASE }}
-                  />
-                </div>
-                <span className="text-right font-mono tabular-nums">
-                  {stage.value}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </FadeIn>
-
-      <FadeIn
-        delay={0.05}
-        className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]"
-      >
-        <Card title="Open issues" about="openIssues" testId="home-open">
-          <div className="grid gap-6 sm:grid-cols-[auto_1fr]">
-            <div>
-              <RollingNumber
-                value={String(open.total)}
-                className="text-4xl leading-none font-light tabular-nums"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                across all projects
-              </p>
-              <div className="mt-4 w-48">
-                <SegmentedBar
-                  label="Open issues by severity"
-                  size="sm"
-                  max={Math.max(open.total, 1)}
-                  segments={SEVERITY_ORDER.filter(
-                    (s) => open.bySeverity[s] > 0,
-                  ).map((severity) => ({
-                    id: severity,
-                    label: SEVERITY_LABEL[severity],
-                    value: open.bySeverity[severity],
-                    color: SEVERITY_TONE[severity],
-                  }))}
-                />
-                <ul className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-muted-foreground">
-                  {SEVERITY_ORDER.map((severity) => (
-                    <li key={severity} className="flex items-center gap-1.5">
-                      <span
-                        className="size-1.5 rounded-full"
-                        style={{ background: SEVERITY_TONE[severity] }}
-                      />
-                      {SEVERITY_LABEL[severity]}
-                      <span className="font-mono text-foreground tabular-nums">
-                        {open.bySeverity[severity]}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <Weeks weeks={open.weeks} />
-          </div>
-        </Card>
-
-        <Card title="Time to fix" about="timeToFix" testId="home-time">
-          <p className="text-4xl leading-none font-light tabular-nums">
-            {timeToFix.medianDays === null ? "—" : days(timeToFix.medianDays)}
+    <article
+      className="flex h-full flex-col gap-4 rounded-card bg-card p-5 ring-1 ring-transparent transition-shadow duration-300 hover:ring-foreground/10"
+      data-testid="home-project"
+    >
+      <header className="flex items-start gap-4">
+        <Ring share={project.fixedShare} />
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/app/projects/${project.id}`}
+            className="block truncate text-base font-medium hover:underline"
+          >
+            {project.name}
+          </Link>
+          <p className="text-xs text-muted-foreground">
+            {project.fixed} fixed · {project.open} open
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {timeToFix.fixed
-              ? `median from first seen to confirmed gone, over ${timeToFix.fixed} fixed`
-              : "No issue has been fixed and confirmed yet."}
+            {project.lastRun ? (
+              <>
+                Last run <LocalTime iso={project.lastRun.at} />
+              </>
+            ) : (
+              "Not run yet"
+            )}
           </p>
-          {timeToFix.oldestCritical ? (
-            <Link
-              href={`/app/projects/${timeToFix.oldestCritical.projectId}`}
-              className="mt-auto block rounded-tile bg-sev-critical/10 p-3 text-sm ring-1 ring-sev-critical/25 hover:bg-sev-critical/15"
-            >
-              <span className="text-xs text-sev-critical">
-                Oldest open critical · {days(timeToFix.oldestCritical.days)}
-              </span>
-              <span className="mt-0.5 block truncate">
-                {timeToFix.oldestCritical.title}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {timeToFix.oldestCritical.projectName}
-              </span>
-            </Link>
-          ) : null}
-        </Card>
-      </FadeIn>
+        </div>
+      </header>
 
-      <FadeIn
-        delay={0.1}
-        className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]"
+      <div>
+        {project.open > 0 ? (
+          <SegmentedBar
+            label={`${project.name}: open issues by severity`}
+            size="sm"
+            max={project.open}
+            segments={SEVERITY_ORDER.filter(
+              (s) => project.bySeverity[s] > 0,
+            ).map((severity) => ({
+              id: severity,
+              label: SEVERITY_LABEL[severity],
+              value: project.bySeverity[severity],
+              color: SEVERITY_TONE[severity],
+            }))}
+          />
+        ) : (
+          <div className="h-1.5 rounded-full bg-foreground/[0.06]" />
+        )}
+        <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {SEVERITY_ORDER.map((severity) => (
+            <li key={severity} className="flex items-center gap-1">
+              <span
+                aria-hidden="true"
+                className="size-1.5 rounded-full"
+                style={{ background: SEVERITY_TONE[severity] }}
+              />
+              <span className="font-mono text-foreground tabular-nums">
+                {project.bySeverity[severity]}
+              </span>
+              {SEVERITY_LABEL[severity].toLowerCase()}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <GitPullRequest className="size-3.5" aria-hidden="true" />
+          <span className="font-mono text-foreground tabular-nums">
+            {project.prs}
+          </span>
+          {project.prs === 1 ? "pull request open" : "pull requests open"}
+        </span>
+        {project.merged > 0 ? (
+          <span className="flex items-center gap-1.5 text-sev-high">
+            <GitMerge className="size-3.5" aria-hidden="true" />
+            {project.merged} merged
+          </span>
+        ) : null}
+      </p>
+
+      <Link
+        href={`/app/projects/${project.id}`}
+        className={cn(
+          "mt-auto flex items-center gap-2 rounded-tile px-3 py-2 text-sm ring-1 transition-colors",
+          urgent
+            ? "bg-brand/10 ring-brand/30 hover:bg-brand/15"
+            : "ring-foreground/10 hover:bg-muted",
+        )}
+        data-testid="home-project-next"
       >
-        <Card
-          title="Projects"
-          about="projectsHealth"
-          testId="home-projects"
-          action={
-            <Link
-              href="/app/projects"
-              className="text-xs text-link hover:underline"
-            >
-              All projects
-            </Link>
-          }
-        >
-          {numbers.projects.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No projects yet.</p>
-          ) : (
-            <ul className="divide-y">
-              {numbers.projects.map((project) => (
-                <li key={project.id}>
-                  <Link
-                    href={`/app/projects/${project.id}`}
-                    className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-4 py-2.5 text-sm hover:text-foreground"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">
-                        {project.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {project.lastRun ? (
-                          <>
-                            Last run <LocalTime iso={project.lastRun.at} />
-                          </>
-                        ) : (
-                          "Not run yet"
-                        )}
-                      </span>
-                    </span>
-                    <span
-                      className="flex items-center gap-1 font-mono text-xs tabular-nums"
-                      title="Critical"
-                    >
-                      <span className="size-1.5 rounded-full bg-sev-critical" />
-                      {project.critical}
-                    </span>
-                    <span
-                      className="flex items-center gap-1 font-mono text-xs tabular-nums"
-                      title="High"
-                    >
-                      <span className="size-1.5 rounded-full bg-sev-high" />
-                      {project.high}
-                    </span>
-                    <span
-                      className="flex items-center gap-1 font-mono text-xs text-muted-foreground tabular-nums"
-                      title="Open pull requests"
-                    >
-                      <GitPullRequest className="size-3" aria-hidden="true" />
-                      {project.prs}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+        <Next
+          className={cn(
+            "size-4",
+            urgent ? "text-brand" : "text-muted-foreground",
           )}
-        </Card>
+          aria-hidden="true"
+        />
+        <span className="flex-1">{project.next.label}</span>
+        <ArrowRight
+          className="size-3.5 text-muted-foreground"
+          aria-hidden="true"
+        />
+      </Link>
+    </article>
+  );
+}
 
-        <Card title="Recent pull requests" about="recentPrs" testId="home-prs">
-          {numbers.recentPrs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No fix pull requests yet. Open one from an issue in a run.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {numbers.recentPrs.map((item) => (
-                <li key={item.id}>
-                  <a
-                    href={item.pr!.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 text-sm hover:underline"
-                  >
-                    <span className="font-mono text-xs text-muted-foreground">
-                      #{item.pr!.number}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">
-                      {item.title}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {item.pr!.state}
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+export function Home({ numbers }: { numbers: HomeNumbers }) {
+  const { pipeline, timeToFix } = numbers;
+  const strip = [
+    { label: "Open", value: pipeline.open, tone: "var(--sev-high)" },
+    {
+      label: "In a pull request",
+      value: pipeline.prOpen,
+      tone: "var(--brand)",
+    },
+    {
+      label: "Merged, to confirm",
+      value: pipeline.merged,
+      tone: "var(--sev-medium)",
+    },
+    { label: "Fixed", value: pipeline.fixed, tone: "var(--ok)" },
+  ];
+
+  return (
+    <div className="space-y-6" data-testid="home">
+      <PullRequestRefresher />
+
+      {/* Where every issue is in the fix pipeline */}
+      <FadeIn
+        className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-card bg-card px-5 py-4"
+        data-testid="home-strip"
+      >
+        {strip.map((item) => (
+          <div key={item.label} className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="h-6 w-1 rounded-full"
+              style={{ background: item.tone }}
+            />
+            <div>
+              <RollingNumber
+                value={String(item.value)}
+                className="text-xl leading-none font-light tabular-nums"
+              />
+              <p className="text-[11px] text-muted-foreground">{item.label}</p>
+            </div>
+          </div>
+        ))}
+        <div className="ml-auto flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Median time to fix</span>
+          <span className="font-mono tabular-nums">
+            {timeToFix.medianDays === null
+              ? "—"
+              : timeToFix.medianDays < 1
+                ? "under a day"
+                : `${Math.round(timeToFix.medianDays)} days`}
+          </span>
+          <InfoTip about="pipeline" label="The fix pipeline" />
+        </div>
       </FadeIn>
 
-      <FadeIn delay={0.15}>
-        <Card
-          title="Recent runs"
-          about="recentRuns"
-          testId="home-runs"
-          action={
+      {/* One card per project */}
+      <section aria-label="Projects">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-1.5 text-sm font-medium">
+            Projects
+            <InfoTip about="projectsHealth" label="Projects" />
+          </h2>
+          <Link
+            href="/app/projects"
+            className="text-xs text-link hover:underline"
+          >
+            Manage projects
+          </Link>
+        </div>
+        {numbers.projects.length === 0 ? (
+          <Link
+            href="/app/projects"
+            className="flex flex-col items-center gap-2 rounded-card border border-dashed px-6 py-12 text-center text-sm text-muted-foreground hover:text-foreground"
+          >
+            <FolderPlus className="size-5" aria-hidden="true" />
+            Add your first project
+          </Link>
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {numbers.projects.map((project) => (
+              <FadeInItem key={project.id}>
+                <ProjectCard project={project} />
+              </FadeInItem>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* What happened lately */}
+      <FadeIn delay={0.1} className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-card bg-card p-5" data-testid="home-runs">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-1.5 text-sm font-medium">
+              Recent runs
+              <InfoTip about="recentRuns" label="Recent runs" />
+            </h2>
             <Link
               href="/app/runs"
               className="text-xs text-link hover:underline"
             >
               All runs
             </Link>
-          }
-        >
+          </div>
           <ul className="divide-y">
             {numbers.recentRuns.map((run) => (
               <li key={run.id}>
                 <Link
                   href={`/app/runs/${run.id}`}
-                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 py-2.5 text-sm"
+                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-2 text-sm"
                 >
                   <span className="truncate">{run.title}</span>
                   <StatusBadge status={run.status} />
                   <LocalTime
                     iso={run.createdAt}
-                    className="font-mono text-xs text-muted-foreground"
+                    className="font-mono text-[11px] text-muted-foreground"
                   />
                 </Link>
               </li>
             ))}
           </ul>
-        </Card>
+        </section>
+
+        <section className="rounded-card bg-card p-5" data-testid="home-prs">
+          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium">
+            Recent pull requests
+            <InfoTip about="recentPrs" label="Recent pull requests" />
+          </h2>
+          {numbers.recentPrs.length === 0 ? (
+            <p className="py-4 text-sm text-muted-foreground">
+              No fix pull requests yet. Open one from a security issue in a run.
+            </p>
+          ) : (
+            <ul className="divide-y">
+              {numbers.recentPrs.map((item) => (
+                <li key={item.id}>
+                  <a
+                    href={item.pr!.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-2 text-sm"
+                  >
+                    <span className="font-mono text-xs text-muted-foreground">
+                      #{item.pr!.number}
+                    </span>
+                    <span className="truncate">{item.title}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {item.projectName} · {item.pr!.state}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </FadeIn>
     </div>
   );

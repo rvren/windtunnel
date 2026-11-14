@@ -81,61 +81,41 @@ const numbers = homeNumbers({
   ],
   issues,
   runs,
-  now: NOW,
 });
 
 describe("the home page's numbers", () => {
-  it("lists what needs a person", () => {
-    expect(numbers.needs.awaitingRescan).toEqual([
-      { projectId: "p1", name: "Shop", count: 1 },
-    ]);
-    expect(numbers.needs.prsOpen.map((i) => i.id)).toEqual(["b"]);
-    // Critical first, then oldest; issues with a PR or gone are left out.
-    expect(numbers.needs.unfixedSerious.map((i) => i.id)).toEqual(["a", "g"]);
-  });
-
-  it("counts live issues by severity and the pipeline", () => {
-    expect(numbers.open.total).toBe(4);
-    expect(numbers.open.bySeverity).toEqual({
-      critical: 1,
-      high: 2,
-      medium: 1,
-      low: 0,
-    });
+  it("counts the pipeline and the time to fix", () => {
     expect(numbers.pipeline).toEqual({
       open: 2,
       prOpen: 1,
       merged: 1,
       fixed: 2,
     });
-  });
-
-  it("measures time to fix and the oldest open critical issue", () => {
     expect(numbers.timeToFix.medianDays).toBe(5);
-    expect(numbers.timeToFix.fixed).toBe(2);
-    expect(numbers.timeToFix.oldestCritical?.id).toBe("a");
-    expect(Math.round(numbers.timeToFix.oldestCritical!.days)).toBe(20);
   });
 
-  it("counts opened and fixed per week over eight weeks", () => {
-    expect(numbers.open.weeks).toHaveLength(8);
-    const last = numbers.open.weeks.at(-1)!;
-    expect(last.fixed).toBe(2);
-    expect(numbers.open.weeks.reduce((s, w) => s + w.opened, 0)).toBe(
-      issues.length,
-    );
+  it("gives each project its share fixed and its next action", () => {
+    const shop = numbers.projects.find((p) => p.id === "p1")!;
+    // 2 fixed of 2 fixed + 3 live.
+    expect(shop.fixedShare).toBeCloseTo(2 / 5);
+    expect(shop.merged).toBe(1);
+    expect(shop.next.kind).toBe("rescan");
+    const billing = numbers.projects.find((p) => p.id === "p2")!;
+    // A reopened high security issue with no PR comes next.
+    expect(billing.next).toMatchObject({ kind: "fix" });
+    expect(billing.bySeverity.high).toBe(1);
   });
 
   it("sums up each project with its last run", () => {
     const shop = numbers.projects.find((p) => p.id === "p1")!;
-    expect(shop).toMatchObject({ critical: 1, high: 1, prs: 1, open: 3 });
+    expect(shop).toMatchObject({ prs: 1, open: 3 });
+    expect(shop.bySeverity).toMatchObject({ critical: 1, high: 1 });
     expect(shop.lastRun?.id).toBe("r2");
     expect(numbers.projects.find((p) => p.id === "p2")!.lastRun).toBeNull();
   });
 
   it("has no median when nothing was fixed", () => {
-    const none = homeNumbers({ projects: [], issues: [], runs: [], now: NOW });
+    const none = homeNumbers({ projects: [], issues: [], runs: [] });
     expect(none.timeToFix.medianDays).toBeNull();
-    expect(none.timeToFix.oldestCritical).toBeNull();
   });
 });

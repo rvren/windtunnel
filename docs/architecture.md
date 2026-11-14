@@ -339,7 +339,9 @@ flowchart LR
 Matching (`src/server/issues/match.ts`) pairs a run's issue with a tracked
 one by kind and cited file, then CWE, then title words; reconciling
 (`src/server/issues/reconcile.ts`) decides each state change. The home page
-(`src/app/app/page.tsx`) reads its numbers from `src/lib/viz/home.ts`.
+(`src/app/app/page.tsx`) reads its numbers from `src/lib/viz/home.ts`: the
+pipeline, the median time to fix, and per project its share fixed, open
+issues by severity and next action.
 
 Projects and workspaces: `src/server/projects/store.ts`. Older runs with no
 project are gathered under "Demo project" by `src/server/projects/adopt.ts`.

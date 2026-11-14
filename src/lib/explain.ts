@@ -60,16 +60,10 @@ export const EXPLAIN = {
     "How fully the design states its rules: the share of role and operation pairs it gives a permission for. Below: permissions given, items stated rather than assumed by the model, and operations that some journey uses.",
   whatChanged:
     "This run against the project's previous finished run: each number now, and how much it went up or down.",
-  needsYou:
-    "What waits on a person: merged fixes to confirm with a rescan, fix pull requests waiting for review, and critical or high issues with no fix yet.",
   pipeline:
-    "Every tracked issue by where it is: open, with a pull request open, merged and waiting for a rescan, and fixed (a later run no longer found it).",
-  openIssues:
-    "Issues not yet confirmed fixed, across all projects, by severity. The bars show how many were first found and how many confirmed fixed each week.",
-  timeToFix:
-    "The middle value of the days from an issue's first run to the run that no longer found it after its fix was merged.",
+    "Every tracked issue by where it is: open, with a pull request open, merged and waiting for a rescan, and fixed (a later run no longer found it). Median time to fix is the middle value of the days from an issue's first run to the run that confirmed it gone.",
   projectsHealth:
-    "Each project's open critical and high issues, its open fix pull requests, and its last run.",
+    "Each project: the ring is the share of its tracked issues confirmed fixed, the bar its open issues by severity, then its open fix pull requests, its last run and the one thing to do next.",
   recentPrs:
     "The latest fix pull requests Windtunnel opened, and where each is now.",
   recentRuns: "The latest runs, newest first.",

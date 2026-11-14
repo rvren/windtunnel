@@ -25,7 +25,6 @@ async function loadHome() {
         projects: projects.map(({ id, name }) => ({ id, name })),
         issues,
         runs,
-        now: Date.now(),
       }),
     };
   } catch {
