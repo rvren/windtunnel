@@ -12,11 +12,13 @@ import { LocalTime } from "@/components/local-time";
 import { LiveMap } from "@/components/project/live-map";
 import { FadeIn } from "@/components/motion";
 import { applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
+import { applyTime, emptyTimes, type RunTimes } from "@/lib/viz/times";
 import type { RunRecord, StoredEvent } from "@/server/engine/schema";
 
 import { SampleBadge, StatusBadge } from "./badges";
 import { LiveFindings } from "./live-findings";
 import { AgentLanes, StageRail } from "./run-progress";
+import { StageTime } from "./stage-time";
 import {
   FindingsTab,
   ModelTab,
@@ -43,6 +45,7 @@ const REFRESH_ON = new Set([
 function useRun(initial: RunRecord) {
   const [run, setRun] = useState(initial);
   const [feed, setFeed] = useState<Feed>(emptyFeed);
+  const [times, setTimes] = useState<RunTimes>(emptyTimes);
   const [connected, setConnected] = useState(true);
   const id = initial.id;
 
@@ -64,6 +67,7 @@ function useRun(initial: RunRecord) {
     source.onmessage = (message) => {
       const stored = JSON.parse(message.data) as StoredEvent;
       setFeed((current) => applyEvent(current, stored.event));
+      setTimes((current) => applyTime(current, stored.event, stored.at));
       if (REFRESH_ON.has(stored.event.type)) void refresh();
     };
     // The server says "end" when nothing more will come.
@@ -80,7 +84,7 @@ function useRun(initial: RunRecord) {
     };
   }, [id]);
 
-  return { run, feed, connected };
+  return { run, feed, times, connected };
 }
 
 /** Starts a new run with the same requirement and files, and opens it. */
@@ -145,7 +149,7 @@ function RunAgain({ run }: { run: RunRecord }) {
 }
 
 export function RunView({ initial }: { initial: RunRecord }) {
-  const { run, feed, connected } = useRun(initial);
+  const { run, feed, times, connected } = useRun(initial);
   const running = run.status === "running";
   const hasReport = run.designModel !== null;
 
@@ -278,6 +282,7 @@ export function RunView({ initial }: { initial: RunRecord }) {
         />
       ) : null}
       <StageRail feed={feed} repository={Boolean(run.source)} />
+      <StageTime times={times} />
       <AgentLanes feed={feed} />
       {running ? <LiveFindings feed={feed} /> : null}
 
@@ -339,7 +344,7 @@ export function RunView({ initial }: { initial: RunRecord }) {
           </TabsContent>
           <TabsContent value="scoreboard">
             <FadeIn>
-              <ScoreboardTab run={run} />
+              <ScoreboardTab run={run} times={times} />
             </FadeIn>
           </TabsContent>
         </Tabs>

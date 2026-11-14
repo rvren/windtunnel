@@ -42,6 +42,7 @@ import {
 } from "@/server/projects/cockpit";
 import { DEMO_REPOSITORIES } from "@/server/projects/demo";
 import { getProject, type Project } from "@/server/projects/store";
+import type { RunPoint } from "@/lib/viz/project";
 import { engineStatus } from "@/server/status";
 
 export const metadata: Metadata = { title: "Project" };
@@ -63,6 +64,7 @@ async function ProjectPage({
   let runs: RunSummary[];
   let shownRuns: RunSummary[];
   let cockpit: CockpitData | null = null;
+  let earlier: RunPoint[] = [];
   try {
     await ensureDatabase();
     project = await getProject(id);
@@ -74,7 +76,19 @@ async function ProjectPage({
     // The cockpit shows the latest run that finished.
     const finished = runs.find((run) => run.status === "completed");
     const record = finished ? await runStore().get(finished.id) : null;
-    if (record) cockpit = buildCockpit(record);
+    if (record) {
+      cockpit = buildCockpit(record);
+      earlier = runs
+        .filter(
+          (run) =>
+            run.status === "completed" && run.createdAt < record.createdAt,
+        )
+        .reverse()
+        .map((run) => ({
+          issues: run.findingCount,
+          workOrders: run.workOrderCount,
+        }));
+    }
   } catch {
     return (
       <Alert variant="destructive">
@@ -243,7 +257,7 @@ async function ProjectPage({
       ) : null}
 
       {cockpit ? (
-        <Cockpit cockpit={cockpit} />
+        <Cockpit cockpit={cockpit} earlier={earlier} />
       ) : count === 0 ? (
         <div
           className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"

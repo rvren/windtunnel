@@ -276,6 +276,9 @@ with a scripted run against those files.
 - [Next.js](https://nextjs.org) 16 (App Router, TypeScript, Turbopack)
 - [Tailwind CSS](https://tailwindcss.com) v4 and
   [shadcn/ui](https://ui.shadcn.com) on Base UI, with lucide icons
+- A few widgets from [tuffui](https://tuffui.com) (MIT), copied into
+  `src/components/tuff/` and adapted: the cockpit numbers, time by stage,
+  time and tokens, the patch view
 - Postgres 17 with [Drizzle](https://orm.drizzle.team)
 - The Claude API through `@anthropic-ai/sdk`
 - Barlow for text and headings, Geist Mono for labels
@@ -288,8 +291,10 @@ drizzle/               SQL migrations
 src/app/(site)/        the home page
 src/app/app/           the product: Runs, New run, Run, Settings
 src/app/api/           runs, their event stream and exports, health
-src/components/        brand/, app/ (shell), run/ (screens), ui/ (shadcn)
-src/lib/               the agents, labels, limits, the live-feed reducer
+src/components/        brand/, app/ (shell), run/ (screens), ui/ (shadcn),
+                       tuff/ (tuffui widgets)
+src/lib/               the agents, labels, limits, the live-feed reducer,
+  viz/                 pure adapters from runs to the widgets' inputs
 src/server/engine/     the engine: stages, prompts, checks, scoring, export
   expertise/           the notes that make each agent a specialist
   repo/                fetch, survey and read-only tools for repository runs

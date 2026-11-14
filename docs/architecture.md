@@ -264,7 +264,14 @@ flowchart LR
   feed --> rail["Stage rail and agent lanes<br/>src/components/run/run-progress.tsx"]
   feed --> live["Live map<br/>src/components/project/live-map.tsx"]
   feed --> found["Live findings<br/>src/components/run/live-findings.tsx"]
+  sse --> times["src/lib/viz/times.ts<br/>applyTime"]
+  times --> time["Time by stage<br/>src/components/run/stage-time.tsx"]
+  times --> trace["Time and tokens<br/>RunTrace, Scoreboard tab"]
 ```
+
+`applyTime` keeps when each stage and agent started and ended, from the
+events' own times. The bar under the stage rail and the flame graph in the
+Scoreboard tab are drawn from it; nothing is timed that has no event.
 
 Every event is saved before it is sent, so a page opened half-way replays
 what it missed. The event types are `RunEvent` in
@@ -283,7 +290,12 @@ flowchart LR
   c --> s["Sankey<br/>workspace → kind → severity"]
   c --> d["Architecture diagram"]
   c --> i["Issues list"]
+  c --> n["Numbers<br/>StatGrid, change vs the last run"]
 ```
+
+The numbers at the top come from `cockpitStats` in `src/lib/viz/project.ts`,
+with the change and trend read from the project's earlier finished runs.
+The widgets themselves are in `src/components/tuff/` (from tuffui.com, MIT).
 
 Projects and workspaces: `src/server/projects/store.ts`. Older runs with no
 project are gathered under "Demo project" by `src/server/projects/adopt.ts`.

@@ -3,49 +3,22 @@
 import { useState } from "react";
 import { Check, Copy, ShieldCheck } from "lucide-react";
 
+import { FileChanges } from "@/components/tuff/file-changes";
 import { Button } from "@/components/ui/button";
 import { toUnifiedDiff } from "@/lib/patch";
-import { cn } from "@/lib/utils";
+import { remediationFiles } from "@/lib/viz/run";
 import type { RemediationRecord } from "@/server/engine/schema";
 
 /*
  * How to fix one security finding: its CWE and OWASP category, the steps,
- * the patch as a diff, and what the patch leaves to do. The diff is the one
- * place code is coloured: removed lines red, added lines green.
+ * the patch as a read-only diff (file, hunks, line numbers), and what the
+ * patch leaves to do. The patch is never applied.
  */
-
-function DiffLines({ diff }: { diff: string }) {
-  return (
-    <pre className="overflow-x-auto py-2 font-mono text-xs leading-relaxed">
-      {diff
-        .trimEnd()
-        .split("\n")
-        .map((line, index) => (
-          <span
-            key={index}
-            className={cn(
-              "block px-3",
-              line.startsWith("+") && !line.startsWith("+++")
-                ? "bg-ok/10 text-ok"
-                : line.startsWith("-") && !line.startsWith("---")
-                  ? "bg-sev-critical/10 text-sev-critical"
-                  : line.startsWith("@@")
-                    ? "text-link"
-                    : line.startsWith("---") || line.startsWith("+++")
-                      ? "text-muted-foreground"
-                      : "text-foreground/80",
-            )}
-          >
-            {line || " "}
-          </span>
-        ))}
-    </pre>
-  );
-}
 
 export function Remediation({ record }: { record: RemediationRecord }) {
   const [copied, setCopied] = useState(false);
   const diff = toUnifiedDiff(record.edits);
+  const files = remediationFiles(record);
 
   if (record.status === "failed") {
     return (
@@ -116,27 +89,33 @@ export function Remediation({ record }: { record: RemediationRecord }) {
       ) : null}
 
       {diff ? (
-        <figure className="mt-4 overflow-hidden rounded-card border bg-card">
-          <figcaption className="flex items-center justify-between gap-3 border-b px-3 py-1.5">
-            <span className="font-mono text-xs text-muted-foreground">
-              Suggested patch · {record.edits.length}{" "}
-              {record.edits.length === 1 ? "edit" : "edits"}, checked against
-              the code, not applied
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={copy}
-              data-testid="remediation-copy"
-              className="h-7"
-            >
-              {copied ? <Check /> : <Copy />}
-              {copied ? "Copied" : "Copy patch"}
-            </Button>
-          </figcaption>
-          <DiffLines diff={diff} />
-        </figure>
+        <div className="mt-4" data-testid="remediation-patch">
+          <FileChanges
+            className="max-w-none"
+            data={files}
+            view={files.length > 1 ? "split" : "stacked"}
+            footer={
+              <>
+                <span className="mr-auto font-mono text-xs text-muted-foreground">
+                  {record.edits.length}{" "}
+                  {record.edits.length === 1 ? "edit" : "edits"}, checked
+                  against the code, not applied
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={copy}
+                  data-testid="remediation-copy"
+                  className="h-7"
+                >
+                  {copied ? <Check /> : <Copy />}
+                  {copied ? "Copied" : "Copy patch"}
+                </Button>
+              </>
+            }
+          />
+        </div>
       ) : null}
 
       {record.notes.length > 0 ? (

@@ -68,9 +68,23 @@ a dark operations dashboard: near-black ground, flat panels, white
 blocks, grey text, and colour only where it means something. When in doubt,
 take something away.
 
-- **Nearly monochrome.** Ground, panels, borders and text are neutral greys
-  from the tokens in `src/app/globals.css`. Do not tint panels or add
-  gradients, glows or shadows in the app.
+- **Nearly monochrome, with light where it is live.** Ground, panels,
+  borders and text are neutral greys from the tokens in
+  `src/app/globals.css`. Glow (`--glow`, the `glow` utility) is only for what
+  is live or picked: a running stage, a live edge, the current filter. Never
+  on static text or large fills; no gradients on panels.
+- **Widgets earn their place.** Before adding a chart or widget, name the one
+  question it answers that the page does not already answer. A big visual
+  that repeats a table, needs hovering to read, or shows one number is cut
+  (the owner rejected a Lap Timer, Tool Call Graph, Radar, Blast Radius and
+  Tick Gauge for this reason). Prefer one line (a bar, a count with a
+  change) over a chart.
+- **Tuffui widgets** live in `src/components/tuff/` (copied from
+  tuffui.com, MIT, adapted: our tokens, read-only where Windtunnel never
+  acts). In use: `StatGrid` (cockpit numbers, with change against the last
+  run), `SegmentedBar` (time by stage), `RunTrace` (time and tokens),
+  `FileChanges` (a patch, read-only), `ProgressBar` (patched share). Feed
+  them through the pure adapters in `src/lib/viz/`, with real numbers only.
 - **One white block per view.** The main action (`Button` default) is solid
   white on dark, ink on light. Every other button is `outline` or `ghost`.
   The current sidebar item is a soft grey chip in the text colour, never a
@@ -121,7 +135,8 @@ font-medium`; body is 14px; secondary text is `text-muted-foreground`.
   helpers in `src/components/motion.tsx`: `FadeIn` for content that mounts,
   `Reveal` for sections that scroll into view, `FadeInItem` for rows that are
   added, `Smooth` for size changes. One soft ease-out, about half a second,
-  a rise of 10px at most. Nothing bounces, spins for show or loops, except
+  a rise of 10px at most. The tuffui widgets keep their own motion
+  (`tuff/motion-tokens.ts`) and honour reduced motion. Nothing bounces, spins for show or loops, except
   the hero art and a spinner while work is going on. Do not add CSS
   keyframes or new `transition-*` classes; add a helper instead. Reduced
   motion is honoured in `MotionRoot`.

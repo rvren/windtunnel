@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Panel } from "@/components/panel";
 import { Remediation } from "@/components/run/remediation";
 import { SeverityBadge } from "@/components/run/badges";
+import { ProgressBar } from "@/components/tuff/progress-bar";
 import { Button } from "@/components/ui/button";
 import { SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/labels";
 import type { Severity } from "@/server/engine/schema";
@@ -45,10 +46,27 @@ export function SecurityView({ issues }: { issues: CockpitIssue[] }) {
     <section data-testid="cockpit-security">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-lg font-medium">Security</h2>
-        <p className="text-xs text-muted-foreground">
-          {security.length} {security.length === 1 ? "issue" : "issues"},{" "}
-          {withPatch} with a suggested patch
-        </p>
+        <div
+          className="flex w-full items-center gap-3 sm:w-72"
+          data-testid="cockpit-security-patched"
+        >
+          <p className="shrink-0 text-xs text-muted-foreground">
+            <span className="font-mono text-foreground tabular-nums">
+              {withPatch} of {security.length}
+            </span>{" "}
+            with a checked patch
+          </p>
+          <ProgressBar
+            className="flex-1"
+            size="sm"
+            kind="meter"
+            label="Security issues with a checked patch"
+            valueText={`${withPatch} of ${security.length}`}
+            value={withPatch}
+            max={security.length}
+            tone={withPatch === security.length ? "positive" : "brand"}
+          />
+        </div>
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {categories.map((item) => (

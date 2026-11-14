@@ -11,6 +11,13 @@
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-barlow);
   --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-surface: var(--surface);
+  --color-surface-inset: var(--surface-inset);
+  --color-surface-raised: var(--surface-raised);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-warning: var(--warning);
   --color-link: var(--link);
   --color-sev-critical: var(--sev-critical);
   --color-sev-high: var(--sev-high);
@@ -111,6 +118,22 @@
   --sidebar-accent-foreground: #0b0b0d;
   --sidebar-border: #e4e4ea;
   --sidebar-ring: #9a85ff;
+  /* Tuffui widgets (src/components/tuff): their layers and tones, in ours. */
+  --brand-foreground: #ffffff;
+  --surface: #ededf1;
+  --surface-inset: #ffffff;
+  --surface-raised: #e4e4ea;
+  --positive: var(--ok);
+  --negative: var(--sev-critical);
+  --warning: var(--sev-high);
+  --glow: color-mix(in oklab, var(--brand) 45%, transparent);
+  --button: linear-gradient(0deg, #fff 0%, #e6e6e6 100%);
+  --button-hover: linear-gradient(0deg, #fff 0%, #eeeeee 100%);
+  --button-foreground: #111111;
+  --button-edge: rgba(0, 0, 0, 0.1);
+  --button-shadow: 0 0 #0000;
+  --button-secondary: linear-gradient(180deg, #e2e2e2 0%, #ececec 100%);
+  --button-secondary-hover: linear-gradient(180deg, #dadada 0%, #e4e4e4 100%);
 }
 
 .dark {
@@ -152,6 +175,21 @@
   --sidebar-accent-foreground: #f7f7f8;
   --sidebar-border: rgb(255 255 255 / 8%);
   --sidebar-ring: #7c5cff;
+  --brand-foreground: #ffffff;
+  --surface: #121214;
+  --surface-inset: #0c0c0e;
+  --surface-raised: #1c1c20;
+  --positive: var(--ok);
+  --negative: var(--sev-critical);
+  --warning: var(--sev-high);
+  --glow: color-mix(in oklab, var(--brand) 60%, transparent);
+  --button: linear-gradient(0deg, #fff 0%, #ababab 100%);
+  --button-hover: linear-gradient(0deg, #fff 0%, #c2c2c2 100%);
+  --button-foreground: #111111;
+  --button-edge: rgba(255, 255, 255, 0.5);
+  --button-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+  --button-secondary: linear-gradient(180deg, #1d1d1d 0%, #262626 100%);
+  --button-secondary-hover: linear-gradient(180deg, #242424 0%, #2d2d2d 100%);
 }
 
 /* Diagonal hairlines, for the divider strips between sections. */
@@ -170,6 +208,20 @@
     transparent 1.5px
   );
   background-size: 16px 16px;
+}
+
+/* A quiet grid of dots, the ground of every chart panel. */
+@utility bg-grid-dots {
+  background-image: radial-gradient(
+    color-mix(in oklab, var(--foreground) 9%, transparent) 1px,
+    transparent 1.2px
+  );
+  background-size: 14px 14px;
+}
+
+/* The glow on what is live: a running edge, the hot path, focus. */
+@utility glow {
+  filter: drop-shadow(0 0 6px var(--glow));
 }
 
 @layer base {

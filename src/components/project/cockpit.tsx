@@ -16,7 +16,9 @@ import {
   SEVERITY_LABEL,
   SEVERITY_ORDER,
 } from "@/lib/labels";
+import { StatGrid } from "@/components/tuff/stat-grid";
 import { cn } from "@/lib/utils";
+import { cockpitStats, type RunPoint } from "@/lib/viz/project";
 import type { FindingType, Severity } from "@/server/engine/schema";
 import {
   UNPLACED,
@@ -26,7 +28,6 @@ import {
 } from "@/server/projects/cockpit";
 
 import { ArchitectureDiagram } from "./architecture-diagram";
-import { CountUp } from "./count-up";
 import { PrivacyView } from "./privacy";
 import { Sankey } from "./sankey";
 import { SecurityView } from "./security";
@@ -119,7 +120,14 @@ function Issue({ issue, runId }: { issue: CockpitIssue; runId: string }) {
   );
 }
 
-export function Cockpit({ cockpit }: { cockpit: CockpitData }) {
+export function Cockpit({
+  cockpit,
+  earlier = [],
+}: {
+  cockpit: CockpitData;
+  /** The project's earlier finished runs, oldest first, for change and trend. */
+  earlier?: RunPoint[];
+}) {
   const [filter, setFilter] = useState<Filter>(NO_FILTER);
   const toggle = <K extends keyof Filter>(key: K, value: Filter[K]) =>
     setFilter((current) => ({
@@ -194,55 +202,22 @@ export function Cockpit({ cockpit }: { cockpit: CockpitData }) {
 
   return (
     <div className="space-y-10" data-testid="cockpit">
-      {/* The numbers. Each is a filter. */}
-      <FadeIn className="grid grid-cols-2 gap-px overflow-hidden rounded-card border bg-border sm:grid-cols-3 lg:grid-cols-6">
-        <div className="bg-card px-4 py-4">
-          <p className="text-xs text-muted-foreground">Issues</p>
-          <p
-            className="mt-1 text-3xl font-light tracking-[-0.02em]"
-            data-testid="cockpit-total"
-          >
-            <CountUp value={cockpit.totals.issues} />
-          </p>
-        </div>
-        {SEVERITY_ORDER.map((severity) => {
-          const count = cockpit.totals.bySeverity[severity];
-          const active = filter.severity === severity;
-          return (
-            <Button
-              key={severity}
-              type="button"
-              variant="ghost"
-              disabled={count === 0}
-              aria-pressed={active}
-              data-testid={`cockpit-severity-${severity}`}
-              onClick={() => toggle("severity", severity)}
-              className={cn(
-                "h-auto flex-col items-start gap-0 rounded-none border-0 bg-card px-4 py-4 text-left font-normal transition-colors duration-300 enabled:hover:bg-muted dark:hover:bg-muted",
-                active && "bg-muted",
-              )}
-            >
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className={cn("size-1.5 rounded-full", DOT[severity])} />
-                {SEVERITY_LABEL[severity]}
-              </span>
-              <span
-                className={cn(
-                  "mt-1 block text-3xl font-light tracking-[-0.02em]",
-                  count === 0 && "text-muted-foreground",
-                )}
-              >
-                <CountUp value={count} />
-              </span>
-            </Button>
-          );
-        })}
-        <div className="bg-card px-4 py-4">
-          <p className="text-xs text-muted-foreground">Work orders</p>
-          <p className="mt-1 text-3xl font-light tracking-[-0.02em]">
-            <CountUp value={cockpit.totals.workOrders} />
-          </p>
-        </div>
+      {/* The numbers. Each severity is a filter. */}
+      <FadeIn data-testid="cockpit-stats">
+        <StatGrid
+          className="max-w-none"
+          gridClassName="grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+          sparklines
+          data={cockpitStats(cockpit, earlier).map((stat) => ({
+            ...stat,
+            active: filter.severity === stat.id,
+          }))}
+          onSelect={(stat) => {
+            if ((SEVERITY_ORDER as readonly string[]).includes(stat.id)) {
+              toggle("severity", stat.id as Severity);
+            }
+          }}
+        />
       </FadeIn>
 
       {cockpit.totals.issues > 0 ? (

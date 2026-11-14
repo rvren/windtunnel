@@ -1,4 +1,5 @@
 import { Remediation } from "@/components/run/remediation";
+import { RunTrace } from "@/components/tuff/run-trace";
 import {
   DeliveryStrip,
   DeliveryTag,
@@ -29,6 +30,8 @@ import {
   STAGE_ORDER,
 } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { traceSpans } from "@/lib/viz/run";
+import type { RunTimes } from "@/lib/viz/times";
 import type {
   DesignModel,
   Finding,
@@ -630,7 +633,14 @@ export function ModelTab({ run }: { run: RunRecord }) {
 
 // ── Scoreboard ──────────────────────────────────────────────────────────────
 
-export function ScoreboardTab({ run }: { run: RunRecord }) {
+export function ScoreboardTab({
+  run,
+  times,
+}: {
+  run: RunRecord;
+  times: RunTimes;
+}) {
+  const spans = traceSpans(run, times);
   const usage = STAGE_ORDER.flatMap((stage) => {
     const value = run.usage[stage];
     return value ? [[STAGE_LABEL[stage], value] as [string, Usage]] : [];
@@ -694,45 +704,61 @@ export function ScoreboardTab({ run }: { run: RunRecord }) {
       </section>
 
       <section>
-        <SectionTitle>Token use</SectionTitle>
+        <SectionTitle>Time and tokens</SectionTitle>
         <p className="mt-1 text-sm text-muted-foreground">
           {run.sample
             ? "This is a sample run. It did not call the model, so it used no tokens."
-            : `${run.models.reasoning} for the model, the judge and the work orders; ${run.models.agents} for the agents.`}
+            : `${run.models.reasoning} for the model, the judge and the work orders; ${run.models.agents} for the agents. Click a block to zoom in.`}
         </p>
-        {usage.length > 0 && !run.sample ? (
-          <div className="mt-3 overflow-hidden rounded-card border bg-card">
-            <Table data-testid="token-use">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Stage</TableHead>
-                  <TableHead className="text-right">Input</TableHead>
-                  <TableHead className="text-right">Output</TableHead>
-                  <TableHead className="text-right">Cache read</TableHead>
-                  <TableHead className="text-right">Cache write</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {usage.map(([label, value]) => (
-                  <TableRow key={label}>
-                    <TableCell className="font-medium">{label}</TableCell>
-                    <TableCell className="text-right">
-                      {number(value.inputTokens)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {number(value.outputTokens)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {number(value.cacheReadTokens)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {number(value.cacheWriteTokens)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        {spans.length > 0 ? (
+          <div className="mt-3" data-testid="run-trace">
+            <RunTrace
+              className="max-w-none"
+              data={{
+                spans,
+                elapsedMs: Math.max(0, ...spans.map((span) => span.endMs ?? 0)),
+              }}
+            />
           </div>
+        ) : null}
+        {usage.length > 0 && !run.sample ? (
+          <details className="mt-3 text-sm">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              Token counts by stage, with the cache
+            </summary>
+            <div className="mt-3 overflow-hidden rounded-card border bg-card">
+              <Table data-testid="token-use">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Stage</TableHead>
+                    <TableHead className="text-right">Input</TableHead>
+                    <TableHead className="text-right">Output</TableHead>
+                    <TableHead className="text-right">Cache read</TableHead>
+                    <TableHead className="text-right">Cache write</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {usage.map(([label, value]) => (
+                    <TableRow key={label}>
+                      <TableCell className="font-medium">{label}</TableCell>
+                      <TableCell className="text-right">
+                        {number(value.inputTokens)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {number(value.outputTokens)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {number(value.cacheReadTokens)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {number(value.cacheWriteTokens)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </details>
         ) : null}
       </section>
     </div>
