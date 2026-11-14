@@ -117,7 +117,8 @@ own standards.
 
 Limits: about 6,000 text files or 40 MB per repository, and a reading budget
 per agent. A repository run costs more than a requirement run, because the
-agents take many turns to read code.
+agents take many turns to read code. On a 63-file example app, one run took
+about three and a half minutes.
 
 ## Works on its own
 

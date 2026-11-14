@@ -136,7 +136,10 @@ orders`, run by
   announces the finding at once.
 - **Expertise** for each agent is Markdown in `expertise/`. Improve an
   agent by editing its notes before you touch its prompt.
-- **A live run spends money on the user's key.** Ask before starting one.
+- **Never start a live run without the owner's permission for that run.**
+  Every run bills their Claude API key. Ask each time and say roughly what it
+  will cost. Tests and screen work use `ScriptedLlm` or
+  `WINDTUNNEL_SAMPLE_RUN=1`, which spend nothing.
 
 ## Rules
 

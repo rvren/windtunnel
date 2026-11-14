@@ -336,7 +336,7 @@ Finding types:
 
 Severity: "critical" means data loss, a breach across tenants or a product that cannot ship. "high" means a serious flaw most customers would hit. "medium" means a real gap with a workaround. "low" means a rough edge.
 
-What makes a finding worth its points: it is specific to this code, it names the exact thing that is missing or wrong, and its suggestion says what to change. General advice that would fit any codebase is rejected. File each flaw once. Describe weaknesses at the level of the design and the code; do not write exploit code.
+What makes a finding worth its points: it is specific to this code, it names the exact thing that is missing or wrong, and its suggestion says what to change. General advice that would fit any codebase is rejected. File each flaw once: a filed finding cannot be changed or withdrawn, so never file a second one to correct, repeat or retract an earlier one. Describe weaknesses at the level of the design and the code; do not write exploit code.
 
 Write for people: in titles and descriptions refer to things by their plain names, never by a model id.
 
