@@ -33,6 +33,7 @@ import { Stepper } from "./story/stepper";
 import { Story, type ReportTab } from "./story/story";
 import { seconds } from "./stage-time";
 import { RunFocus } from "./story/focus";
+import type { TrackedState } from "@/components/issues/state-chip";
 import { Insights } from "./insights/insights";
 import { ModelTab, ScoreboardTab, WorkOrdersTab } from "./run-report";
 
@@ -167,11 +168,13 @@ export interface RunContext {
   previousSeverity: { critical: number; high: number } | null;
   /** Work orders of this run that reached 8090; null when not linked. */
   sent: number | null;
+  /** Each issue's tracked state, by its group id, for a project run. */
+  tracked: Record<string, TrackedState>;
 }
 
 export function RunView({
   initial,
-  context = { previous: null, previousSeverity: null, sent: null },
+  context = { previous: null, previousSeverity: null, sent: null, tracked: {} },
 }: {
   initial: RunRecord;
   context?: RunContext;

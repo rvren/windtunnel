@@ -321,6 +321,26 @@ and opens details in a drawer (`src/components/project/command/drawer.tsx`).
 The words behind every "i" tooltip are in `src/lib/explain.ts`. The widgets
 come from `src/components/tuff/` (from tuffui.com, MIT).
 
+### The fix loop
+
+```mermaid
+flowchart LR
+  run["Finished run"] --> rec["reconcileRun<br/>src/server/issues/store.ts"]
+  rec --> issues[("issues<br/>open · pr_open · merged · fixed · reopened · gone")]
+  issues --> dlg["PR dialog<br/>src/components/issues/pr-dialog.tsx"]
+  dlg --> prev["preview: edits re-checked on the base branch<br/>src/server/issues/pull-request.ts"]
+  prev -->|"person confirms"| gh["branch, commit, pull request<br/>src/server/connectors/github.ts"]
+  prev -->|"patch missing or stale"| fix["fix agent<br/>src/server/issues/fix.ts"]
+  gh --> poll["PR state checks<br/>src/server/issues/pull-status.ts"]
+  poll -->|merged| issues
+  issues -->|"rescan, asked first"| run
+```
+
+Matching (`src/server/issues/match.ts`) pairs a run's issue with a tracked
+one by kind and cited file, then CWE, then title words; reconciling
+(`src/server/issues/reconcile.ts`) decides each state change. The home page
+(`src/app/app/page.tsx`) reads its numbers from `src/lib/viz/home.ts`.
+
 Projects and workspaces: `src/server/projects/store.ts`. Older runs with no
 project are gathered under "Demo project" by `src/server/projects/adopt.ts`.
 Sample data: `src/server/projects/demo.ts`.
@@ -335,6 +355,8 @@ erDiagram
   runs ||--o{ agent_reports : "one per agent"
   runs ||--o{ run_events : "in order"
   runs ||--o{ deliveries : "work orders sent"
+  projects ||--o{ issues : "tracked across runs"
+  runs ||--o{ issues : "first, last, verified by"
   connections ||--o{ project_links : "provider"
 
   projects { uuid id text name boolean demo }
@@ -345,10 +367,11 @@ erDiagram
   connections { text provider text status jsonb settings jsonb secrets }
   project_links { uuid project_id text provider text external_id }
   deliveries { uuid run_id text work_order_id text status text external_id }
+  issues { uuid id uuid project_id text state text path jsonb pr }
 ```
 
 Tables: `projects`, `workspaces`, `runs`, `agent_reports`, `run_events`,
-`connections`, `project_links`, `deliveries`. The structured results of a
+`connections`, `project_links`, `deliveries`, `issues`. The structured results of a
 run are JSON in `runs.data`, shaped by `RunRecord` in
 `src/server/engine/schema.ts`. Migrations are applied at start by
 `src/server/db/ready.ts`.

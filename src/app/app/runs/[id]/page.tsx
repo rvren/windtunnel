@@ -6,6 +6,7 @@ import { PageLoading } from "@/components/app/page-header";
 import { RunView, type RunContext } from "@/components/run/run-view";
 import { SOFTWARE_FACTORY } from "@/server/connectors/software-factory";
 import { getProjectLink, listDeliveries } from "@/server/connectors/store";
+import { listIssues } from "@/server/issues/store";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ensureDatabase } from "@/server/db/ready";
 import { runStore } from "@/server/engine/registry";
@@ -41,6 +42,7 @@ async function Run({ params }: { params: Promise<{ id: string }> }) {
     previous: null,
     previousSeverity: null,
     sent: null,
+    tracked: {},
   };
   try {
     if (run.projectId) {
@@ -70,6 +72,14 @@ async function Run({ params }: { params: Promise<{ id: string }> }) {
               (item) => item.status === "sent",
             ).length
           : null,
+        tracked: Object.fromEntries(
+          (await listIssues(run.projectId))
+            .filter((item) => item.lastRunId === run.id && item.lastGroupId)
+            .map((item) => [
+              item.lastGroupId!,
+              { id: item.id, state: item.state, pr: item.pr },
+            ]),
+        ),
       };
     }
   } catch {

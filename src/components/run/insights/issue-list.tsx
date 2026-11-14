@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { TrackedState } from "@/components/issues/state-chip";
 import type { AgentId } from "@/lib/agents";
 import {
   SORT_LABEL,
@@ -38,10 +39,16 @@ type Kind = "all" | FindingType;
 
 export function IssueList({
   rows,
+  tracked = {},
+  pr = null,
   agent,
   onClearAgent,
 }: {
   rows: IssueRow[];
+  /** Each issue's tracked state, by its group id. */
+  tracked?: Record<string, TrackedState>;
+  /** What a pull request needs; null when the run read no GitHub code. */
+  pr?: { demo: boolean; fixCost: string } | null;
   /** Only issues this agent filed, when set. */
   agent: { id: AgentId; name: string } | null;
   onClearAgent: () => void;
@@ -194,7 +201,11 @@ export function IssueList({
           <AnimatePresence initial={false}>
             {shown.map((row) => (
               <FadeInItem key={row.id}>
-                <IssueRowView row={row} onAction={act} />
+                <IssueRowView
+                  row={row}
+                  tracked={tracked[row.id]}
+                  onAction={act}
+                />
               </FadeInItem>
             ))}
           </AnimatePresence>
@@ -210,6 +221,8 @@ export function IssueList({
       <IssueDrawer
         row={open?.row ?? null}
         focus={open?.focus ?? null}
+        tracked={open ? tracked[open.row.id] : undefined}
+        pr={pr}
         onClose={() => setOpen(null)}
       />
     </section>

@@ -11,6 +11,7 @@ import {
   Database,
   FolderKanban,
   History,
+  House,
   PanelLeft,
   Plug,
   Plus,
@@ -68,6 +69,13 @@ const MAIN: NavGroup[] = [
   {
     items: [
       {
+        href: "/app",
+        label: "Home",
+        icon: House,
+        testId: "app-nav-home",
+        isActive: (path) => path === "/app",
+      },
+      {
         href: "/app/projects",
         label: "Projects",
         icon: FolderKanban,
@@ -75,13 +83,11 @@ const MAIN: NavGroup[] = [
         isActive: (path) => Boolean(path?.startsWith("/app/projects")),
       },
       {
-        href: "/app",
+        href: "/app/runs",
         label: "Runs",
         icon: History,
         testId: "app-nav-runs",
-        // Runs owns /app and every /app/runs/... page.
-        isActive: (path) =>
-          path === "/app" || Boolean(path?.startsWith("/app/runs")),
+        isActive: (path) => Boolean(path?.startsWith("/app/runs")),
       },
     ],
   },

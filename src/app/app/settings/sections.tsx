@@ -140,6 +140,7 @@ export async function ConnectorsSection({
         settings: current.settings,
       }}
       outcome={outcome}
+      githubToken={Boolean(process.env.GITHUB_TOKEN?.trim())}
     />
   );
 }

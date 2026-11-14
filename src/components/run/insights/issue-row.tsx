@@ -9,6 +9,7 @@ import {
   Wrench,
 } from "lucide-react";
 
+import { StateChip, type TrackedState } from "@/components/issues/state-chip";
 import { AgentIcon } from "@/components/run/badges";
 import { SegmentedBar } from "@/components/tuff/progress-bar";
 import { AGENTS } from "@/lib/agents";
@@ -35,9 +36,12 @@ export type RowAction = "fix" | "work-order" | "details";
 
 export function IssueRowView({
   row,
+  tracked,
   onAction,
 }: {
   row: IssueRow;
+  /** Where the tracked issue is now, for a project run. */
+  tracked?: TrackedState;
   onAction: (row: IssueRow, action: RowAction) => void;
 }) {
   const Icon = KIND_ICON[row.type];
@@ -88,6 +92,9 @@ export function IssueRowView({
               />
               {SEVERITY_LABEL[row.severity]}
             </span>
+            {tracked && tracked.state !== "open" ? (
+              <StateChip tracked={tracked} />
+            ) : null}
             <span>{FINDING_TYPE_LABEL[row.type]}</span>
             {row.where ? <span>· {row.where}</span> : null}
             {row.location ? (

@@ -37,10 +37,11 @@ function trail(pathname: string | null): Step[] {
   if (pathname.startsWith("/app/projects/"))
     return [{ label: "Projects", href: "/app/projects" }, { label: "Cockpit" }];
   if (pathname === "/app/runs/new")
-    return [{ label: "Runs", href: "/app" }, { label: "New run" }];
+    return [{ label: "Runs", href: "/app/runs" }, { label: "New run" }];
   if (pathname.startsWith("/app/runs/"))
-    return [{ label: "Runs", href: "/app" }, { label: "Run" }];
-  return [{ label: "Runs" }];
+    return [{ label: "Runs", href: "/app/runs" }, { label: "Run" }];
+  if (pathname === "/app/runs") return [{ label: "Runs" }];
+  return [{ label: "Home" }];
 }
 
 /** The top bar for the page being shown. Needs a Suspense boundary above it. */

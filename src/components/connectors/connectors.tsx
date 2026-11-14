@@ -404,17 +404,68 @@ function SoftwareFactory({
   );
 }
 
+/**
+ * GitHub, for fix pull requests. It uses GITHUB_TOKEN from the server's
+ * environment; the token is never shown, stored or sent to the browser.
+ */
+function GitHubCard({ token }: { token: boolean }) {
+  return (
+    <Panel
+      className="flex flex-wrap items-start gap-4 p-5"
+      data-testid="connector-github"
+    >
+      <Tile id="github" name="GitHub" live />
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="flex items-center gap-2 text-sm font-medium">
+          GitHub
+          <span
+            className={cn(
+              "flex items-center gap-1.5 text-xs font-normal",
+              token ? "text-ok" : "text-muted-foreground",
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className={cn(
+                "size-1.5 rounded-full",
+                token ? "bg-ok" : "bg-muted-foreground/50",
+              )}
+            />
+            {token ? "Token set" : "No token"}
+          </span>
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Opens a pull request with an issue&apos;s checked fix, and checks when
+          it is merged so a rescan can confirm the issue is gone. Windtunnel
+          never merges.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {token
+            ? "Uses GITHUB_TOKEN. For pull requests it needs Contents and Pull requests write access to each repository; the pull request dialog checks this before anything is sent."
+            : "Add GITHUB_TOKEN to .env.local and restart the server: a fine-grained token with Contents and Pull requests write access to your repositories."}
+        </p>
+      </div>
+    </Panel>
+  );
+}
+
 export function Connectors({
   connection,
   outcome,
+  githubToken = false,
 }: {
   connection: ConnectionView;
   outcome: "connected" | "failed" | null;
+  /** Whether GITHUB_TOKEN is set on the server. Never the token itself. */
+  githubToken?: boolean;
 }) {
   const [text, setText] = useState("");
   const [group, setGroup] = useState<string | null>(null);
   const live = CONNECTORS.filter((entry) => entry.live);
-  const planned = searchConnectors(text, group).filter((entry) => !entry.live);
+  // GitHub has its own card above, for fix pull requests.
+  const planned = searchConnectors(text, group).filter(
+    (entry) => !entry.live && entry.id !== "github",
+  );
   const groups = CONNECTOR_GROUPS.filter((item) =>
     planned.some((entry) => entry.group === item.name),
   );
@@ -430,14 +481,15 @@ export function Connectors({
             outcome={outcome}
           />
         ))}
+        <GitHubCard token={githubToken} />
       </section>
 
       <section>
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h2 className="text-lg font-medium">Coming soon</h2>
           <p className="text-xs text-muted-foreground">
-            {CONNECTORS.length - live.length} planned. These cannot be connected
-            yet.
+            {CONNECTORS.length - live.length - 1} planned. These cannot be
+            connected yet.
           </p>
         </div>
         <div className="mb-5 flex flex-wrap items-center gap-2">

@@ -178,6 +178,24 @@ With one workspace the cockpit adapts: the chart starts from the components
 inside it. Nothing is shown that a run did not produce. There is no sign-in
 yet, so everyone who can reach the server sees every project.
 
+## From issue to fix to gone
+
+Every project issue is tracked across runs. From an issue's drawer, **Open
+a pull request** turns its checked fix into a branch and a pull request on
+GitHub: each edit is checked again against the default branch first, and
+nothing is sent until you confirm. When there is no patch, or the code has
+moved on, the fix agent writes a fresh one against the code as it is now
+(on a demo project for free; otherwise on your API key, which the dialog
+says first). Windtunnel never merges.
+
+The app checks open pull requests while it runs. A merged one waits for a
+rescan ("2 fixes merged · Rescan"); when the next run no longer finds the
+issue it is marked **fixed** and leaves the findings, and if it comes back
+it is **reopened**. The home page shows the whole pipeline: what needs you,
+open issues, the fix pipeline, time to fix, projects, recent pull requests
+and runs. Pull requests need `GITHUB_TOKEN` with Contents and Pull requests
+write access.
+
 ## Every run belongs to a project
 
 A run is started in a project: on a written requirement, or on the code of

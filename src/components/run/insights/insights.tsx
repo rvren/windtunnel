@@ -44,12 +44,37 @@ export function Insights({
   const changes = whatChanged(run, context.previous, context.previousSeverity);
   const standings = agentStandings(run);
   const picked = standings.find((item) => item.id === agent) ?? null;
+  // A pull request needs code from GitHub; what a fresh fix costs comes
+  // from this run's own remediation stage.
+  const github =
+    run.source?.origin.kind === "github" ||
+    (run.source?.workspaces ?? []).some(
+      (item) => item.origin.kind === "github",
+    );
+  const fixes = Object.values(run.remediations ?? {}).length;
+  const used = run.usage.remediation;
+  const perFix =
+    used && fixes
+      ? Math.round((used.inputTokens + used.outputTokens) / fixes)
+      : null;
+  const pr = github
+    ? {
+        demo: run.sample,
+        fixCost: `The fix agent calls ${run.models.reasoning} on your API key${
+          perFix
+            ? `: in this run a fix used about ${perFix.toLocaleString("en")} tokens.`
+            : "."
+        }`,
+      }
+    : null;
 
   return (
     <div className="space-y-8">
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <IssueList
           rows={rows}
+          tracked={context.tracked}
+          pr={pr}
           agent={picked ? { id: picked.id, name: picked.name } : null}
           onClearAgent={() => setAgent(null)}
         />

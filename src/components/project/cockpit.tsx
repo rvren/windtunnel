@@ -8,6 +8,7 @@ import { X } from "lucide-react";
 
 import { FadeIn, FadeInItem } from "@/components/motion";
 import { InfoTip } from "@/components/info-tip";
+import { StateChip, type TrackedState } from "@/components/issues/state-chip";
 import { Panel } from "@/components/panel";
 import { AgentIcon, SeverityBadge } from "@/components/run/badges";
 import { Button } from "@/components/ui/button";
@@ -113,7 +114,24 @@ function SectionTitle({
   );
 }
 
-function Issue({ issue, runId }: { issue: CockpitIssue; runId: string }) {
+/** An issue a merged fix closed, confirmed gone by a later run. */
+export interface FixedIssue {
+  id: string;
+  title: string;
+  severity: Severity;
+  fixedAt: string | null;
+  pr: { number: number; url: string } | null;
+}
+
+function Issue({
+  issue,
+  runId,
+  tracked,
+}: {
+  issue: CockpitIssue;
+  runId: string;
+  tracked?: TrackedState;
+}) {
   return (
     <details className="group px-4 py-3" data-testid="cockpit-issue">
       <summary className="flex cursor-pointer list-none items-start gap-3 outline-none [&::-webkit-details-marker]:hidden">
@@ -135,6 +153,9 @@ function Issue({ issue, runId }: { issue: CockpitIssue; runId: string }) {
               : ""}
           </span>
         </span>
+        {tracked && tracked.state !== "open" ? (
+          <StateChip tracked={tracked} />
+        ) : null}
         <SeverityBadge severity={issue.severity} />
       </summary>
       <div className="mt-3 space-y-3 pl-[1.125rem] text-sm">
@@ -165,12 +186,18 @@ export function Cockpit({
   cockpit,
   earlier = [],
   delivered = null,
+  tracked = {},
+  fixed = [],
 }: {
   cockpit: CockpitData;
   /** The project's earlier finished runs, oldest first, for change and trend. */
   earlier?: RunPoint[];
   /** Work orders sent to 8090 for this run; null when the project is not linked. */
   delivered?: Delivered | null;
+  /** Each issue's tracked state, by its group id in this run. */
+  tracked?: Record<string, TrackedState>;
+  /** Issues fixed through a merged PR and confirmed gone. */
+  fixed?: FixedIssue[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -536,7 +563,11 @@ export function Cockpit({
               <AnimatePresence initial={false}>
                 {shown.map((issue) => (
                   <FadeInItem key={issue.id}>
-                    <Issue issue={issue} runId={cockpit.runId} />
+                    <Issue
+                      issue={issue}
+                      runId={cockpit.runId}
+                      tracked={tracked[issue.id]}
+                    />
                   </FadeInItem>
                 ))}
               </AnimatePresence>
@@ -551,6 +582,41 @@ export function Cockpit({
           )}
         </Panel>
       </FadeIn>
+      {fixed.length > 0 ? (
+        <section data-testid="cockpit-fixed">
+          <SectionTitle
+            title="Fixed"
+            note={`${fixed.length} closed by a merged fix and gone in a later run`}
+          />
+          <Panel>
+            <ul className="divide-y">
+              {fixed.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex items-center gap-3 px-4 py-3 text-sm"
+                >
+                  <StateChip
+                    tracked={{ id: item.id, state: "fixed", pr: null }}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground line-through decoration-foreground/30">
+                    {item.title}
+                  </span>
+                  {item.pr ? (
+                    <a
+                      href={item.pr.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-mono text-xs text-link hover:underline"
+                    >
+                      #{item.pr.number}
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </section>
+      ) : null}
       <SecurityView issues={cockpit.issues} />
       {cockpit.privacy ? <PrivacyView privacy={cockpit.privacy} /> : null}
       <CockpitDrawer

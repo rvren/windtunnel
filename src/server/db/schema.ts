@@ -11,7 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-// Eight tables. Structured results are JSONB: their shape is owned by the Zod
+// Nine tables. Structured results are JSONB: their shape is owned by the Zod
 // schemas in src/server/engine/schema.ts and will still change. The plain
 // columns are what the Runs table sorts and filters on.
 
@@ -150,4 +150,45 @@ export const deliveries = pgTable(
   (table) => [
     primaryKey({ columns: [table.runId, table.workOrderId, table.provider] }),
   ],
+);
+
+/**
+ * An issue of a project, tracked across its runs: found by one run, matched
+ * in later ones, fixed through a pull request and confirmed gone by a
+ * rescan. `pr` is the pull request, when one was opened.
+ */
+export const issues = pgTable(
+  "issues",
+  {
+    id: uuid("id").primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    kind: text("kind").notNull(),
+    severity: text("severity").notNull(),
+    /** "open", "pr_open", "merged", "fixed", "reopened" or "gone". */
+    state: text("state").notNull(),
+    /** The cited file, as workspace/path; null when it cites none. */
+    path: text("path"),
+    cwe: text("cwe"),
+    /** The run that first found it, and the last run that saw it. */
+    firstRunId: uuid("first_run_id").references(() => runs.id, {
+      onDelete: "set null",
+    }),
+    lastRunId: uuid("last_run_id").references(() => runs.id, {
+      onDelete: "set null",
+    }),
+    /** Its group id in the last run that saw it. */
+    lastGroupId: text("last_group_id"),
+    /** The run that no longer found it after its fix was merged. */
+    verifiedRunId: uuid("verified_run_id").references(() => runs.id, {
+      onDelete: "set null",
+    }),
+    pr: jsonb("pr"),
+    openedAt: timestamp("opened_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    fixedAt: timestamp("fixed_at", { withTimezone: true }),
+  },
+  (table) => [index("issues_project_idx").on(table.projectId)],
 );

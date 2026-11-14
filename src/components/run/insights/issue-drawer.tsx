@@ -1,6 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { GitPullRequest } from "lucide-react";
+
+import { PullRequestDialog } from "@/components/issues/pr-dialog";
+import { StateChip, type TrackedState } from "@/components/issues/state-chip";
 import { AgentIcon, SeverityBadge } from "@/components/run/badges";
+import { Button } from "@/components/ui/button";
 import { Remediation } from "@/components/run/remediation";
 import {
   Sheet,
@@ -26,11 +32,23 @@ export function IssueDrawer({
   row,
   focus,
   onClose,
+  tracked,
+  pr,
 }: {
   row: IssueRow | null;
   focus: DrawerFocus;
   onClose: () => void;
+  /** The tracked issue behind this row, in a project run. */
+  tracked?: TrackedState;
+  /** What a pull request needs: set when the run read GitHub code. */
+  pr?: { demo: boolean; fixCost: string } | null;
 }) {
+  const [opening, setOpening] = useState(false);
+  const canOpen =
+    row?.type === "security_vulnerability" &&
+    tracked !== undefined &&
+    pr != null &&
+    (tracked.state === "open" || tracked.state === "reopened");
   return (
     <Sheet open={row !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -54,6 +72,23 @@ export function IssueDrawer({
                 <SheetDescription className="font-mono text-xs">
                   {row.location.path}:{row.location.line}
                 </SheetDescription>
+              ) : null}
+              {tracked && tracked.state !== "open" ? (
+                <div>
+                  <StateChip tracked={tracked} />
+                </div>
+              ) : null}
+              {canOpen ? (
+                <div className="pt-2">
+                  <Button
+                    size="sm"
+                    onClick={() => setOpening(true)}
+                    data-testid="drawer-open-pr"
+                  >
+                    <GitPullRequest />
+                    Open a pull request
+                  </Button>
+                </div>
               ) : null}
             </SheetHeader>
             <div
@@ -175,6 +210,15 @@ export function IssueDrawer({
           </>
         ) : null}
       </SheetContent>
+      {canOpen && opening ? (
+        <PullRequestDialog
+          issueId={tracked!.id}
+          open={opening}
+          onOpenChange={setOpening}
+          demo={pr!.demo}
+          fixCost={pr!.fixCost}
+        />
+      ) : null}
     </Sheet>
   );
 }

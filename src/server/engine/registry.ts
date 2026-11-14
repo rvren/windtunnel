@@ -105,12 +105,19 @@ export async function startRun(input: RunInput): Promise<RunRecord> {
 
   state().active.add(run.id);
   void executeRun({ llm, store, publish, now: () => new Date() }, run)
-    .then((done) =>
-      // The run is over. Its work orders go to the linked connector, if any.
-      deliverRun(done).catch((error) =>
+    .then(async (done) => {
+      // The run is over. Its issues fold into the project's tracked ones
+      // (imported here: the issue store reads runs through this module).
+      await import("../issues/store")
+        .then(({ reconcileRun }) => reconcileRun(done))
+        .catch((error) =>
+          console.error("[windtunnel] Issues could not be tracked:", error),
+        );
+      // Its work orders go to the linked connector, if any.
+      await deliverRun(done).catch((error) =>
         console.error("[windtunnel] Work orders could not be sent:", error),
-      ),
-    )
+      );
+    })
     .finally(() => state().active.delete(run.id));
 
   return run;

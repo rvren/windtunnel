@@ -2,7 +2,15 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FolderGit2, GitBranch, Play, Plus, Trash2 } from "lucide-react";
+import {
+  FolderGit2,
+  GitBranch,
+  GitMerge,
+  Play,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 
 import { PageLoading } from "@/components/app/page-header";
 import { LocalTime } from "@/components/local-time";
@@ -47,6 +55,10 @@ import {
 import { DEMO_REPOSITORIES } from "@/server/projects/demo";
 import { getProject, type Project } from "@/server/projects/store";
 import type { RunPoint } from "@/lib/viz/project";
+import type { TrackedState } from "@/components/issues/state-chip";
+import type { FixedIssue } from "@/components/project/cockpit";
+import { ensureTracked, listIssues } from "@/server/issues/store";
+import { PullRequestRefresher } from "@/components/issues/pr-refresher";
 import { engineStatus } from "@/server/status";
 
 export const metadata: Metadata = { title: "Project" };
@@ -69,6 +81,11 @@ async function ProjectPage({
   let shownRuns: RunSummary[];
   let cockpit: CockpitData | null = null;
   let earlier: RunPoint[] = [];
+  // The project's tracked issues: each issue's state, by its group in the
+  // cockpit's run, and the ones fixed.
+  let tracked: Record<string, TrackedState> = {};
+  let fixed: FixedIssue[] = [];
+  let mergedCount = 0;
   try {
     await ensureDatabase();
     project = await getProject(id);
@@ -92,6 +109,28 @@ async function ProjectPage({
           issues: run.findingCount,
           workOrders: run.workOrderCount,
         }));
+      if (project) {
+        await ensureTracked(project.id);
+        const all = await listIssues(project.id);
+        tracked = Object.fromEntries(
+          all
+            .filter((item) => item.lastRunId === record.id && item.lastGroupId)
+            .map((item) => [
+              item.lastGroupId!,
+              { id: item.id, state: item.state, pr: item.pr },
+            ]),
+        );
+        mergedCount = all.filter((item) => item.state === "merged").length;
+        fixed = all
+          .filter((item) => item.state === "fixed")
+          .map(({ id, title, severity, fixedAt, pr }) => ({
+            id,
+            title,
+            severity,
+            fixedAt,
+            pr: pr ? { number: pr.number, url: pr.url } : null,
+          }));
+      }
     }
   } catch {
     return (
@@ -241,8 +280,49 @@ async function ProjectPage({
         />
       ) : null}
 
+      <PullRequestRefresher projectId={project.id} />
+      {mergedCount > 0 && !running ? (
+        <div
+          className="flex flex-wrap items-center gap-3 rounded-card bg-sev-high/10 px-5 py-3 text-sm ring-1 ring-sev-high/30"
+          data-testid="project-rescan"
+        >
+          <GitMerge className="size-4 text-sev-high" aria-hidden="true" />
+          <p className="flex-1">
+            <span className="font-medium">
+              {mergedCount} {mergedCount === 1 ? "fix" : "fixes"} merged.
+            </span>{" "}
+            <span className="text-muted-foreground">
+              Rescan the project to confirm{" "}
+              {mergedCount === 1 ? "it is" : "they are"} gone.
+            </span>
+          </p>
+          <RunProjectDialog
+            projectId={project.id}
+            workspaces={count}
+            blocked={project.demo ? null : blocked}
+            sampleMode={status.sampleMode}
+            sampleProject={project.demo}
+          >
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="project-rescan-run"
+            >
+              <RotateCcw />
+              Rescan
+            </Button>
+          </RunProjectDialog>
+        </div>
+      ) : null}
+
       {cockpit ? (
-        <Cockpit cockpit={cockpit} earlier={earlier} delivered={delivered} />
+        <Cockpit
+          cockpit={cockpit}
+          earlier={earlier}
+          delivered={delivered}
+          tracked={tracked}
+          fixed={fixed}
+        />
       ) : count === 0 ? (
         <div
           className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"

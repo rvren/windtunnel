@@ -79,6 +79,19 @@ take something away.
   (the owner rejected a Lap Timer, Tool Call Graph, Radar, Blast Radius and
   Tick Gauge for this reason). Prefer one line (a bar, a count with a
   change) over a chart.
+- **The fix loop.** A project's issues are tracked across runs (table
+  `issues`, `src/server/issues/`): matched by kind and cited file (then CWE,
+  then title words), states open → PR open → merged → fixed, or reopened /
+  not found again, reconciled after every finished run. A fix leaves
+  Windtunnel only as a new branch and pull request on GitHub
+  (`src/server/connectors/github.ts`, `src/server/issues/pull-request.ts`),
+  after a person confirms it in the PR dialog; every edit is checked again
+  against the base branch first, and Windtunnel never merges. The fix agent
+  (`src/server/issues/fix.ts`) is the remediation stage for one issue on
+  fresh code; outside demo projects it spends the owner's key, so the
+  dialog says so before it runs. A merged fix waits for a rescan, which the
+  owner starts (it asks first). The home page (`/app`) is the pipeline;
+  runs are at `/app/runs`.
 - **The run page** tells a live run as a story (`components/run/story/`:
   stepper, a card per stage that turns into its result, agents as parallel
   lanes on one clock from the events' times, focus mode `?focus=1`). A
