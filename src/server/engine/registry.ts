@@ -98,7 +98,7 @@ export async function startRun(input: RunInput): Promise<RunRecord> {
             )
           : SAMPLE_SCRIPT,
         // Paced so the live view has something to show.
-        { delayMs: input.project ? 700 : 900 },
+        { delayMs: input.project ? 1000 : 900 },
       )
     : new AnthropicLlm();
 

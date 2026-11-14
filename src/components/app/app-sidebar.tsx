@@ -180,7 +180,9 @@ export function AppSidebarFor({
               className="h-11 justify-center gap-2.5 rounded-md bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-[opacity,transform] duration-200 hover:bg-primary hover:text-primary-foreground hover:opacity-90 active:scale-[0.98] active:bg-primary active:text-primary-foreground group-data-[collapsible=icon]:size-10!"
             >
               <Plus />
-              <span className="flex-none">New run</span>
+              <span className="flex-none group-data-[collapsible=icon]:hidden">
+                New run
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

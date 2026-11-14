@@ -125,7 +125,8 @@ async function ProjectPage({
       projectId={project.id}
       workspaces={count}
       blocked={project.demo ? null : blocked}
-      sampleMode={status.sampleMode || project.demo}
+      sampleMode={status.sampleMode}
+      sampleProject={project.demo}
     >
       <Button
         variant={primary ? "default" : "outline"}

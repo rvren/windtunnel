@@ -61,6 +61,7 @@ const SEVERITY_VAR: Record<Severity, string> = {
 const CARD_HEIGHT = 60;
 const ROW_GAP = 18;
 const MIN_COLUMN_GAP = 40;
+const MIN_CARD = 176;
 const glide = { duration: 0.6, ease: EASE };
 
 /** The small tile that stands for an agent. It glides to where the agent is. */
@@ -290,12 +291,17 @@ export function ArchitectureDiagram({
   };
 
   const columns = Math.max(layers.length, 1);
+  // The diagram keeps a width its cards can be read at. When the page is
+  // narrower it scrolls sideways inside its panel; on a phone it is a list.
+  const canvas = Math.max(
+    width,
+    columns * MIN_CARD + MIN_COLUMN_GAP * (columns - 1),
+  );
   const cardWidth = Math.min(
     232,
-    (width - MIN_COLUMN_GAP * (columns - 1)) / columns,
+    (canvas - MIN_COLUMN_GAP * (columns - 1)) / columns,
   );
-  // Narrow, or not measured yet: a plain list, column by column.
-  if (width === 0 || cardWidth < 150) {
+  if (width === 0 || width < 520) {
     return (
       <div
         ref={ref}
@@ -312,7 +318,7 @@ export function ArchitectureDiagram({
 
   const rows = Math.max(...layers.map((layer) => layer.length), 1);
   const height = rows * CARD_HEIGHT + (rows - 1) * ROW_GAP;
-  const step = columns > 1 ? (width - cardWidth) / (columns - 1) : 0;
+  const step = columns > 1 ? (canvas - cardWidth) / (columns - 1) : 0;
   const box = new Map<
     string,
     { x: number; y: number; layer: number; row: number }
@@ -321,7 +327,7 @@ export function ArchitectureDiagram({
     const used = layer.length * CARD_HEIGHT + (layer.length - 1) * ROW_GAP;
     layer.forEach((id, row) => {
       box.set(id, {
-        x: columns > 1 ? index * step : (width - cardWidth) / 2,
+        x: columns > 1 ? index * step : (canvas - cardWidth) / 2,
         y: (height - used) / 2 + row * (CARD_HEIGHT + ROW_GAP),
         layer: index,
         row,
@@ -375,65 +381,67 @@ export function ArchitectureDiagram({
   return (
     <div
       ref={ref}
-      className="relative"
-      style={{ height }}
+      // Room above for the agents' markers, which sit on a card's top edge.
+      className="overflow-x-auto pt-3"
       data-testid="cockpit-architecture"
       data-layout="diagram"
     >
-      <svg
-        width={width}
-        height={height}
-        className="absolute inset-0 overflow-visible text-foreground"
-        aria-hidden="true"
-      >
-        <defs>
-          <marker
-            id="architecture-arrow"
-            viewBox="0 0 8 8"
-            refX="7"
-            refY="4"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
-          >
-            <path d="M1 1L7 4L1 7" fill="none" stroke="currentColor" />
-          </marker>
-        </defs>
-        {lines.map((line, index) => (
-          <g key={`${line.from}>${line.to}`}>
-            <Line
-              d={line.d}
-              lit={line.lit}
-              dim={selected !== null && !line.lit}
-              index={index}
-            />
-            {labelled || line.lit ? (
-              <text
-                x={line.at.x}
-                y={line.at.y}
-                textAnchor={line.anchor}
-                dominantBaseline="central"
-                className="fill-muted-foreground stroke-background font-mono text-[10px] [paint-order:stroke] [stroke-width:4px]"
-              >
-                {line.label}
-              </text>
-            ) : null}
-          </g>
-        ))}
-      </svg>
-      {layers.flat().map((id) => {
-        const at = box.get(id)!;
-        return part(id, {
-          compact: cardWidth < 200,
-          style: {
-            position: "absolute",
-            left: at.x,
-            top: at.y,
-            width: cardWidth,
-            height: CARD_HEIGHT,
-          },
-        });
-      })}
+      <div className="relative" style={{ width: canvas, height }}>
+        <svg
+          width={canvas}
+          height={height}
+          className="absolute inset-0 overflow-visible text-foreground"
+          aria-hidden="true"
+        >
+          <defs>
+            <marker
+              id="architecture-arrow"
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M1 1L7 4L1 7" fill="none" stroke="currentColor" />
+            </marker>
+          </defs>
+          {lines.map((line, index) => (
+            <g key={`${line.from}>${line.to}`}>
+              <Line
+                d={line.d}
+                lit={line.lit}
+                dim={selected !== null && !line.lit}
+                index={index}
+              />
+              {labelled || line.lit ? (
+                <text
+                  x={line.at.x}
+                  y={line.at.y}
+                  textAnchor={line.anchor}
+                  dominantBaseline="central"
+                  className="fill-muted-foreground stroke-background font-mono text-[10px] [paint-order:stroke] [stroke-width:4px]"
+                >
+                  {line.label}
+                </text>
+              ) : null}
+            </g>
+          ))}
+        </svg>
+        {layers.flat().map((id) => {
+          const at = box.get(id)!;
+          return part(id, {
+            compact: cardWidth < 200,
+            style: {
+              position: "absolute",
+              left: at.x,
+              top: at.y,
+              width: cardWidth,
+              height: CARD_HEIGHT,
+            },
+          });
+        })}
+      </div>
     </div>
   );
 }

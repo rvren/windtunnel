@@ -249,6 +249,10 @@ export function AddWorkspaceDialog({
                     type="button"
                     size="sm"
                     variant={name === repo.name ? "secondary" : "outline"}
+                    aria-pressed={name === repo.name}
+                    className={
+                      name === repo.name ? "border-foreground/50" : undefined
+                    }
                     data-testid="workspace-form-sample"
                     onClick={() => {
                       setName(repo.name);
@@ -357,6 +361,7 @@ export function RunProjectDialog({
   workspaces,
   blocked,
   sampleMode,
+  sampleProject = false,
   children,
 }: {
   projectId: string;
@@ -364,6 +369,8 @@ export function RunProjectDialog({
   /** Why a run cannot start right now, or null when it can. */
   blocked: string | null;
   sampleMode: boolean;
+  /** A sample project: its runs replay a script whatever the mode. */
+  sampleProject?: boolean;
   children: React.ReactElement;
 }) {
   const router = useRouter();
@@ -390,12 +397,14 @@ export function RunProjectDialog({
         <DialogHeader>
           <DialogTitle>Run this project?</DialogTitle>
           <DialogDescription>
-            {sampleMode
-              ? "Sample mode is on. This run replays sample data and does not call the model."
-              : `Five agents read ${workspaces === 1 ? "the workspace" : `all ${workspaces} workspaces together`}. The run uses your Claude API key and is billed to it. It takes several minutes and goes on if you close this page.`}
+            {sampleProject
+              ? `This is a sample project. The run fetches ${workspaces === 1 ? "its repository" : `its ${workspaces} repositories`} and replays a script. It does not call the model and costs nothing.`
+              : sampleMode
+                ? "Sample mode is on. This run replays sample data and does not call the model."
+                : `Five agents read ${workspaces === 1 ? "the workspace" : `all ${workspaces} workspaces together`}. The run uses your Claude API key and is billed to it. It takes several minutes and goes on if you close this page.`}
           </DialogDescription>
         </DialogHeader>
-        {!sampleMode && workspaces > 1 ? (
+        {!sampleMode && !sampleProject && workspaces > 1 ? (
           <p className="text-sm text-muted-foreground">
             A project run costs more than a run of one repository, because the
             agents read more code.
