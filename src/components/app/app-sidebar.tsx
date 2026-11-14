@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import {
   ArrowLeft,
-  ChevronLeft,
   ChevronRight,
   Cpu,
   Database,
@@ -45,6 +44,16 @@ interface NavItem {
   isActive: (path: string | null) => boolean;
   /** The section has a sidebar of its own, which this row opens. */
   into?: boolean;
+}
+
+/** The name of the section page that is open, for its row in the main menu. */
+function openPage(groups: NavGroup[], path: string | null): string | null {
+  for (const group of groups) {
+    for (const entry of group.items) {
+      if (entry.isActive(path)) return entry.label;
+    }
+  }
+  return null;
 }
 
 interface NavGroup {
@@ -95,7 +104,6 @@ const MAIN: NavGroup[] = [
 // place while a Settings page is open.
 const SETTINGS: NavGroup[] = [
   {
-    label: "Engine",
     items: [
       {
         href: "/app/settings",
@@ -104,11 +112,6 @@ const SETTINGS: NavGroup[] = [
         testId: "settings-nav-engine",
         isActive: (path) => path === "/app/settings",
       },
-    ],
-  },
-  {
-    label: "Integrations",
-    items: [
       {
         href: "/app/settings/connectors",
         label: "Connectors",
@@ -117,11 +120,6 @@ const SETTINGS: NavGroup[] = [
         isActive: (path) =>
           Boolean(path?.startsWith("/app/settings/connectors")),
       },
-    ],
-  },
-  {
-    label: "Data",
-    items: [
       {
         href: "/app/settings/sample-data",
         label: "Sample data",
@@ -215,7 +213,28 @@ function NavList({
                         />
                       ) : null}
                       <entry.icon className="relative" />
-                      <span className="relative flex-1">{entry.label}</span>
+                      <span
+                        className={
+                          entry.into
+                            ? "relative shrink-0"
+                            : "relative flex-1 truncate"
+                        }
+                      >
+                        {entry.label}
+                      </span>
+                      {/* Up in the main menu with a section open: which of
+                          its pages is open, then the way back in. */}
+                      {entry.into && active ? (
+                        <span
+                          className="relative ml-auto min-w-0 truncate text-[13px] font-normal text-muted-foreground group-data-[collapsible=icon]:hidden"
+                          data-testid="sidebar-open-page"
+                        >
+                          {openPage(SETTINGS, pathname)}
+                        </span>
+                      ) : null}
+                      {entry.into && !active ? (
+                        <span className="flex-1" />
+                      ) : null}
                       {entry.into ? (
                         <ChevronRight
                           className="relative size-3.5! text-muted-foreground group-data-[collapsible=icon]:hidden"
@@ -234,20 +253,24 @@ function NavList({
   );
 }
 
-/** The way up from a section's own sidebar to the main menu: "‹ Settings". */
-function SidebarUp({ label, onClick }: { label: string; onClick: () => void }) {
+/**
+ * The top of a section's own sidebar, as in the Claude Console: an arrow and
+ * the name the section has in the main menu. It leads back to that menu and
+ * changes only the sidebar.
+ */
+function SectionHead({ label, onBack }: { label: string; onBack: () => void }) {
   return (
     <SidebarMenu className="mb-3 group-data-[collapsible=icon]:items-center">
       <SidebarMenuItem>
         <SidebarMenuButton
-          onClick={onClick}
-          tooltip="Back to the main menu"
-          aria-label="Back to the main menu"
+          onClick={onBack}
+          tooltip={label}
+          aria-label={`${label}: back to the main menu`}
           data-testid="sidebar-up"
-          className="group/up h-10 gap-2 rounded-tile px-2 text-[15px] font-semibold text-foreground transition-[background-color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.98] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center"
+          className="group/up h-10 gap-2 rounded-tile px-3 text-[15px] font-semibold text-foreground transition-[background-color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.98] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center"
         >
-          <ChevronLeft className="size-4! text-muted-foreground transition-transform duration-200 group-hover/up:-translate-x-0.5 group-hover/up:text-foreground" />
-          <span>{label}</span>
+          <ArrowLeft className="size-4! text-muted-foreground transition-transform duration-200 group-hover/up:-translate-x-0.5 group-hover/up:text-foreground" />
+          <span data-testid="sidebar-section-title">{label}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
@@ -363,9 +386,9 @@ export function AppSidebarFor({
         <SidebarSwap view={own ? "settings" : "main"} depth={own ? 1 : 0}>
           {own ? (
             <>
-              <SidebarUp
+              <SectionHead
                 label="Settings"
-                onClick={() => setUp({ at: pathname })}
+                onBack={() => setUp({ at: pathname })}
               />
               <NavList groups={SETTINGS} pathname={pathname} />
             </>

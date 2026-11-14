@@ -86,9 +86,12 @@ take something away.
   weight. Content: the full width of the page with 36px side padding; a form
   keeps its own reading measure.
 - **No tabs for sections.** A section with several pages (Settings) gets its
-  own sidebar, as in Plinth: its row in the main menu has a "›", opening any
-  of its pages swaps the sidebar to "‹ Settings" and its pages in groups, and
-  "‹ Settings" goes back up to the main menu without leaving the page. Each
+  own sidebar, as in the Claude Console: its row in the main menu has a
+  "›", and opening any of its pages swaps the sidebar to "← Settings" (an
+  arrow and the section's name in the main menu) above its pages as one
+  flat list, with no group labels. "← Settings" shows the main menu again
+  without leaving the page. There, the section's row shows which of its pages
+  is open ("Settings Connectors ›"), as in the frontend Test Console. Each
   page has its own address. Add a section's pages in `SETTINGS` (or a new
   list like it) in `components/app/app-sidebar.tsx`.
 - **Connector logos are the one exception to "no colour"**: on Settings →
