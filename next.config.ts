@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  // No Next.js badge in the corner in development: it covers the sidebar.
+  devIndicators: false,
 
   // The Docker image runs the standalone build: a small server with only the
   // files it needs. See Dockerfile.
