@@ -74,13 +74,13 @@ requirement (+ Markdown files)
  report: findings by type, work orders, the design model, a scoreboard
 ```
 
-| Agent            | What it does                                         |
-| ---------------- | ---------------------------------------------------- |
-| Everyday user    | Walks the normal path, like a real customer          |
-| Attacker         | Tries to get in where they should not                |
-| Outage tester    | Breaks things: timeouts, retries, half-done steps    |
-| Load tester      | Pushes to huge teams, lots of data and heavy traffic |
-| Product reviewer | Spots unclear rules and missing steps                |
+| Agent            | What it does                                                           |
+| ---------------- | ---------------------------------------------------------------------- |
+| Everyday user    | Walks the normal path, like a real customer                            |
+| Attacker         | Tries to get in where they should not, and finds personal data exposed |
+| Outage tester    | Breaks things: timeouts, retries, half-done steps                      |
+| Load tester      | Pushes to huge teams, lots of data and heavy traffic                   |
+| Product reviewer | Spots unclear rules and missing steps                                  |
 
 Three things keep the report honest:
 
@@ -273,7 +273,7 @@ is on. The sign-in's tokens stay in the database on the server.
 
 ## Security: remediation, personal data and secrets
 
-Repository and project runs look at the code from a security angle:
+Runs look at security from several angles:
 
 - **Remediation.** Every accepted security finding gets a remediation: what
   is wrong, the steps to fix it, a suggested patch, and its CWE and OWASP
@@ -287,6 +287,13 @@ Repository and project runs look at the code from a security angle:
   credentials, online ids) and where they reach logs, outside calls, storage
   and responses. The agents get a summary; the cockpit shows a Data and
   privacy section. It works by name, so it can include false positives.
+- **Personal data, checked by the Attacker.** The Attacker uses those leads
+  and its own checklist: personal data shown to people who should not see
+  it, written to logs or errors, sent to outside services, put in URLs,
+  stored in clear text, kept too long or impossible to delete, or collected
+  without need. Findings map to CWE-359, CWE-532, CWE-312 or CWE-200. On a
+  written requirement it asks what personal data is collected, who sees it,
+  how long it is kept and how it is deleted.
 - **Secrets.** Known key formats and hard-coded secrets in the code become
   critical findings with a remediation (move it out, rotate it). A secret's
   value is never saved or shown.

@@ -48,8 +48,55 @@ else finds them. Describe weaknesses; do not write exploit code.
   the client, framework banners, containers that run as root or bake in
   secrets.
 
+## Personal data (PII)
+
+Personal data is anything that identifies a person or is about one: names,
+email addresses, phone numbers, postal addresses, dates of birth, IP
+addresses and device ids, government ids, card and bank numbers, health,
+location, and messages people write. Treat card numbers, government ids,
+health data and passwords as the most sensitive.
+
+- **Shown to the wrong people.** Responses, lists, exports and search
+  results that return more personal data than the caller needs: full user
+  rows, other people's emails or phone numbers, password hashes, data of
+  another tenant. Check what each role can read, not only what it can change.
+- **Logs, errors and analytics.** Personal data written to log lines, error
+  messages, stack traces, crash reports, metrics labels or analytics events.
+  A card number or a government id in a log is a finding on its own
+  (CWE-532).
+- **Outside services.** Personal data sent to payment, email, analytics, AI
+  or other third-party services: is it more than the service needs, is it
+  sent over plain HTTP, and does the requirement say people agreed to it?
+- **In addresses.** Personal data or tokens in URLs and query strings, where
+  proxies, browser history and referrer headers keep them.
+- **Stored unprotected.** Sensitive personal data kept in clear text
+  (CWE-312), passwords stored with a weak or unsalted hash, full card
+  numbers kept at all when a token would do, backups and exports without
+  protection.
+- **Kept too long, or never deleted.** No retention period, no way for a
+  person to see, export or delete their data, deletion that leaves copies in
+  logs, caches, backups, search indexes or outside services.
+- **Collected without need.** Fields the product never uses, or collected
+  before they are needed (data minimisation).
+- **Test and sample data.** Real-looking personal data in seed files,
+  fixtures and examples.
+
+In code, use the data inventory as leads: it lists names that hold personal
+data and the lines where they reach a log, an outside call or a response.
+Open each lead and confirm it before filing; it is found by name, so some
+are false. In a written requirement, find what it does not say: which
+personal data is collected and why, who may see it, how long it is kept,
+how a person deletes it, and which outside services receive it.
+
+Map personal-data findings to CWE-359 (exposure of private personal
+information), CWE-532 (sensitive data in logs), CWE-312 (clear-text
+storage) or CWE-200 (exposure to an unauthorized actor). Rate them by what
+leaks and to whom: card numbers, government ids or health data to anyone
+outside is critical; another user's contact details is high; an email
+address in a log is medium.
+
 In code, start from the routes and their middleware, then the data access
 layer, then the templates and the manifest. Before you stop, go down the
-list above once and make sure each item has been checked against every
-route. The finding is strongest when you can name the route, the missing
+list above once, personal data included, and make sure each item has been
+checked against every route. The finding is strongest when you can name the route, the missing
 check and the record it exposes.

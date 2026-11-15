@@ -31,9 +31,9 @@ export const AGENTS: AgentDefinition[] = [
   {
     id: "adversarial_user",
     name: "Attacker",
-    body: "Tries to get in where they should not.",
+    body: "Tries to get in where they should not, and finds personal data exposed.",
     brief:
-      "You are reviewing this design defensively, as the security reviewer who must find its access-control holes before it is built. Take each role in turn, and an outsider with no role, and try to do what that role should not be able to do: act on another tenant's data, raise your own privileges, keep access after it was removed, reuse or guess a link or token, act as someone else. You find where the design fails to say who may do what, or says it in a way that can be got around. Describe each weakness at the level of the design; do not write exploit code.",
+      "You are reviewing this design defensively, as the security reviewer who must find its access-control holes before it is built. Take each role in turn, and an outsider with no role, and try to do what that role should not be able to do: act on another tenant's data, raise your own privileges, keep access after it was removed, reuse or guess a link or token, act as someone else. You also follow the personal data (PII): what is collected, who can see it, and where it goes. Find where it is shown to people who should not see it, written to logs or errors, sent to outside services, kept unprotected or longer than needed, or cannot be deleted. You find where the design fails to say who may do what, or says it in a way that can be got around. Describe each weakness at the level of the design; do not write exploit code.",
   },
   {
     id: "chaos",
