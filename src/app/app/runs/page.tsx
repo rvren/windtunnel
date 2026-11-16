@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { PageHeader, PageLoading } from "@/components/app/page-header";
+import { KIND_LABEL } from "@/lib/labels";
 import { Mark } from "@/components/brand/logo";
 import { LocalTime } from "@/components/local-time";
 import { StatusBadge } from "@/components/run/badges";
@@ -149,7 +150,15 @@ async function RunsTable({
                         ? "Code run"
                         : run.title}
                     </Link>
-                    {run.workspaces.length === 0 ? (
+                    {run.kind !== "audit" ? (
+                      <Badge
+                        variant="secondary"
+                        className="mt-1"
+                        data-testid="runs-row-kind"
+                      >
+                        {KIND_LABEL[run.kind]}
+                      </Badge>
+                    ) : run.workspaces.length === 0 ? (
                       <Badge
                         variant="secondary"
                         className="mt-1"

@@ -80,7 +80,17 @@ function withKindSamples(script: Script, input: RunInput): Script {
   if (!catalog) return script;
   const path =
     workspaces.length > 1 ? `${catalog.name}/search.py` : "search.py";
-  return { ...script, kinds: { ...script.kinds, triage: sampleTriage(path) } };
+  return {
+    ...script,
+    kinds: { ...script.kinds, triage: sampleTriage(path) },
+    // The defect is the catalog's SQL injection: its scripted fix applies.
+    remediations: script.remediations?.["g-cat-sqli"]
+      ? {
+          ...script.remediations,
+          "incident-1": script.remediations["g-cat-sqli"],
+        }
+      : script.remediations,
+  };
 }
 
 /**
@@ -129,6 +139,18 @@ export async function startRun(input: RunInput): Promise<RunRecord> {
       // Only an audit's findings are the project's issues and work orders.
       // A Crosswind run's breaks belong to its change; a fly-off and a
       // black box have their own outputs.
+      if (kindOf(done) === "blackbox") {
+        // A black box defect is an issue in the project's code.
+        await import("../issues/store")
+          .then(({ trackIncident }) => trackIncident(done))
+          .catch((error) =>
+            console.error(
+              "[windtunnel] The defect could not be tracked:",
+              error,
+            ),
+          );
+        return;
+      }
       if (kindOf(done) !== "audit") return;
       // The run is over. Its issues fold into the project's tracked ones
       // (imported here: the issue store reads runs through this module).

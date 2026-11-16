@@ -97,7 +97,10 @@ function Part({
   agents = [],
   compact = false,
   style,
+  mark,
 }: {
+  /** A colour to edge the card with: what a change did to this part. */
+  mark?: string;
   /** A narrow card: the kind's icon is left out to give the name room. */
   compact?: boolean;
   component: CockpitComponent;
@@ -139,6 +142,11 @@ function Part({
         variant="outline"
         onClick={onSelect}
         disabled={!onSelect}
+        style={
+          mark
+            ? { borderColor: mark, boxShadow: `inset 3px 0 0 ${mark}` }
+            : undefined
+        }
         aria-pressed={onSelect ? active : undefined}
         title={component.description}
         data-testid="cockpit-component"
@@ -256,9 +264,12 @@ export function ArchitectureDiagram({
   selected = null,
   onSelect,
   agentsAt,
+  marks,
 }: {
   components: Cockpit["components"];
   connections: Cockpit["connections"];
+  /** Colours to edge parts with, by id (a Crosswind run's changes). */
+  marks?: Record<string, string>;
   showWorkspace: boolean;
   selected?: string | null;
   /** Makes each part a filter. Left out while a run is in progress. */
@@ -286,6 +297,7 @@ export function ArchitectureDiagram({
         active={selected === id}
         onSelect={onSelect ? () => onSelect(id) : undefined}
         agents={agentsAt?.[id]}
+        mark={marks?.[id]}
         {...extra}
       />
     );

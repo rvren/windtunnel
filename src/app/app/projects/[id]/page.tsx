@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  CalendarClock,
   Clock,
   FolderGit2,
   GitBranch,
@@ -12,7 +13,10 @@ import {
   Plug,
   Plus,
   RotateCcw,
+  Siren,
+  Swords,
   Trash2,
+  Wind,
 } from "lucide-react";
 
 import {
@@ -23,6 +27,13 @@ import {
 import { LocalTime } from "@/components/local-time";
 import { Panel } from "@/components/panel";
 import { Cockpit } from "@/components/project/cockpit";
+import {
+  ScheduleDialog,
+  StartKindDialog,
+} from "@/components/project/kind-dialogs";
+import type { RunCost } from "@/components/run/confirm-run";
+import { formatCost } from "@/lib/cost";
+import { spentThisMonth } from "@/server/schedule/scheduler";
 import {
   AddWorkspaceDialog,
   DeleteProjectDialog,
@@ -195,6 +206,43 @@ async function ProjectPage({
   const githubToken = Boolean(process.env.GITHUB_TOKEN?.trim());
   const running = runs.find((run) => run.status === "running");
   const count = project.workspaces.length;
+  const cost: RunCost = project.demo
+    ? "sample-project"
+    : status.sampleMode
+      ? "sample-mode"
+      : "billed";
+  const kindWorkspaces = project.workspaces.map((item) => ({
+    name: item.name,
+    label: item.label,
+    github: item.origin.kind === "github",
+  }));
+  const spentUsd = await spentThisMonth(project.id).catch(() => 0);
+  const schedule = project.schedule;
+  const kindButton = (
+    kind: "crosswind" | "flyoff" | "blackbox",
+    label: string,
+    Icon: typeof Wind,
+    needsCode: boolean,
+  ) => (
+    <StartKindDialog
+      kind={kind}
+      projectId={project.id}
+      workspaces={kindWorkspaces}
+      cost={cost}
+      blocked={project.demo ? null : blocked}
+      requirement={project.description}
+    >
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={Boolean(running) || (needsCode && count === 0)}
+        data-testid={`project-start-${kind}`}
+      >
+        <Icon />
+        {label}
+      </Button>
+    </StartKindDialog>
+  );
 
   const addWorkspace = (label: string, primary = false) => (
     <AddWorkspaceDialog
@@ -275,6 +323,30 @@ async function ProjectPage({
                 {runs.length} {runs.length === 1 ? "run" : "runs"}
               </MetaChip>
             </a>
+            <ScheduleDialog
+              projectId={project.id}
+              schedule={schedule}
+              spentUsd={spentUsd}
+              free={project.demo}
+            >
+              <button
+                type="button"
+                className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                data-testid="project-schedule"
+                title={schedule.note ?? undefined}
+              >
+                <MetaChip
+                  icon={CalendarClock}
+                  className="hover:text-foreground"
+                  dot={schedule.note ? "var(--sev-high)" : undefined}
+                >
+                  {schedule.every === "off"
+                    ? "Not scheduled"
+                    : `${schedule.every === "daily" ? "Daily" : "Weekly"} at ${String(schedule.hour).padStart(2, "0")}:00`}
+                  {` · ${formatCost(spentUsd)}${schedule.monthlyCapUsd !== null ? ` of ${formatCost(schedule.monthlyCapUsd)}` : ""} this month`}
+                </MetaChip>
+              </button>
+            </ScheduleDialog>
           </>
         }
       >
@@ -292,6 +364,9 @@ async function ProjectPage({
             <Trash2 />
           </Button>
         </DeleteProjectDialog>
+        {kindButton("crosswind", "Crosswind", Wind, true)}
+        {kindButton("flyoff", "Fly-Off", Swords, false)}
+        {kindButton("blackbox", "Black Box", Siren, true)}
         {/* The one solid button on the page. */}
         {runProject(count > 0)}
       </PageHeader>

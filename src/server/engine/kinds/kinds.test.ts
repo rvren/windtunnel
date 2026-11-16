@@ -100,8 +100,9 @@ describe("a Crosswind run, scripted", () => {
     expect(done.title).toBe("Crosswind: Move sessions from cookies to Redis.");
     expect(done.impact?.summary).toBeTruthy();
     expect(done.impact?.review).toBeTruthy();
-    // The agents' findings land in parts of the application.
-    expect(done.impact?.components.length).toBeGreaterThan(0);
+    // The agents' findings land in parts of the application: each part a
+    // break cites is marked.
+    expect(done.impact?.components.length).toBeGreaterThan(3);
     // A Crosswind run writes no fixes.
     expect(done.remediations).toBeUndefined();
     expect(done.costUsd).toBe(0);

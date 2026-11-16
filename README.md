@@ -196,6 +196,30 @@ project (share fixed, open issues by severity, pull requests, last run and
 the next thing to do), then recent runs and pull requests. Pull requests need `GITHUB_TOKEN` with Contents and Pull requests
 write access.
 
+## Crosswind, Fly-off and Black box
+
+Besides the audit, a project has three more kinds of run, started from
+buttons on its page. Each says what it costs before it starts, and each has
+a free scripted demo on the sample project.
+
+- **Crosswind** traces one change through every service: a pull request,
+  two branches, or a change in plain words. It shows the parts the change
+  touches, what it breaks, the known issues it fixes, and the architecture
+  before and after.
+- **Fly-off**: three designers each propose a blueprint for a requirement,
+  critique each other, and a judge picks the strongest with its evidence.
+- **Black box**: paste an error or an incident note. An agent traces it to
+  cited lines, the defect is tracked as an issue, and a fix is written and
+  checked against the code. A pull request opens only when you ask.
+
+Every run shows what it cost. A project can also run an audit **on a
+schedule** (daily or weekly, at an hour) inside a monthly cap in dollars:
+a run is skipped, with a note, when it would pass the cap. Setting a
+schedule is your standing permission for those runs.
+
+A code run can name the requirement run it builds; each risk of that idea
+is then linked to the code issue that realises it.
+
 ## Refining a requirement
 
 A requirement run is the start of a loop. When it ends, **Refine

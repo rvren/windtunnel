@@ -21,6 +21,14 @@ export const STAGE_ORDER = [
   "work_orders",
 ] as const;
 
+/** What each kind of run is called. */
+export const KIND_LABEL = {
+  audit: "Audit",
+  crosswind: "Crosswind",
+  flyoff: "Fly-off",
+  blackbox: "Black box",
+} as const;
+
 export const STAGE_LABEL = {
   change: "Change",
   triage: "Triage",

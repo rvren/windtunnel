@@ -411,7 +411,10 @@ blueprints).
 **Black box** takes production feedback (`runs.data.incident`). The triage
 agent reads the code and names the lines behind it; `checkSuspects` keeps
 only lines that exist, the defect becomes one finding, and the remediation
-stage writes a fix for it whatever its kind (`anyKind`).
+stage writes a fix for it whatever its kind (`anyKind`). The defect is
+tracked as a code issue (`trackIncident` in `src/server/issues/store.ts`;
+an open issue at the same place is reused), so its fix opens a pull request
+through the same flow as any issue.
 
 Every kind has a free scripted path: `src/server/engine/sample-kinds.ts`
 holds sample answers, and `ScriptedLlm` tells the kinds apart by the answer
@@ -419,7 +422,30 @@ format they ask for.
 
 **Cost.** `src/lib/cost.ts` prices a run's usage per stage on its model
 (cache writes at 1.25 times input) and the run stores it at the end
-(`runs.cost_usd`).
+(`runs.cost_usd`). Each finished run also stores its issue counts by
+severity (`runs.counts`), for trends.
+
+**Idea to code.** A code run can name the requirement run it builds
+(`runs.requirement_run_id`). After it, `linkAcross` in
+`src/server/issues/match.ts` matches each risk of the idea to a code issue
+(stemmed title words, at least two shared, measured against the shorter
+title) and records it in `issues.realized_by_issue_id`.
+
+**Schedules.** A project can run an audit daily or weekly at an hour, with
+a monthly cap in dollars (`projects.schedule`, `schedule_hour`,
+`monthly_cap_usd`, `next_run_at`, `schedule_note`). `src/instrumentation.ts`
+starts the loop in `src/server/schedule/scheduler.ts`: each tick claims due
+projects with an optimistic update on `next_run_at`, so two servers never
+start the same run, and skips a run (with a note on the project) when this
+month's spending plus the last audit's cost would pass the cap. The times
+are worked out in `src/server/schedule/plan.ts`; the dialog that sets them
+says that a schedule is the owner's standing permission for those runs.
+
+**Screens.** The project page starts each kind from
+`src/components/project/kind-dialogs.tsx` (which also holds the schedule
+dialog); the run page shows each kind's report from
+`src/components/run/kinds/kind-report.tsx`, and a Crosswind run marks the
+parts it touches on the architecture diagram.
 
 ## 8. The data
 

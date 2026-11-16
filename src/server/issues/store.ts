@@ -7,7 +7,7 @@ import { issues } from "../db/schema";
 import { runStore } from "../engine/registry";
 import type { FindingType, RunRecord, Severity } from "../engine/schema";
 import { getProject } from "../projects/store";
-import { linkAcross, seenIn, type IssueState } from "./match";
+import { linkAcross, matchIssues, seenIn, type IssueState } from "./match";
 import { reconcile } from "./reconcile";
 
 /*
@@ -273,4 +273,52 @@ export async function issuesIn(
       ),
     );
   return rows.map(toIssue);
+}
+
+/**
+ * A black box run's defect, tracked as an issue in the project's code, so
+ * its fix can become a pull request and a later audit confirms it gone.
+ * The same defect found again updates its issue rather than adding one.
+ */
+export async function trackIncident(run: RunRecord): Promise<void> {
+  if (!run.projectId || run.status !== "completed") return;
+  const seen = seenIn(run)[0];
+  if (!seen) return;
+  const tracked = (await listIssues(run.projectId)).filter(
+    (issue) => issue.origin === "code",
+  );
+  const { matched } = matchIssues(tracked, [seen]);
+  const existing = [...matched.keys()][0];
+  const at = new Date(run.updatedAt);
+  if (existing) {
+    const issue = tracked.find((item) => item.id === existing)!;
+    await db()
+      .update(issues)
+      .set({
+        lastRunId: run.id,
+        lastGroupId: seen.groupId,
+        updatedAt: at,
+        ...(issue.state === "fixed" || issue.state === "gone"
+          ? { state: "reopened", fixedAt: null }
+          : {}),
+      })
+      .where(eq(issues.id, existing));
+    return;
+  }
+  await db().insert(issues).values({
+    id: randomUUID(),
+    projectId: run.projectId,
+    title: seen.title,
+    kind: seen.kind,
+    severity: seen.severity,
+    state: "open",
+    origin: "code",
+    path: seen.path,
+    cwe: seen.cwe,
+    firstRunId: run.id,
+    lastRunId: run.id,
+    lastGroupId: seen.groupId,
+    openedAt: at,
+    updatedAt: at,
+  });
 }

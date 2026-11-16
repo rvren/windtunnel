@@ -17,7 +17,7 @@ import {
 } from "../schema";
 
 import type { KindContext } from "./context";
-import { diffArchitectures, touchedParts } from "./impact";
+import { diffArchitectures, placesOf, touchedParts } from "./impact";
 import {
   AFTER_SYSTEM,
   IMPACT_SYSTEM,
@@ -197,7 +197,7 @@ export async function impactStage(ctx: KindContext): Promise<string> {
     before = (await lastAudit(ctx))?.source?.architecture ?? null;
   }
 
-  const components = touchedParts(change.files, run.groups, before, after);
+  const components = touchedParts(change.files, placesOf(run), before, after);
 
   // Known open issues in the project's code, for "what it fixes". Best
   // effort: without them the report simply names no fixes.

@@ -32,9 +32,12 @@ const AGENT_NOTE: Record<AgentStatus, string> = {
 export function ActivityRail({
   chapters,
   feed,
+  showAgents = true,
 }: {
   chapters: Chapter[];
   feed: Feed;
+  /** False for the kinds of run the five agents take no part in. */
+  showAgents?: boolean;
 }) {
   return (
     <aside
@@ -80,28 +83,30 @@ export function ActivityRail({
         </ol>
       </section>
 
-      <section>
-        <h2 className="mb-2 text-xs text-muted-foreground">Agents</h2>
-        <ul className="space-y-1.5">
-          {AGENT_IDS.map((id) => {
-            const agent = feed.agents[id];
-            return (
-              <li key={id} className="flex items-center gap-2">
-                <AgentIcon agentId={id} className="size-3.5" />
-                <span className="flex-1 truncate">
-                  {agentById(id)?.name ?? id}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {agent.findings > 0
-                    ? `${agent.findings} filed`
-                    : (AGENT_NOTE[agent.status as keyof typeof AGENT_NOTE] ??
-                      "")}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+      {showAgents ? (
+        <section>
+          <h2 className="mb-2 text-xs text-muted-foreground">Agents</h2>
+          <ul className="space-y-1.5">
+            {AGENT_IDS.map((id) => {
+              const agent = feed.agents[id];
+              return (
+                <li key={id} className="flex items-center gap-2">
+                  <AgentIcon agentId={id} className="size-3.5" />
+                  <span className="flex-1 truncate">
+                    {agentById(id)?.name ?? id}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {agent.findings > 0
+                      ? `${agent.findings} filed`
+                      : (AGENT_NOTE[agent.status as keyof typeof AGENT_NOTE] ??
+                        "")}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
     </aside>
   );
 }

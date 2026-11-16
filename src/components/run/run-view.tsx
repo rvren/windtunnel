@@ -38,6 +38,12 @@ import type {
 import { ConfirmRunDialog, type RunCost } from "./confirm-run";
 import { DeleteRunButton } from "./run-delete";
 import { ActivityRail } from "./activity-rail";
+import {
+  BlackboxReport,
+  CrosswindReport,
+  FlyoffReport,
+} from "./kinds/kind-report";
+import { KIND_LABEL } from "@/lib/labels";
 import { MetaChip, PageHeader } from "@/components/app/page-header";
 import { RefineSheet } from "./refine/refine-sheet";
 import { RequirementDiff, VersionSwitcher } from "./refine/versions";
@@ -222,12 +228,22 @@ export function RunView({
 }) {
   const { run, feed, times, connected } = useRun(initial);
   const running = run.status === "running";
-  const hasReport = run.designModel !== null;
+  const kind = run.kind ?? "audit";
+  // Each kind has its own report: an audit's and a Crosswind run's come
+  // from the design model on; a fly-off and a black box have their own.
+  const hasReport =
+    kind === "flyoff"
+      ? Boolean(run.flyoff?.verdict)
+      : kind === "blackbox"
+        ? Boolean(run.triage)
+        : run.designModel !== null;
   // The report waits for the end of the run; until then the story is it.
   const ended = !running;
   const chapters = storyOf(run, feed, times);
   const [storyOpen, setStoryOpen] = useState(false);
-  const [tab, setTab] = useState<ReportTab>("findings");
+  const [tab, setTab] = useState<ReportTab>(
+    kind === "crosswind" ? "impact" : "findings",
+  );
   // Focus mode lives in the address (?focus=1); it only turns on in the
   // browser, since the full-screen view is drawn into the body.
   const router = useRouter();
@@ -284,6 +300,11 @@ export function RunView({
         meta={
           <>
             <StatusBadge status={run.status} />
+            {kind !== "audit" ? (
+              <MetaChip className="text-foreground">
+                {KIND_LABEL[kind]}
+              </MetaChip>
+            ) : null}
             {run.sample ? <SampleBadge /> : null}
             {!run.source ? <ProbableTag /> : null}
             <MetaChip icon={Clock}>
@@ -337,7 +358,7 @@ export function RunView({
                   <FolderKanban />
                   Project Cockpit
                 </Link>
-                {run.source ? (
+                {kind !== "audit" ? null : run.source ? (
                   <RunAgain run={run} cost={context.cost} />
                 ) : (
                   <RefineSheet
@@ -518,7 +539,11 @@ export function RunView({
             />
           ) : null}
         </div>
-        <ActivityRail chapters={chapters} feed={feed} />
+        <ActivityRail
+          chapters={chapters}
+          feed={feed}
+          showAgents={kind === "audit" || kind === "crosswind"}
+        />
       </div>
 
       {focus ? (
@@ -533,7 +558,17 @@ export function RunView({
         />
       ) : null}
 
-      {hasReport && ended ? (
+      {hasReport && ended && kind === "flyoff" ? (
+        <FadeIn>
+          <FlyoffReport run={run} />
+        </FadeIn>
+      ) : null}
+      {hasReport && ended && kind === "blackbox" ? (
+        <FadeIn>
+          <BlackboxReport run={run} tracked={context.tracked} />
+        </FadeIn>
+      ) : null}
+      {hasReport && ended && (kind === "audit" || kind === "crosswind") ? (
         <Tabs
           value={tab}
           onValueChange={(next) => setTab(next as ReportTab)}
@@ -543,12 +578,25 @@ export function RunView({
           {/* The four tabs do not fit a phone: the strip scrolls sideways. */}
           <div className="overflow-x-auto">
             <TabsList className="w-max min-w-full">
+              {kind === "crosswind" ? (
+                <TabsTrigger
+                  value="impact"
+                  data-testid="run-tab-impact"
+                  className="flex-none px-4"
+                >
+                  Impact
+                </TabsTrigger>
+              ) : null}
               <TabsTrigger
                 value="findings"
                 data-testid="run-tab-findings"
                 className="flex-none px-4"
               >
-                {run.source ? "Issues" : "Risks"}
+                {kind === "crosswind"
+                  ? "What it breaks"
+                  : run.source
+                    ? "Issues"
+                    : "Risks"}
                 <span className="font-mono text-xs text-muted-foreground">
                   {run.groups.length}
                 </span>
@@ -579,6 +627,13 @@ export function RunView({
               </TabsTrigger>
             </TabsList>
           </div>
+          {kind === "crosswind" ? (
+            <TabsContent value="impact">
+              <FadeIn>
+                <CrosswindReport run={run} />
+              </FadeIn>
+            </TabsContent>
+          ) : null}
           <TabsContent value="findings">
             <FadeIn>
               <Insights run={run} context={context} onOpen={openTab} />

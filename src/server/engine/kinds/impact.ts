@@ -69,12 +69,34 @@ export function diffArchitectures(
 }
 
 /**
+ * Where each accepted finding is: its own place (a secret found by code),
+ * or the first place one of its agents' findings cites.
+ */
+export function placesOf(run: {
+  groups: FindingGroup[];
+  agents: { findings: { uid: string; location?: { path: string } }[] }[];
+}): { title: string; path: string | null }[] {
+  const cited = new Map(
+    run.agents
+      .flatMap((agent) => agent.findings)
+      .map((finding) => [finding.uid, finding.location?.path ?? null]),
+  );
+  return run.groups.map((group) => ({
+    title: group.title,
+    path:
+      group.location?.path ??
+      group.findingIds.map((id) => cited.get(id)).find(Boolean) ??
+      null,
+  }));
+}
+
+/**
  * Each part's effect: added or removed (from the two architectures),
  * changed (a changed file is in it), or affected (a finding lands in it).
  */
 export function touchedParts(
   files: ChangedFile[],
-  groups: FindingGroup[],
+  breaks: { title: string; path: string | null }[],
   before: Architecture | null,
   after: Architecture | null,
 ): RunImpact["components"] {
@@ -103,11 +125,9 @@ export function touchedParts(
     const id = componentOf(file.path, after ?? undefined);
     if (id) mark(id, "changed", file.path);
   }
-  for (const group of groups) {
-    const id = group.location
-      ? componentOf(group.location.path, after ?? undefined)
-      : null;
-    if (id) mark(id, "affected", group.title);
+  for (const item of breaks) {
+    const id = item.path ? componentOf(item.path, after ?? undefined) : null;
+    if (id) mark(id, "affected", item.title);
   }
   const touched = [...parts.values()].map((part) => ({
     id: part.id,

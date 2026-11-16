@@ -20,6 +20,12 @@ Done:
   with a catalog of planned connectors
 - The live map of a run in progress, and Storefront, a sample application of
   seven services in private repositories, with scripted runs
+- Run kinds: Crosswind, Fly-off and Black box (below), each with a free
+  scripted demo on Storefront
+- Tunnel run v2: an idea's risks linked to the code issues that realise
+  them, the cost of every run, and scheduled runs with a monthly cap
+- A clean, minimal UI: near-black, hairline borders, small type, a chip
+  row and tabs on each page, an activity rail on run pages
 
 ## Before production: evals for every agent
 
@@ -50,9 +56,14 @@ to what a user's run costs.
 
 **Version 1 is built.** Still to do in this stage:
 
-- Check a repository against the findings of an earlier requirement run.
 - Sign-in, organizations and per-user access to projects.
-- In the cockpit: trends across a project's runs, and scheduled runs.
+- In the cockpit: a trend chart of open issues by severity across runs (each
+  run already stores its counts and cost).
+
+Built in version 2: a code run can name the requirement run it builds, and
+each risk of that idea is linked to the code issue that realises it; every
+run shows its cost; a project can run an audit daily or weekly, inside a
+monthly cap in dollars.
 
 What version 1 does:
 
@@ -76,6 +87,10 @@ The agents simulate the effect of a change on every requirement, blueprint,
 component, API, test and downstream feature, and show the architecture before
 and after as an impact graph.
 
+**Built.** Input: a pull request, two branches, or a change in plain words.
+Output: the parts the change touches, what it breaks, the known issues it
+fixes, and the architecture before and after.
+
 Original idea: Factory Time Machine.
 
 ## 3. Fly-off
@@ -83,6 +98,9 @@ Original idea: Factory Time Machine.
 No single agent designs a feature alone. Several agents each propose an
 architecture and challenge the others' decisions. A judge agent then picks the
 strongest design and gives its evidence. The output is a reviewed blueprint.
+
+**Built.** Three designers, a round of critiques, a verdict with evidence,
+and work orders for the winning blueprint.
 
 In aviation, a fly-off is a contest between rival prototypes.
 
@@ -93,6 +111,11 @@ Original idea: Agent Jury.
 Production feedback starts a full loop: find the affected requirement, locate
 the implementation, generate a fix, run the tests, propose a pull request and
 update the project context.
+
+**Built.** Paste an error or an incident note: an agent traces it to cited
+lines, the defect is tracked as an issue, and a fix is written and checked
+against the code. A pull request opens only when you ask; Windtunnel never
+merges. Running the tests is still to do: nothing from a repository is run.
 
 Original idea: Self-Healing Software Factory.
 

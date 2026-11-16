@@ -28,7 +28,8 @@ import { seconds } from "../stage-time";
  * motion everything simply appears.
  */
 
-export type ReportTab = "findings" | "work-orders" | "model" | "scoreboard";
+export type ReportTab =
+  "impact" | "findings" | "work-orders" | "model" | "scoreboard";
 
 function Big({ value, label }: { value: number; label: string }) {
   return (
