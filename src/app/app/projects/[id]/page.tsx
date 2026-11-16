@@ -68,6 +68,7 @@ import {
 import { ensureDatabase } from "@/server/db/ready";
 import { localRepos } from "@/server/engine/repo/fetch";
 import { runStore } from "@/server/engine/registry";
+import { countsOf } from "@/server/engine/store";
 import { sampleServiceOf } from "@/server/engine/sample-project";
 import type { RunSummary } from "@/server/engine/schema";
 import {
@@ -77,6 +78,8 @@ import {
 import { DEMO_REPOSITORIES } from "@/server/projects/demo";
 import { getProject, type Project } from "@/server/projects/store";
 import type { RunPoint } from "@/lib/viz/project";
+import { trendPoint, trendRuns, type TrendPoint } from "@/lib/viz/trend";
+import { IssueTrend } from "@/components/project/issue-trend";
 import type { TrackedState } from "@/components/issues/state-chip";
 import type { FixedIssue } from "@/components/project/cockpit";
 import { ensureTracked, listIssues } from "@/server/issues/store";
@@ -103,6 +106,7 @@ async function ProjectPage({
   let shownRuns: RunSummary[];
   let cockpit: CockpitData | null = null;
   let earlier: RunPoint[] = [];
+  let trend: TrendPoint[] = [];
   // The project's tracked issues: each issue's state, by its group in the
   // cockpit's run, and the ones fixed.
   let tracked: Record<string, TrackedState> = {};
@@ -129,6 +133,17 @@ async function ProjectPage({
     const record = finished ? await runStore().get(finished.id) : null;
     if (record) {
       cockpit = buildCockpit(record);
+      // Older runs did not store their counts: read those runs once.
+      const read = await Promise.all(
+        trendRuns(runs, Boolean(record.source)).map(async (run) => {
+          if (run.counts) return trendPoint(run, run.counts);
+          const full =
+            run.id === record.id ? record : await runStore().get(run.id);
+          const counts = full ? countsOf(full) : null;
+          return counts ? trendPoint(run, counts) : null;
+        }),
+      );
+      trend = read.filter((point) => point !== null);
       earlier = runs
         .filter(
           (run) =>
@@ -458,6 +473,8 @@ async function ProjectPage({
           </p>
         </div>
       )}
+
+      {cockpit ? <IssueTrend points={trend} fixed={fixed.length} /> : null}
 
       {runs.length > 0 ? (
         <section id="runs" className="scroll-mt-16">

@@ -445,7 +445,10 @@ says that a schedule is the owner's standing permission for those runs.
 `src/components/project/kind-dialogs.tsx` (which also holds the schedule
 dialog); the run page shows each kind's report from
 `src/components/run/kinds/kind-report.tsx`, and a Crosswind run marks the
-parts it touches on the architecture diagram.
+parts it touches on the architecture diagram. Under the cockpit,
+`src/components/project/issue-trend.tsx` draws open issues by severity over
+the project's finished audits (`trendRuns` in `src/lib/viz/trend.ts`), from
+`runs.counts`; for older runs without counts the page reads the run once.
 
 ## 8. The data
 

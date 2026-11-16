@@ -57,12 +57,11 @@ to what a user's run costs.
 **Version 1 is built.** Still to do in this stage:
 
 - Sign-in, organizations and per-user access to projects.
-- In the cockpit: a trend chart of open issues by severity across runs (each
-  run already stores its counts and cost).
 
 Built in version 2: a code run can name the requirement run it builds, and
 each risk of that idea is linked to the code issue that realises it; every
-run shows its cost; a project can run an audit daily or weekly, inside a
+run shows its cost; the project page charts open issues by severity
+across its audits; a project can run an audit daily or weekly, inside a
 monthly cap in dollars.
 
 What version 1 does:

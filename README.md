@@ -163,6 +163,9 @@ finished run:
   severity with the change against the last run, the issues to fix first,
   issues over the project's runs, and readiness (patches, work orders in
   8090, personal data reaching logs);
+- **Open issues**: one bar per finished audit, oldest to newest, split by
+  severity, with the change since the last run and the issues fixed.
+  Hover a bar for its numbers; select it to open the run;
 - the workspaces, the description and the 8090 link under "Setup" at the
   end of the page, so the diagrams come first;
 - every accepted issue. Anything picked on the canvas or a card filters the

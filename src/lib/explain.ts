@@ -21,6 +21,8 @@ export const EXPLAIN = {
     "The critical and high issues, most severe first. Open one to see its evidence and fix in the run.",
   history:
     "The number of issues in each finished run of this project, oldest to newest. Lower is better.",
+  openTrend:
+    "The open issues found by each finished audit of the project's code, oldest to newest, split by severity. Hover a bar for its numbers; select it to open the run. Fixed counts the tracked issues a later run no longer found.",
   readiness:
     "Patched: security issues with a patch whose lines matched the real files. In 8090: this run's work orders sent to Software Factory. Data to logs: places where personal data reaches a log or an outside call.",
 

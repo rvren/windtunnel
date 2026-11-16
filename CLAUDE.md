@@ -193,7 +193,13 @@ something away.
 - **Colour is for meaning only.** Violet (`text-link`, `bg-brand`) marks
   progress, "now" and links. Green, orange, red and grey (`bg-ok`, `bg-sev-*`)
   mark state and severity, as a small dot in a neutral badge or a thin mark.
-  Never fill a large area with a status colour.
+  Never fill a large area with a status colour. A chart that fills by
+  severity uses the neutral ramp `bg-rank-*` (critical strongest).
+- **Tailwind drops CSS variables nothing uses.** A new token in `:root`
+  reaches the page only once a utility uses it: register it in
+  `@theme inline` and write whole class names (`bg-rank-low`), not
+  `var(--x)` in a style. `pnpm dev` can keep a stale stylesheet after such a
+  change; check with `pnpm build`.
 - **Shapes.** Small corners: `rounded-card` (10px) for panels, dialogs and
   tables (use `Panel`); `rounded-tile` (8px) for tiles; `rounded-md` (6px)
   for controls, rows and chips; `rounded-sm` (4px) for badges.
