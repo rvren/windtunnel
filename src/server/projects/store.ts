@@ -31,7 +31,28 @@ export interface Project {
   demo: boolean;
   createdAt: string;
   workspaces: Workspace[];
+  schedule: ProjectSchedule;
 }
+
+/** Scheduled audit runs of the project's code, within a monthly cap. */
+export interface ProjectSchedule {
+  every: "off" | "daily" | "weekly";
+  /** The hour of the day (server time, 0-23) a run starts. */
+  hour: number;
+  /** Runs stop once this month's runs cost this much, in USD; null: no cap. */
+  monthlyCapUsd: number | null;
+  nextRunAt: string | null;
+  /** Why the last scheduled run did not start, if it did not. */
+  note: string | null;
+}
+
+const scheduleOf = (row: typeof projects.$inferSelect): ProjectSchedule => ({
+  every: (row.schedule as ProjectSchedule["every"]) ?? "off",
+  hour: row.scheduleHour,
+  monthlyCapUsd: row.monthlyCapUsd,
+  nextRunAt: row.nextRunAt?.toISOString() ?? null,
+  note: row.scheduleNote,
+});
 
 export const PROJECT_LIMITS = {
   name: 80,
@@ -101,6 +122,7 @@ export async function listProjects(): Promise<Project[]> {
     description: row.description,
     demo: row.demo,
     createdAt: row.createdAt.toISOString(),
+    schedule: scheduleOf(row),
     workspaces: workspaceRows
       .filter((item) => item.projectId === row.id)
       .map(toWorkspace),
@@ -121,6 +143,7 @@ export async function getProject(id: string): Promise<Project | null> {
     description: row.description,
     demo: row.demo,
     createdAt: row.createdAt.toISOString(),
+    schedule: scheduleOf(row),
     workspaces: rows.map(toWorkspace),
   };
 }
@@ -138,7 +161,18 @@ export async function createProject(input: {
     createdAt: new Date(),
   };
   await db().insert(projects).values(row);
-  return { ...row, createdAt: row.createdAt.toISOString(), workspaces: [] };
+  return {
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+    workspaces: [],
+    schedule: {
+      every: "off",
+      hour: 6,
+      monthlyCapUsd: null,
+      nextRunAt: null,
+      note: null,
+    },
+  };
 }
 
 /** Removes the project and its workspaces. Its runs stay, unlinked. */

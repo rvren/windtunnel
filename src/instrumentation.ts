@@ -4,6 +4,9 @@ export async function register() {
   const { ensureDatabase } = await import("./server/db/ready");
   try {
     await ensureDatabase();
+    // Scheduled runs: a loop that checks every minute for a due project.
+    const { startScheduler } = await import("./server/schedule/scheduler");
+    startScheduler();
   } catch (error) {
     // Do not stop the server: the pages say the database is down, and the
     // next request tries again.
