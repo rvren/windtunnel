@@ -63,16 +63,17 @@ chrome in a nested layout.
 
 ## Design
 
-The owner's brief: **simple, minimal, calm and professional.** The reference is
-a dark operations dashboard: near-black ground, flat panels, white
-blocks, grey text, and colour only where it means something. When in doubt,
-take something away.
+The owner's brief: **clean, minimal, calm and professional**, in the manner
+of Linear (the reference video: near-black, nearly monochrome, hairline
+borders, small type, a breadcrumb, a title, a row of metadata chips and
+tabs, quiet cards, an activity rail on detail pages). When in doubt, take
+something away.
 
-- **Nearly monochrome, with light where it is live.** Ground, panels,
-  borders and text are neutral greys from the tokens in
-  `src/app/globals.css`. Glow (`--glow`, the `glow` utility) is only for what
-  is live or picked: a running stage, a live edge, the current filter. Never
-  on static text or large fills; no gradients on panels.
+- **Nearly monochrome, nothing glows.** Ground, panels, borders and text are
+  neutral greys from the tokens in `src/app/globals.css`; panels sit one
+  quiet step above the ground with a hairline border. `--glow` is
+  transparent in both themes: no glow, no glass (`backdrop-blur`), no
+  gradients on panels, no big shadows.
 - **Widgets earn their place.** Before adding a chart or widget, name the one
   question it answers that the page does not already answer. A big visual
   that repeats a table, needs hovering to read, or shows one number is cut
@@ -140,7 +141,8 @@ take something away.
   fixed height (640px, 700px from `xl`) for every view, so switching never
   moves the page; everything else floats on it: the top bar (view name,
   switcher, way to the run), the filters and legend, and a glass card dock
-  that folds away. The sidebar folds on a cockpit only when the project has a workspace. Flow views are laid out to fit the box exactly by
+  that folds away (flat panels, no glass). The sidebar folds on a cockpit
+  only when the project has a workspace. Flow views are laid out to fit the box exactly by
   `src/lib/viz/stage-layout.ts` (even slots, rings sized to the room).
   Every workspace and node is always shown; never fold them into "+N more"
   (the owner asked): a crowded column puts names beside smaller rings.
@@ -154,8 +156,7 @@ take something away.
   custom background-image utility with `bg-` (tailwind-merge drops the
   colour beside it: the dot grid is `dot-grid`). There is no Data flow view (removed at the
   owner's request); personal data stays in the table below.
-  Coloured strands and glow are allowed there; light theme has no glow. A
-  new view is one adapter in `src/lib/viz/cockpit-views.ts` (with its note
+  Coloured strands are allowed there, without glow. A new view is one adapter in `src/lib/viz/cockpit-views.ts` (with its note
   and legend) plus one switcher entry.
 - **One white block per view.** The main action (`Button` default) is solid
   white on dark, ink on light. Every other button is `outline` or `ghost`.
@@ -164,16 +165,20 @@ take something away.
 - **Tabs are underline tabs** (`ui/tabs.tsx`): plain labels on a hairline,
   the current one in the text colour with a 2px line that slides. No box, no
   fill, and on keyboard focus a thin outline only.
-- **The shell follows Plinth's console** (`~/Documents/GitHub/plinth`, the
-  owner's other product). Sidebar: the mark and the collapse control in one
-  row, quiet 40px rows, "New run"
-  as the one solid button at the bottom, then the footer. No horizontal
-  lines in the sidebar: space separates its parts (the owner asked). Top
-  bar: scope, then the trail parted by slashes, the last step in medium
-  weight. Content: the full width of the page with 36px side padding; a form
-  keeps its own reading measure.
-- **No tabs for sections.** A section with several pages (Settings) gets its
-  own sidebar, as in the Claude Console: its row in the main menu has a
+- **The shell.** Sidebar: a plain column on the ground with a hairline edge;
+  the mark and the collapse control in one row, quiet 32px rows (the current
+  one a faint grey fill), "New Run" as the one solid button at the bottom.
+  No horizontal lines inside the sidebar: space separates its parts (the
+  owner asked). Top bar: solid, 44px, a hairline below; scope, then the trail
+  parted by slashes, the last step in medium weight. Content: the full width
+  of the page with 24px side padding; a form keeps its own reading measure.
+- **Every page opens with `PageHeader`** (`components/app/page-header.tsx`):
+  a small title with the actions on the right, an optional line of text,
+  then a row of `MetaChip`s (status, time, counts, what was read) and, where
+  a page has sections, tabs. Detail pages (a run) put an activity rail on the
+  right (`components/run/activity-rail.tsx`).
+- **Settings is a section, not tabs.** A section with several pages
+  (Settings) gets its own sidebar, as in the Claude Console: its row in the main menu has a
   "›", and opening any of its pages swaps the sidebar to "← Settings" (an
   arrow and the section's name in the main menu) above its pages as one
   flat list, with no group labels. "← Settings" shows the main menu again
@@ -189,19 +194,19 @@ take something away.
   progress, "now" and links. Green, orange, red and grey (`bg-ok`, `bg-sev-*`)
   mark state and severity, as a small dot in a neutral badge or a thin mark.
   Never fill a large area with a status colour.
-- **Shapes.** Corners follow Plinth: `rounded-card` (16px) for panels, the
-  sidebar, dialogs and tables (use `Panel`); `rounded-tile` (12px) for
-  sidebar rows and other tiles; `rounded-md` (10px) for
-  controls (buttons, inputs, selects, chips); `rounded-sm` (6px) for badges.
+- **Shapes.** Small corners: `rounded-card` (10px) for panels, dialogs and
+  tables (use `Panel`); `rounded-tile` (8px) for tiles; `rounded-md` (6px)
+  for controls, rows and chips; `rounded-sm` (4px) for badges.
   The scale is in `src/app/globals.css`. Only status dots are round. No box
   inside a box: separate rows in a panel with hairlines.
-- **Type.** Barlow. A page title is `text-4xl font-semibold` with tight
-  tracking, then one quiet sentence; section headings are `text-lg
-font-medium`; body is 14px; secondary text is `text-muted-foreground`.
-  Large numbers stay light. Labels and counts beside a heading are small and
-  grey. Geist Mono only for ids, numbers in sequence and times.
-- **Density.** Generous padding (panels `p-5` or more), rows about 44px, one
-  idea per panel. A page is a title, at most one row of tabs, then panels.
+- **Type.** Geist Sans on a 15px root (everything in rem is a step
+  smaller). A page title is `text-xl font-semibold`; section headings are
+  13px medium; body is 13px; secondary text is `text-muted-foreground`.
+  Numbers stay modest (`text-2xl` at most). Geist Mono only for ids, numbers
+  in sequence and times. Barlow stays in the wordmark only.
+- **Density.** Compact: panels `p-4`, list rows about 36-44px, buttons 28-32px
+  high, one idea per panel. A page is a header (title, chips, tabs), then
+  panels.
 - **Loading and empty.** One quiet line of text or a spinner icon; never
   shimmer. An empty state is a dashed panel with one sentence and one action.
 - **Motion.** Every animation uses Motion (`motion/react`) through the
