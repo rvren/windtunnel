@@ -23,7 +23,7 @@ export function Mermaid({ chart }: { chart: string }) {
           startOnLoad: false,
           securityLevel: "strict",
           theme: "base",
-          fontFamily: "var(--font-barlow), ui-sans-serif, sans-serif",
+          fontFamily: "var(--font-geist-sans), ui-sans-serif, sans-serif",
           themeVariables: dark
             ? {
                 background: "#0b0b0d",

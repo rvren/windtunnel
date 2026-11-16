@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-barlow);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-barlow);
+  --font-heading: var(--font-geist-sans);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-surface: var(--surface);
@@ -54,40 +54,42 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  /* Corners, as in Plinth: controls 10px, rows and tiles 12px, panels 16px.
-     Small marks (badges, chips) keep 6px. */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 10px;
-  --radius-control: 10px;
-  --radius-tile: 12px;
-  --radius-card: 16px;
-  --radius-xl: 16px;
-  --radius-2xl: 16px;
-  --radius-3xl: 16px;
-  --radius-4xl: 16px;
+  /* Corners: small and quiet. Chips 4px, controls 6px, rows and tiles 8px,
+     panels 10px. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 6px;
+  --radius-control: 6px;
+  --radius-tile: 8px;
+  --radius-card: 10px;
+  --radius-xl: 10px;
+  --radius-2xl: 10px;
+  --radius-3xl: 10px;
+  --radius-4xl: 10px;
 }
 
 /*
  * Windtunnel design tokens. Rules: CLAUDE.md, "Design". Brand: brand/README.md.
  *
- * The look is calm and nearly monochrome. The ground is near-black (or near
- * white), panels sit one step above it, and the main action and the current
- * item are a plain white (or ink) pill. Colour is kept for meaning:
+ * Clean and minimal, nearly monochrome. The ground is near-black (or near
+ * white), panels sit one quiet step above it with hairline borders, and the
+ * main action is a plain white (or ink) button. Nothing glows. Colour is kept
+ * for meaning:
  *
- *   --brand   violet #7C5CFF  the logo, progress, "now", focus
+ *   --brand   violet #7C5CFF  the one accent: the logo, progress, "now", focus
  *   --link    the violet tuned per theme so small text passes WCAG AA
  *   --ok, --sev-*             state and severity, as small dots and thin marks
+ *                             (never violet, so the accent stays the accent)
  */
 :root {
   --brand: #7c5cff;
   --link: #6a48f2;
   --sev-critical: #dc2626;
   --sev-high: #d97706;
-  --sev-medium: #6a48f2;
+  --sev-medium: #ca8a04;
   --sev-low: #8b8fa3;
   --ok: #16a34a;
-  --background: #f5f5f7;
+  --background: #fafafa;
   --foreground: #0b0b0d;
   --card: #ffffff;
   --card-foreground: #0b0b0d;
@@ -102,22 +104,22 @@
   --accent: #ededf1;
   --accent-foreground: #0b0b0d;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #e4e4ea;
-  --input: #dcdce3;
+  --border: #e8e8ec;
+  --input: #dedee4;
   --ring: #9a85ff;
-  --chart-1: #7c5cff;
-  --chart-2: #9a85ff;
-  --chart-3: #b4a5ff;
+  --chart-1: #3f3f46;
+  --chart-2: #71717a;
+  --chart-3: #a1a1aa;
   --chart-4: #62646f;
   --chart-5: #0b0b0d;
   --radius: 10px;
-  --sidebar: #ffffff;
+  --sidebar: #fafafa;
   --sidebar-foreground: #0b0b0d;
   --sidebar-primary: #0b0b0d;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #ededf1;
   --sidebar-accent-foreground: #0b0b0d;
-  --sidebar-border: #e4e4ea;
+  --sidebar-border: #e8e8ec;
   --sidebar-ring: #9a85ff;
   /* Tuffui widgets (src/components/tuff): their layers and tones, in ours. */
   --brand-foreground: #ffffff;
@@ -133,13 +135,13 @@
   --canvas-node: #ffffff;
   --canvas-ring: #d6d6de;
   --strand-opacity: 0.5;
-  --button: linear-gradient(0deg, #fff 0%, #e6e6e6 100%);
-  --button-hover: linear-gradient(0deg, #fff 0%, #eeeeee 100%);
+  --button: #ffffff;
+  --button-hover: #f4f4f5;
   --button-foreground: #111111;
   --button-edge: rgba(0, 0, 0, 0.1);
   --button-shadow: 0 0 #0000;
-  --button-secondary: linear-gradient(180deg, #e2e2e2 0%, #ececec 100%);
-  --button-secondary-hover: linear-gradient(180deg, #dadada 0%, #e4e4e4 100%);
+  --button-secondary: #f4f4f5;
+  --button-secondary-hover: #ececef;
 }
 
 .dark {
@@ -147,59 +149,60 @@
   --link: #a594ff;
   --sev-critical: #f87171;
   --sev-high: #fb923c;
-  --sev-medium: #a594ff;
+  --sev-medium: #facc15;
   --sev-low: #8b8fa3;
   --ok: #4ade80;
-  --background: #09090b;
-  --foreground: #f7f7f8;
-  --card: #121214;
-  --card-foreground: #f7f7f8;
-  --popover: #17171a;
-  --popover-foreground: #f7f7f8;
-  --primary: #f7f7f8;
-  --primary-foreground: #09090b;
-  --secondary: #1c1c20;
-  --secondary-foreground: #f7f7f8;
-  --muted: #1c1c20;
-  --muted-foreground: #8e8e99;
-  --accent: #1c1c20;
-  --accent-foreground: #f7f7f8;
+  --background: #08080a;
+  --foreground: #ededef;
+  --card: #0e0e11;
+  --card-foreground: #ededef;
+  --popover: #111114;
+  --popover-foreground: #ededef;
+  --primary: #ededef;
+  --primary-foreground: #08080a;
+  --secondary: #16161a;
+  --secondary-foreground: #ededef;
+  --muted: #16161a;
+  --muted-foreground: #8a8a94;
+  --accent: #16161a;
+  --accent-foreground: #ededef;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: rgb(255 255 255 / 8%);
-  --input: rgb(255 255 255 / 12%);
+  --border: rgb(255 255 255 / 7%);
+  --input: rgb(255 255 255 / 10%);
   --ring: #7c5cff;
-  --chart-1: #8b70ff;
-  --chart-2: #b4a5ff;
-  --chart-3: #c9beff;
-  --chart-4: #8e8e99;
-  --chart-5: #f7f7f8;
-  --sidebar: #121214;
-  --sidebar-foreground: #f7f7f8;
-  --sidebar-primary: #f7f7f8;
-  --sidebar-primary-foreground: #09090b;
-  --sidebar-accent: #1c1c20;
-  --sidebar-accent-foreground: #f7f7f8;
-  --sidebar-border: rgb(255 255 255 / 8%);
+  --chart-1: #d4d4d8;
+  --chart-2: #8a8a94;
+  --chart-3: #52525b;
+  --chart-4: #8a8a94;
+  --chart-5: #ededef;
+  --sidebar: #08080a;
+  --sidebar-foreground: #ededef;
+  --sidebar-primary: #ededef;
+  --sidebar-primary-foreground: #08080a;
+  --sidebar-accent: #16161a;
+  --sidebar-accent-foreground: #ededef;
+  --sidebar-border: rgb(255 255 255 / 6%);
   --sidebar-ring: #7c5cff;
   --brand-foreground: #ffffff;
-  --surface: #121214;
-  --surface-inset: #0c0c0e;
-  --surface-raised: #1c1c20;
+  --surface: #0e0e11;
+  --surface-inset: #0a0a0c;
+  --surface-raised: #16161a;
   --positive: var(--ok);
   --negative: var(--sev-critical);
   --warning: var(--sev-high);
-  --glow: color-mix(in oklab, var(--brand) 60%, transparent);
-  --canvas: #0b0b0e;
-  --canvas-node: #111114;
-  --canvas-ring: rgb(255 255 255 / 16%);
-  --strand-opacity: 0.78;
-  --button: linear-gradient(0deg, #fff 0%, #ababab 100%);
-  --button-hover: linear-gradient(0deg, #fff 0%, #c2c2c2 100%);
+  /* Nothing glows: the glow utilities stay, drawn in nothing. */
+  --glow: transparent;
+  --canvas: #0a0a0c;
+  --canvas-node: #0e0e11;
+  --canvas-ring: rgb(255 255 255 / 14%);
+  --strand-opacity: 0.7;
+  --button: #ededef;
+  --button-hover: #ffffff;
   --button-foreground: #111111;
-  --button-edge: rgba(255, 255, 255, 0.5);
-  --button-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
-  --button-secondary: linear-gradient(180deg, #1d1d1d 0%, #262626 100%);
-  --button-secondary-hover: linear-gradient(180deg, #242424 0%, #2d2d2d 100%);
+  --button-edge: rgba(255, 255, 255, 0.2);
+  --button-shadow: 0 0 #0000;
+  --button-secondary: #16161a;
+  --button-secondary-hover: #1c1c21;
 }
 
 /* Diagonal hairlines, for the divider strips between sections. */
@@ -262,5 +265,8 @@
   }
   html {
     @apply font-sans;
+    /* A denser scale: everything sized in rem is a step smaller. */
+    font-size: 15px;
+    font-feature-settings: "cv11", "ss01";
   }
 }

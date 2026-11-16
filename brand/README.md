@@ -47,13 +47,15 @@ noun: Windtunnel. One word, no space, no capital T.
 
 ## Type
 
-| Typeface   | Use                                              |
-| ---------- | ------------------------------------------------ |
-| Barlow     | Everything people read: headings, text, the name |
-| Geist Mono | Labels, numbers and code                         |
+| Typeface   | Use                                            |
+| ---------- | ---------------------------------------------- |
+| Geist Sans | Everything people read in the app and the deck |
+| Geist Mono | Labels, numbers and code                       |
+| Barlow     | The wordmark and the share card                |
 
-Barlow is a DIN-style face: narrow, plain and engineered, in the manner of the
-type SpaceX uses. Both typefaces are licensed under the SIL Open Font License.
+The app is set in Geist Sans: quiet, dense and neutral, for a clean, minimal
+console. Barlow, a DIN-style face, stays in the wordmark. All three typefaces
+are licensed under the SIL Open Font License.
 
 The wordmark is Barlow SemiBold with tracking of -0.01em, converted to outlines so
 it renders the same everywhere.

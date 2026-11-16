@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
 import {
   ArrowRight,
   FolderPlus,
@@ -16,19 +15,18 @@ import {
 import { InfoTip } from "@/components/info-tip";
 import { PullRequestRefresher } from "@/components/issues/pr-refresher";
 import { LocalTime } from "@/components/local-time";
-import { EASE, FadeIn, FadeInItem } from "@/components/motion";
+import { Panel } from "@/components/panel";
 import { StatusBadge } from "@/components/run/badges";
-import { SegmentedBar } from "@/components/tuff/progress-bar";
+import { buttonVariants } from "@/components/ui/button";
 import { SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { SEVERITY_TONE } from "@/lib/viz/cockpit-views";
 import type { HomeNumbers } from "@/lib/viz/home";
 
 /*
- * The home page as a board of projects. A thin strip says where every
- * issue is in the fix pipeline; then one card per project: how much of it
- * is fixed, its open issues by severity, its pull requests and last run,
- * and the one thing to do next. Recent runs and pull requests close it.
+ * The home overview: one quiet list of projects (how bad, how far along,
+ * what to do next), then the latest runs and pull requests. The totals are
+ * chips in the page header.
  */
 
 type Project = HomeNumbers["projects"][number];
@@ -41,229 +39,202 @@ const NEXT_ICON = {
   refine: PencilLine,
 } as const;
 
-/** A ring that fills to the share of the project's issues fixed. */
-function Ring({ share }: { share: number }) {
-  const reduced = useReducedMotion();
-  const r = 22;
-  const length = 2 * Math.PI * r;
+function SectionTitle({
+  children,
+  about,
+  label,
+  action,
+}: {
+  children: React.ReactNode;
+  about: "projectsHealth" | "recentRuns" | "recentPrs";
+  label: string;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="relative size-16 shrink-0">
-      <svg
-        viewBox="-28 -28 56 56"
-        className="size-full -rotate-90"
-        aria-hidden="true"
+    <div className="flex items-center justify-between border-b px-4 py-2.5">
+      <h2 className="flex items-center gap-1.5 text-[13px] font-medium">
+        {children}
+        <InfoTip about={about} label={label} />
+      </h2>
+      {action}
+    </div>
+  );
+}
+
+/** A thin bar of open issues by severity, with the counts beside it. */
+function Severity({ project }: { project: Project }) {
+  if (project.open === 0) {
+    return (
+      <span className="text-xs text-muted-foreground">No open issues</span>
+    );
+  }
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <div
+        className="flex h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-foreground/[0.06]"
+        role="img"
+        aria-label={`${project.name}: open issues by severity`}
       >
-        <circle
-          r={r}
-          fill="none"
-          stroke="var(--surface-raised)"
-          strokeWidth="5"
-        />
-        <motion.circle
-          r={r}
-          fill="none"
-          stroke="var(--ok)"
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray={length}
-          initial={reduced ? false : { strokeDashoffset: length }}
-          animate={{ strokeDashoffset: length * (1 - share) }}
-          transition={{ duration: 0.9, ease: EASE }}
-        />
-      </svg>
-      <span className="absolute inset-0 grid place-items-center text-xs font-medium tabular-nums">
-        {Math.round(share * 100)}%
+        {SEVERITY_ORDER.map((severity) =>
+          project.bySeverity[severity] > 0 ? (
+            <span
+              key={severity}
+              style={{
+                flexGrow: project.bySeverity[severity],
+                background: SEVERITY_TONE[severity],
+              }}
+            />
+          ) : null,
+        )}
+      </div>
+      <span className="flex gap-2.5 font-mono text-[11px] text-muted-foreground tabular-nums">
+        {SEVERITY_ORDER.filter((s) => project.bySeverity[s] > 0).map((s) => (
+          <span key={s} title={SEVERITY_LABEL[s]}>
+            <span style={{ color: SEVERITY_TONE[s] }}>●</span>{" "}
+            {project.bySeverity[s]}
+          </span>
+        ))}
       </span>
     </div>
   );
 }
 
-function ProjectCard({ project }: { project: Project }) {
+function ProjectRow({ project }: { project: Project }) {
   const Next = NEXT_ICON[project.next.kind];
-  const urgent =
-    project.next.kind === "rescan" ||
-    project.next.kind === "fix" ||
-    project.next.kind === "refine";
+  const urgent = project.next.kind !== "open" && project.next.kind !== "run";
   return (
-    <article
-      className="flex h-full flex-col gap-4 rounded-card bg-card p-5 ring-1 ring-transparent transition-shadow duration-300 hover:ring-foreground/10"
+    <li
+      className="grid grid-cols-1 items-center gap-x-6 gap-y-2 px-4 py-3 md:grid-cols-[minmax(10rem,1.2fr)_minmax(12rem,1.4fr)_7rem_9rem_auto]"
       data-testid="home-project"
     >
-      <header className="flex items-start gap-4">
-        <Ring share={project.fixedShare} />
-        <div className="min-w-0 flex-1">
-          <Link
-            href={`/app/projects/${project.id}`}
-            className="block truncate text-base font-medium hover:underline"
-          >
-            {project.name}
-          </Link>
-          <p className="text-xs text-muted-foreground">
-            {project.fixed} fixed · {project.open} open
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {project.lastRun ? (
-              <>
-                Last run <LocalTime iso={project.lastRun.at} />
-              </>
-            ) : (
-              "Not run yet"
-            )}
-          </p>
-        </div>
-      </header>
-
-      <div>
-        {project.open > 0 ? (
-          <SegmentedBar
-            label={`${project.name}: open issues by severity`}
-            size="sm"
-            max={project.open}
-            segments={SEVERITY_ORDER.filter(
-              (s) => project.bySeverity[s] > 0,
-            ).map((severity) => ({
-              id: severity,
-              label: SEVERITY_LABEL[severity],
-              value: project.bySeverity[severity],
-              color: SEVERITY_TONE[severity],
-            }))}
-          />
-        ) : (
-          <div className="h-1.5 rounded-full bg-foreground/[0.06]" />
-        )}
-        <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-          {SEVERITY_ORDER.map((severity) => (
-            <li key={severity} className="flex items-center gap-1">
-              <span
-                aria-hidden="true"
-                className="size-1.5 rounded-full"
-                style={{ background: SEVERITY_TONE[severity] }}
-              />
-              <span className="font-mono text-foreground tabular-nums">
-                {project.bySeverity[severity]}
-              </span>
-              {SEVERITY_LABEL[severity].toLowerCase()}
-            </li>
-          ))}
-        </ul>
+      <div className="min-w-0">
+        <Link
+          href={`/app/projects/${project.id}`}
+          className="block truncate text-[13px] font-medium hover:underline"
+        >
+          {project.name}
+        </Link>
+        <p className="text-xs text-muted-foreground">
+          {Math.round(project.fixedShare * 100)}% fixed · {project.fixed} of{" "}
+          {project.fixed + project.open}
+        </p>
       </div>
 
-      <p className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <GitPullRequest className="size-3.5" aria-hidden="true" />
-          <span className="font-mono text-foreground tabular-nums">
-            {project.prs}
-          </span>
-          {project.prs === 1 ? "pull request open" : "pull requests open"}
-        </span>
-        {project.merged > 0 ? (
-          <span className="flex items-center gap-1.5 text-sev-high">
-            <GitMerge className="size-3.5" aria-hidden="true" />
-            {project.merged} merged
-          </span>
+      <div className="min-w-0 space-y-1">
+        <Severity project={project} />
+        {project.risks > 0 && project.requirementRunId ? (
+          <Link
+            href={`/app/runs/${project.requirementRunId}`}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            data-testid="home-project-risks"
+          >
+            <Lightbulb className="size-3" aria-hidden="true" />
+            {project.risks} probable {project.risks === 1 ? "risk" : "risks"} in
+            the requirement
+          </Link>
         ) : null}
-      </p>
+      </div>
 
-      {project.risks > 0 && project.requirementRunId ? (
-        <Link
-          href={`/app/runs/${project.requirementRunId}`}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-          data-testid="home-project-risks"
-        >
-          <Lightbulb className="size-3.5" aria-hidden="true" />
-          <span className="font-mono text-foreground tabular-nums">
-            {project.risks}
-          </span>
-          probable {project.risks === 1 ? "risk" : "risks"} in the requirement
-        </Link>
-      ) : null}
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <GitPullRequest className="size-3.5" aria-hidden="true" />
+        <span className="font-mono text-foreground tabular-nums">
+          {project.prs}
+        </span>
+        open
+        {project.merged > 0 ? (
+          <span className="text-sev-high">· {project.merged} merged</span>
+        ) : null}
+      </span>
+
+      <span className="text-xs text-muted-foreground">
+        {project.lastRun ? (
+          <LocalTime iso={project.lastRun.at} />
+        ) : (
+          "Not run yet"
+        )}
+      </span>
 
       <Link
         href={project.next.href}
         className={cn(
-          "mt-auto flex items-center gap-2 rounded-tile px-3 py-2 text-sm ring-1 transition-colors",
-          urgent
-            ? "bg-brand/10 ring-brand/30 hover:bg-brand/15"
-            : "ring-foreground/10 hover:bg-muted",
+          buttonVariants({
+            variant: urgent ? "secondary" : "ghost",
+            size: "sm",
+          }),
+          "justify-self-start md:justify-self-end",
+          urgent && "text-foreground",
         )}
         data-testid="home-project-next"
       >
         <Next
-          className={cn(
-            "size-4",
-            urgent ? "text-brand" : "text-muted-foreground",
-          )}
+          className={cn("size-3.5", urgent && "text-brand")}
           aria-hidden="true"
         />
-        <span className="flex-1">{project.next.label}</span>
-        <ArrowRight
-          className="size-3.5 text-muted-foreground"
-          aria-hidden="true"
-        />
+        {project.next.label}
       </Link>
-    </article>
+    </li>
   );
 }
 
 export function Home({ numbers }: { numbers: HomeNumbers }) {
   return (
-    <div className="space-y-6" data-testid="home">
+    <div className="space-y-5" data-testid="home">
       <PullRequestRefresher />
 
-      {/* One card per project */}
-      <section aria-label="Projects">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-1.5 text-sm font-medium">
-            Projects
-            <InfoTip about="projectsHealth" label="Projects" />
-          </h2>
-          <Link
-            href="/app/projects"
-            className="text-xs text-link hover:underline"
-          >
-            Manage Projects
-          </Link>
-        </div>
+      <Panel>
+        <SectionTitle
+          about="projectsHealth"
+          label="Projects"
+          action={
+            <Link
+              href="/app/projects"
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Manage Projects
+            </Link>
+          }
+        >
+          Projects
+        </SectionTitle>
         {numbers.projects.length === 0 ? (
           <Link
             href="/app/projects"
-            className="flex flex-col items-center gap-2 rounded-card border border-dashed px-6 py-12 text-center text-sm text-muted-foreground hover:text-foreground"
+            className="flex items-center justify-center gap-2 px-4 py-10 text-[13px] text-muted-foreground hover:text-foreground"
           >
-            <FolderPlus className="size-5" aria-hidden="true" />
-            Add Your First Project
+            <FolderPlus className="size-4" aria-hidden="true" />
+            Add your first project
           </Link>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="divide-y">
             {numbers.projects.map((project) => (
-              <FadeInItem key={project.id}>
-                <ProjectCard project={project} />
-              </FadeInItem>
+              <ProjectRow key={project.id} project={project} />
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
 
-      {/* What happened lately */}
-      <FadeIn delay={0.1} className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-card bg-card p-5" data-testid="home-runs">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-1.5 text-sm font-medium">
-              Recent runs
-              <InfoTip about="recentRuns" label="Recent runs" />
-            </h2>
-            <Link
-              href="/app/runs"
-              className="text-xs text-link hover:underline"
-            >
-              All Runs
-            </Link>
-          </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel data-testid="home-runs">
+          <SectionTitle
+            about="recentRuns"
+            label="Recent runs"
+            action={
+              <Link
+                href="/app/runs"
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                All Runs
+              </Link>
+            }
+          >
+            Recent runs
+          </SectionTitle>
           <ul className="divide-y">
             {numbers.recentRuns.map((run) => (
               <li key={run.id}>
                 <Link
                   href={`/app/runs/${run.id}`}
-                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-2 text-sm"
+                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-[13px] hover:bg-muted/40"
                 >
                   <span className="truncate">{run.title}</span>
                   <StatusBadge status={run.status} />
@@ -275,15 +246,14 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
               </li>
             ))}
           </ul>
-        </section>
+        </Panel>
 
-        <section className="rounded-card bg-card p-5" data-testid="home-prs">
-          <h2 className="mb-3 flex items-center gap-1.5 text-sm font-medium">
+        <Panel data-testid="home-prs">
+          <SectionTitle about="recentPrs" label="Recent pull requests">
             Recent pull requests
-            <InfoTip about="recentPrs" label="Recent pull requests" />
-          </h2>
+          </SectionTitle>
           {numbers.recentPrs.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">
+            <p className="px-4 py-6 text-[13px] text-muted-foreground">
               No fix pull requests yet. Open one from a security issue in a run.
             </p>
           ) : (
@@ -294,7 +264,7 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
                     href={item.pr!.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-2 text-sm"
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-[13px] hover:bg-muted/40"
                   >
                     <span className="font-mono text-xs text-muted-foreground">
                       #{item.pr!.number}
@@ -308,8 +278,8 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
               ))}
             </ul>
           )}
-        </section>
-      </FadeIn>
+        </Panel>
+      </div>
     </div>
   );
 }

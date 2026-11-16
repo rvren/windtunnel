@@ -59,7 +59,7 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
         </Suspense>
         {/* The full width of the page: tables, charts and the cockpit use it.
             A form keeps its own reading measure. */}
-        <div className="w-full min-w-0 flex-1 px-4 pt-4 pb-12 md:px-9 md:pt-7 md:pb-18">
+        <div className="w-full min-w-0 flex-1 px-4 pt-5 pb-12 md:px-6 md:pt-6 md:pb-16">
           {children}
         </div>
       </SidebarInset>

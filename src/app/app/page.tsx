@@ -1,7 +1,12 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { FolderKanban, GitPullRequest, Lightbulb } from "lucide-react";
 
-import { PageHeader, PageLoading } from "@/components/app/page-header";
+import {
+  MetaChip,
+  PageHeader,
+  PageLoading,
+} from "@/components/app/page-header";
 import { Home } from "@/components/home/home";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { homeNumbers } from "@/lib/viz/home";
@@ -45,11 +50,28 @@ async function HomePage() {
       </Alert>
     );
   }
+  const all = home.numbers.projects;
+  const open = all.reduce((sum, item) => sum + item.open, 0);
+  const prs = all.reduce((sum, item) => sum + item.prs, 0);
+  const fixed = all.reduce((sum, item) => sum + item.fixed, 0);
+  const risks = all.reduce((sum, item) => sum + item.risks, 0);
   return (
     <>
       <PageHeader
         title="Home"
-        description={`Across ${home.count} ${home.count === 1 ? "project" : "projects"}: what is open, what is being fixed, and what is confirmed gone.`}
+        meta={
+          <>
+            <MetaChip icon={FolderKanban}>
+              {home.count} {home.count === 1 ? "project" : "projects"}
+            </MetaChip>
+            <MetaChip dot="var(--sev-high)">{open} open issues</MetaChip>
+            <MetaChip icon={GitPullRequest}>{prs} pull requests open</MetaChip>
+            <MetaChip dot="var(--ok)">{fixed} fixed</MetaChip>
+            {risks > 0 ? (
+              <MetaChip icon={Lightbulb}>{risks} probable risks</MetaChip>
+            ) : null}
+          </>
+        }
       />
       <Home numbers={home.numbers} />
     </>
