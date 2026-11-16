@@ -241,16 +241,223 @@ export const AgentId = z.enum(AGENT_IDS);
 export type AgentId = z.infer<typeof AgentId>;
 
 export const STAGES = [
+  "change",
   "survey",
+  "triage",
   "model",
   "coverage",
   "agents",
+  "proposals",
+  "critique",
   "challenge",
   "judge",
   "remediation",
+  "impact",
   "work_orders",
 ] as const;
 export type Stage = (typeof STAGES)[number];
+
+/**
+ * What a run is for. An audit tests a requirement or a project's code (the
+ * original run). Crosswind traces one change through every service. A
+ * fly-off has rival agents design a requirement and a judge pick one. A
+ * black box takes production feedback to its cause and a fix.
+ */
+export const RUN_KINDS = ["audit", "crosswind", "flyoff", "blackbox"] as const;
+export type RunKind = (typeof RUN_KINDS)[number];
+
+/** Each kind's stages, in order. An audit of a requirement has no survey. */
+export const STAGES_OF: Record<RunKind, readonly Stage[]> = {
+  audit: [
+    "survey",
+    "model",
+    "coverage",
+    "agents",
+    "challenge",
+    "judge",
+    "remediation",
+    "work_orders",
+  ],
+  crosswind: [
+    "change",
+    "survey",
+    "model",
+    "coverage",
+    "agents",
+    "challenge",
+    "judge",
+    "impact",
+    "work_orders",
+  ],
+  flyoff: ["model", "proposals", "critique", "judge"],
+  blackbox: ["survey", "triage", "remediation"],
+};
+
+/** A run's kind; runs made before kinds existed are audits. */
+export const kindOf = (run: { kind?: RunKind | null }): RunKind =>
+  run.kind ?? "audit";
+
+/** The stages a run goes through, in order. */
+export function stagesOf(run: {
+  kind?: RunKind | null;
+  source?: unknown;
+}): Stage[] {
+  const all = STAGES_OF[kindOf(run)];
+  return all.filter((stage) => stage !== "survey" || Boolean(run.source));
+}
+
+// ── Crosswind: one change, traced through every service ──────────────────
+
+/** What changes: a pull request, two branches, or a change in words. */
+export type ChangeInput =
+  | { kind: "pr"; workspace: string; number: number }
+  | { kind: "branches"; workspace: string; base: string; head: string }
+  | { kind: "text"; text: string };
+
+export interface ChangedFile {
+  /** From the root the agents read (workspace/path in a project). */
+  path: string;
+  status: "added" | "modified" | "removed" | "renamed";
+  additions: number;
+  deletions: number;
+  /** The unified diff of this file, cut short when it is long. */
+  patch: string | null;
+  previousPath: string | null;
+}
+
+export interface RunChange {
+  input: ChangeInput;
+  title: string;
+  /** The pull request or comparison on GitHub, when there is one. */
+  url: string | null;
+  base: string | null;
+  head: string | null;
+  files: ChangedFile[];
+  /** True when files or patches were left out to keep the run in bounds. */
+  truncated: boolean;
+}
+
+export type ImpactEffect = "added" | "removed" | "changed" | "affected";
+
+export interface RunImpact {
+  summary: string;
+  components: {
+    id: string;
+    name: string;
+    effect: ImpactEffect;
+    note: string;
+  }[];
+  connections: {
+    from: string;
+    to: string;
+    label: string;
+    effect: "added" | "removed";
+  }[];
+  before: Architecture | null;
+  after: Architecture | null;
+  /** Known issues of the project this change would fix. */
+  fixes: { issueId: string; title: string; reason: string }[];
+  /** A short review of the change, ready to post on its pull request. */
+  review: string;
+}
+
+/** The model's part of the impact: a summary, a review and what it fixes. */
+export const ImpactAnswer = z.object({
+  summary: z.string(),
+  review: z.string(),
+  fixes: z.array(z.object({ issueId: z.string(), reason: z.string() })),
+});
+export type ImpactAnswer = z.infer<typeof ImpactAnswer>;
+
+// ── Fly-off: rival designs, one judge ─────────────────────────────────────
+
+export const Blueprint = z.object({
+  name: z.string(),
+  summary: z.string(),
+  components: z.array(
+    z.object({ name: z.string(), kind: z.string(), description: z.string() }),
+  ),
+  connections: z.array(
+    z.object({ from: z.string(), to: z.string(), label: z.string() }),
+  ),
+  decisions: z.array(
+    z.object({
+      decision: z.string(),
+      why: z.string(),
+      tradeoff: z.string(),
+    }),
+  ),
+  risks: z.array(z.string()),
+});
+export type Blueprint = z.infer<typeof Blueprint>;
+
+export const Critique = z.object({
+  critiques: z.array(
+    z.object({
+      blueprintId: z.string(),
+      strengths: z.array(z.string()),
+      weaknesses: z.array(
+        z.object({ point: z.string(), severity: Severity }),
+      ),
+    }),
+  ),
+});
+export type Critique = z.infer<typeof Critique>;
+
+export const FlyoffVerdict = z.object({
+  winnerId: z.string(),
+  summary: z.string(),
+  ranking: z.array(
+    z.object({ blueprintId: z.string(), rank: z.number().int(), reason: z.string() }),
+  ),
+  nextSteps: z.array(z.string()),
+});
+export type FlyoffVerdict = z.infer<typeof FlyoffVerdict>;
+
+export interface RunFlyoff {
+  blueprints: {
+    id: string;
+    proposer: string;
+    angle: string;
+    status: "pending" | "running" | "done" | "failed";
+    blueprint: Blueprint | null;
+    error: string | null;
+  }[];
+  critiques: {
+    from: string;
+    blueprintId: string;
+    strengths: string[];
+    weaknesses: { point: string; severity: Severity }[];
+  }[];
+  verdict: FlyoffVerdict | null;
+}
+
+// ── Black box: production feedback to its cause ───────────────────────────
+
+export const TriageAnswer = z.object({
+  title: z.string(),
+  hypothesis: z.string(),
+  type: FindingType,
+  severity: Severity,
+  confidence: z.enum(["high", "medium", "low"]),
+  /** Which part of the product or requirement it touches, in plain words. */
+  affects: z.string(),
+  suspects: z.array(
+    z.object({
+      path: z.string(),
+      startLine: z.number().int(),
+      endLine: z.number().int(),
+      why: z.string(),
+    }),
+  ),
+  checks: z.array(z.string()),
+});
+export type TriageAnswer = z.infer<typeof TriageAnswer>;
+
+export interface RunTriage extends Omit<TriageAnswer, "suspects"> {
+  /** Only suspects whose lines exist, with the code they cite. */
+  suspects: (CodeLocation & { why: string })[];
+}
 
 export type RunStatus = "running" | "completed" | "failed" | "interrupted";
 export type AgentStatus =
@@ -408,6 +615,20 @@ export interface RunRecord {
   projectId?: string;
   /** The requirement run this one refines (its previous version). */
   parentRunId?: string;
+  /** What the run is for. Absent on runs made before kinds: an audit. */
+  kind?: RunKind;
+  /** A code run's requirement run: the idea this code implements. */
+  requirementRunId?: string;
+  /** Crosswind: the change, and what it does across the services. */
+  change?: RunChange;
+  impact?: RunImpact;
+  /** Fly-off: the blueprints, the critiques and the verdict. */
+  flyoff?: RunFlyoff;
+  /** Black box: the production feedback, and where it leads. */
+  incident?: string;
+  triage?: RunTriage;
+  /** What the run cost, in US dollars, from its token use. */
+  costUsd?: number;
   /**
    * What the run read: the names of the project's workspaces, or the label
    * of the one repository. Absent on requirement runs.
@@ -440,6 +661,7 @@ export interface RunRecord {
 export interface RunSummary {
   id: string;
   projectId: string | null;
+  kind: RunKind;
   /** The requirement run this one refines, if any. */
   parentRunId: string | null;
   createdAt: string;
@@ -450,6 +672,10 @@ export interface RunSummary {
   workOrderCount: number;
   /** What the run read. Empty for a requirement run. */
   workspaces: string[];
+  /** What it cost in US dollars, once finished; null before or unknown. */
+  costUsd: number | null;
+  /** Accepted findings by severity, once finished. */
+  counts: Record<Severity, number> | null;
 }
 
 export type RunEvent =

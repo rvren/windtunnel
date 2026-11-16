@@ -1,19 +1,32 @@
 // The words people see for the engine's values. Used by the screens and by
 // the Markdown export, so the two always agree.
 
-/** The stages of a run, in order. */
+/**
+ * Every stage any run can have, in order. A run goes through its own kind's
+ * stages (stagesOf in the engine schema).
+ */
 export const STAGE_ORDER = [
+  "change",
   "survey",
+  "triage",
   "model",
   "coverage",
   "agents",
+  "proposals",
+  "critique",
   "challenge",
   "judge",
   "remediation",
+  "impact",
   "work_orders",
 ] as const;
 
 export const STAGE_LABEL = {
+  change: "Change",
+  triage: "Triage",
+  proposals: "Proposals",
+  critique: "Critique",
+  impact: "Impact",
   survey: "Survey",
   model: "Model",
   coverage: "Coverage",
@@ -25,6 +38,11 @@ export const STAGE_LABEL = {
 } as const;
 
 export const STAGE_DESCRIPTION = {
+  change: "Reading the change: its pull request, branches or words",
+  triage: "Tracing the production feedback to its cause in the code",
+  proposals: "Three agents each designing the feature their own way",
+  critique: "Each designer critiquing the others' blueprints",
+  impact: "Mapping what the change does to every service",
   survey: "Fetching the repository and listing its files",
   model: "Writing the design model from the requirement",
   coverage: "Finding the gaps code can see",

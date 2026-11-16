@@ -189,3 +189,73 @@ export async function pullState(
     mergedAt: answer.merged_at,
   };
 }
+
+// ── Reading a change (Crosswind). Read-only: nothing is written. ───────────
+
+/** A file a change touches, as GitHub lists it. */
+export interface GitHubFile {
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  patch?: string;
+  previous_filename?: string;
+}
+
+/** A pull request's title, link and branches. */
+export async function pullRequest(
+  repo: string,
+  number: number,
+): Promise<{
+  title: string;
+  url: string;
+  base: string;
+  head: string;
+  /** "owner/name" of the head branch's repository (a fork differs). */
+  headRepo: string | null;
+}> {
+  const answer = await call<{
+    title: string;
+    html_url: string;
+    base: { ref: string };
+    head: { ref: string; repo: { full_name: string } | null };
+  }>("GET", `/repos/${repo}/pulls/${number}`);
+  return {
+    title: answer.title,
+    url: answer.html_url,
+    base: answer.base.ref,
+    head: answer.head.ref,
+    headRepo: answer.head.repo?.full_name ?? null,
+  };
+}
+
+/** The files a pull request changes, up to `limit` (GitHub pages by 100). */
+export async function pullFiles(
+  repo: string,
+  number: number,
+  limit = 300,
+): Promise<GitHubFile[]> {
+  const files: GitHubFile[] = [];
+  for (let page = 1; files.length < limit; page += 1) {
+    const batch = await call<GitHubFile[]>(
+      "GET",
+      `/repos/${repo}/pulls/${number}/files?per_page=100&page=${page}`,
+    );
+    files.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return files.slice(0, limit);
+}
+
+/** What changes from one branch to another. */
+export async function compare(
+  repo: string,
+  base: string,
+  head: string,
+): Promise<{ url: string; files: GitHubFile[] }> {
+  const answer = await call<{ html_url: string; files?: GitHubFile[] }>(
+    "GET",
+    `/repos/${repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`,
+  );
+  return { url: answer.html_url, files: answer.files ?? [] };
+}

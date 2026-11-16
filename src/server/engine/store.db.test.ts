@@ -102,6 +102,9 @@ describe("PgRunStore", () => {
         title: "Requirement 2",
         findingCount: 1,
         workOrderCount: 0,
+        kind: "audit",
+        costUsd: null,
+        counts: { critical: 0, high: 1, medium: 0, low: 0 },
       },
       {
         id: id(1),
@@ -114,6 +117,9 @@ describe("PgRunStore", () => {
         title: "Requirement 1",
         findingCount: 0,
         workOrderCount: 0,
+        kind: "audit",
+        costUsd: null,
+        counts: null,
       },
     ]);
   });

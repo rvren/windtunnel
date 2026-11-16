@@ -369,6 +369,58 @@ A requirement run's results are probable risks of an idea. One switch,
 requirement issues (`issues.origin = "requirement"`) are reconciled only
 against earlier versions of the same requirement.
 
+## Run kinds
+
+A run has a kind (`runs.kind`; absent on old runs, which are audits). Each
+kind has its own stages (`STAGES_OF` in `src/server/engine/schema.ts`);
+`executeRun` in `src/server/engine/run.ts` skips the stages a kind does not
+have and hands the rest to an executor in `src/server/engine/kinds/`. Only
+audits update tracked issues and send work orders to 8090.
+
+| Kind      | Stages                                                                         | Executor                               |
+| --------- | ------------------------------------------------------------------------------ | -------------------------------------- |
+| Audit     | survey, model, coverage, agents, challenge, judge, remediation, work_orders    | `src/server/engine/run.ts`             |
+| Crosswind | change, survey, model, coverage, agents, challenge, judge, impact, work_orders | `src/server/engine/kinds/crosswind.ts` |
+| Fly-off   | model, proposals, critique, judge                                              | `src/server/engine/kinds/flyoff.ts`    |
+| Black box | survey, triage, remediation                                                    | `src/server/engine/kinds/blackbox.ts`  |
+
+```mermaid
+flowchart LR
+  pr["pull request or branches<br/>(GitHub, read-only)"] --> change
+  words["a change in words"] --> change
+  change["change"] --> survey["survey<br/>the head"]
+  survey --> agents["agents, challenge, judge<br/>briefed with the change"]
+  agents --> impact["impact<br/>parts touched, before and after,<br/>known issues fixed, a review"]
+```
+
+**Crosswind** reads the change (`pullRequest`, `pullFiles`, `compare` in
+`src/server/connectors/github.ts`; a pull request from a fork is refused),
+points the survey at its head, and runs the audit's agents with the change
+in their shared context (`changeContext` in
+`src/server/engine/kinds/prompts.ts`): they file what it breaks, citing the
+head. The impact stage works out in code which parts it touches and how the
+architecture differs from the last audit (`src/server/engine/kinds/impact.ts`;
+for a change in words the model draws the after picture), then asks the
+model for a summary, a pull request review and which known issues it fixes.
+
+**Fly-off** has three designers (`PROPOSERS`: Pragmatist, Scaler, Guardian)
+each write a blueprint for a requirement, critique the others, and a judge
+rank them and pick one (`checkCritiques` and `checkVerdict` hold them to real
+blueprints).
+
+**Black box** takes production feedback (`runs.data.incident`). The triage
+agent reads the code and names the lines behind it; `checkSuspects` keeps
+only lines that exist, the defect becomes one finding, and the remediation
+stage writes a fix for it whatever its kind (`anyKind`).
+
+Every kind has a free scripted path: `src/server/engine/sample-kinds.ts`
+holds sample answers, and `ScriptedLlm` tells the kinds apart by the answer
+format they ask for.
+
+**Cost.** `src/lib/cost.ts` prices a run's usage per stage on its model
+(cache writes at 1.25 times input) and the run stores it at the end
+(`runs.cost_usd`).
+
 ## 8. The data
 
 ```mermaid

@@ -4,12 +4,15 @@ import { AGENT_IDS } from "@/lib/agents";
 
 import type { Database } from "../db/client";
 import { agentReports, runEvents, runs } from "../db/schema";
-import type {
-  AgentRun,
-  RunEvent,
-  RunRecord,
-  RunSummary,
-  StoredEvent,
+import {
+  kindOf,
+  type AgentRun,
+  type RunKind,
+  type RunEvent,
+  type RunRecord,
+  type RunSummary,
+  type Severity,
+  type StoredEvent,
 } from "./schema";
 
 /*
@@ -41,10 +44,26 @@ export interface RunFilter {
   workspaces?: string[];
 }
 
+/** Accepted findings by severity, once the run has finished. */
+export function countsOf(run: RunRecord): Record<Severity, number> | null {
+  if (run.status !== "completed") return null;
+  const counts: Record<Severity, number> = {
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+  };
+  for (const group of run.groups) counts[group.severity] += 1;
+  return counts;
+}
+
 function summarize(run: RunRecord): RunSummary {
   return {
     id: run.id,
     projectId: run.projectId ?? null,
+    kind: kindOf(run),
+    costUsd: run.costUsd ?? null,
+    counts: countsOf(run),
     parentRunId: run.parentRunId ?? null,
     createdAt: run.createdAt,
     status: run.status,
@@ -127,6 +146,10 @@ export class PgRunStore implements RunStore {
       id: run.id,
       projectId: run.projectId ?? null,
       parentRunId: run.parentRunId ?? null,
+      kind: kindOf(run),
+      requirementRunId: run.requirementRunId ?? null,
+      costUsd: run.costUsd ?? null,
+      counts: countsOf(run),
       createdAt: new Date(run.createdAt),
       updatedAt: new Date(run.updatedAt),
       status: run.status,
@@ -177,6 +200,8 @@ export class PgRunStore implements RunStore {
       // The columns are the truth for what they hold.
       projectId: row.projectId ?? undefined,
       parentRunId: row.parentRunId ?? undefined,
+      kind: row.kind as RunKind,
+      requirementRunId: row.requirementRunId ?? undefined,
       ...(row.projectId ? { workspaces: row.workspaces as string[] } : {}),
       status: row.status as RunRecord["status"],
       stage: row.stage as RunRecord["stage"],
@@ -198,6 +223,9 @@ export class PgRunStore implements RunStore {
         id: runs.id,
         projectId: runs.projectId,
         parentRunId: runs.parentRunId,
+        kind: runs.kind,
+        costUsd: runs.costUsd,
+        counts: runs.counts,
         createdAt: runs.createdAt,
         status: runs.status,
         stage: runs.stage,
@@ -221,6 +249,8 @@ export class PgRunStore implements RunStore {
       ...row,
       createdAt: row.createdAt.toISOString(),
       workspaces: row.workspaces as string[],
+      kind: row.kind as RunKind,
+      counts: (row.counts as RunSummary["counts"]) ?? null,
       status: row.status as RunSummary["status"],
       stage: row.stage as RunSummary["stage"],
     }));

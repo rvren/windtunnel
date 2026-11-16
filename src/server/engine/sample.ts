@@ -8,16 +8,27 @@ import {
   type LlmClient,
   type LlmResult,
 } from "./llm";
-import type {
-  AgentReport,
+import {
   Architecture,
-  Challenges,
-  DesignModel,
-  RemediationAnswer,
-  Usage,
-  Verdict,
-  WorkOrders,
+  Blueprint,
+  Critique,
+  FlyoffVerdict,
+  ImpactAnswer,
+  TriageAnswer,
+  type AgentReport,
+  type Challenges,
+  type DesignModel,
+  type RemediationAnswer,
+  type Usage,
+  type Verdict,
+  type WorkOrders,
 } from "./schema";
+import {
+  SAMPLE_BLUEPRINTS,
+  SAMPLE_CRITIQUE,
+  SAMPLE_IMPACT,
+  SAMPLE_FLYOFF_VERDICT,
+} from "./sample-kinds";
 
 /*
  * A stand-in for the model, and a small hand-written run to feed it.
@@ -53,6 +64,8 @@ export interface Script {
   challenges?: Partial<Record<AgentId, Scripted<Challenges>>>;
   judge: Scripted<Verdict>;
   work_orders: Scripted<WorkOrders>;
+  /** The newer kinds of run; sample answers stand in when left out. */
+  kinds?: { impact?: ImpactAnswer; triage?: TriageAnswer };
 }
 
 const SCRIPT_USAGE: Usage = {
@@ -81,6 +94,47 @@ export class ScriptedLlm implements LlmClient {
 
   private entryFor(request: LlmCall<unknown>): [string, Scripted<unknown>] {
     const { stage } = request;
+    // The newer kinds of run are told apart by what they ask for.
+    const kinds = this.script.kinds ?? {};
+    if (request.schema === ImpactAnswer) {
+      return ["impact", { kind: "ok", value: kinds.impact ?? SAMPLE_IMPACT }];
+    }
+    if (request.schema === Architecture && stage === "impact") {
+      return [
+        "impact:after",
+        {
+          kind: "ok",
+          value: this.script.architecture ?? {
+            components: [],
+            connections: [],
+          },
+        },
+      ];
+    }
+    if (request.schema === Blueprint) {
+      const name =
+        Object.keys(SAMPLE_BLUEPRINTS).find((item) =>
+          request.prompt.includes(`You are the designer "${item}"`),
+        ) ?? "Pragmatist";
+      return [
+        `proposal:${name}`,
+        { kind: "ok", value: SAMPLE_BLUEPRINTS[name] },
+      ];
+    }
+    if (request.schema === Critique) {
+      return ["critique", { kind: "ok", value: SAMPLE_CRITIQUE }];
+    }
+    if (request.schema === FlyoffVerdict) {
+      return ["judge", { kind: "ok", value: SAMPLE_FLYOFF_VERDICT }];
+    }
+    if (request.schema === TriageAnswer) {
+      return [
+        "triage",
+        kinds.triage
+          ? { kind: "ok", value: kinds.triage }
+          : { kind: "error", message: "No triage was scripted." },
+      ];
+    }
     if (stage === "model" || stage === "judge" || stage === "work_orders") {
       return [stage, this.script[stage]];
     }

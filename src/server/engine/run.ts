@@ -1,4 +1,5 @@
 import { AGENTS, type AgentDefinition } from "@/lib/agents";
+import { costOf } from "@/lib/cost";
 
 import { normalizeArchitecture } from "./architecture";
 import { remediate, scrubDeep, secretGroups } from "./remediation";
@@ -52,14 +53,23 @@ import {
   WorkOrders,
   ZERO_USAGE,
   addUsage,
+  kindOf,
+  stagesOf,
   type AgentRun,
+  type ChangeInput,
   type RunDocument,
+  type RunKind,
   type RunEvent,
   type RunRecord,
   type Scenario,
   type Stage,
   type StoredEvent,
 } from "./schema";
+import { runBlackbox } from "./kinds/blackbox";
+import type { KindContext } from "./kinds/context";
+import { impactStage, readChange } from "./kinds/crosswind";
+import { runFlyoff } from "./kinds/flyoff";
+import { changeContext } from "./kinds/prompts";
 import { scoreAgents } from "./score";
 import type { RunStore } from "./store";
 import {
@@ -110,6 +120,14 @@ export interface RunInput {
     /** A demo project's runs replay a script and never call the model. */
     demo?: boolean;
   };
+  /** What the run is for; an audit when left out. */
+  kind?: RunKind;
+  /** Crosswind: the change to trace. */
+  change?: ChangeInput;
+  /** Black box: the production feedback, as text. */
+  incident?: string;
+  /** A code run's requirement run: the idea this code implements. */
+  requirementRunId?: string;
 }
 
 /** How many times a model may come back with tool calls in one stage. */
@@ -143,6 +161,29 @@ export function newRun(
     : repository
       ? originLabel(repository)
       : null;
+  const kind = input.kind ?? "audit";
+  const base = project
+    ? project.name
+    : input.requirement.trim()
+      ? titleOf(input.requirement)
+      : (label ?? "");
+  const change = input.change;
+  const title =
+    kind === "crosswind" && change
+      ? titleOf(
+          `Crosswind: ${
+            change.kind === "text"
+              ? change.text
+              : change.kind === "pr"
+                ? `pull request #${change.number} in ${change.workspace}`
+                : `${change.head} into ${change.base} in ${change.workspace}`
+          }`,
+        )
+      : kind === "blackbox" && input.incident
+        ? titleOf(`Black box: ${input.incident}`)
+        : kind === "flyoff"
+          ? titleOf(`Fly-off: ${base}`)
+          : base;
   return {
     id,
     createdAt: at,
@@ -150,11 +191,27 @@ export function newRun(
     status: "running",
     stage: null,
     error: null,
-    title: project
-      ? project.name
-      : input.requirement.trim()
-        ? titleOf(input.requirement)
-        : (label ?? ""),
+    title,
+    kind,
+    ...(kind === "crosswind" && change
+      ? {
+          change: {
+            input: change,
+            title: change.kind === "text" ? titleOf(change.text) : "",
+            url: null,
+            base: change.kind === "branches" ? change.base : null,
+            head: change.kind === "branches" ? change.head : null,
+            files: [],
+            truncated: false,
+          },
+        }
+      : {}),
+    ...(kind === "blackbox" && input.incident
+      ? { incident: input.incident.trim() }
+      : {}),
+    ...(project && input.requirementRunId
+      ? { requirementRunId: input.requirementRunId }
+      : {}),
     ...(project
       ? { projectId: project.id }
       : input.projectRef
@@ -278,10 +335,26 @@ export async function executeRun(
     await save();
     await emit({ type: "run.started" });
     const expertise = await loadExpertise();
+    const kind = kindOf(run);
+    const has = (name: Stage) => stagesOf(run).includes(name);
+    const ctx: KindContext = {
+      run,
+      llm,
+      store,
+      stage,
+      emit,
+      save,
+      plural,
+      declined,
+    };
+
+    // Crosswind: read the change first; a change in code moves the survey
+    // to its head.
+    if (has("change")) await stage("change", () => readChange(ctx));
 
     // 0. Survey (repository runs only): fetch the code and list its files.
     const source = run.source;
-    if (source) {
+    if (source && has("survey")) {
       await stage("survey", async () => {
         let survey: Survey;
         let reader: RepoReader;
@@ -342,421 +415,471 @@ export async function executeRun(
       outline: string;
     } | null;
 
-    // 1. Model: the requirement, or the code, becomes an explicit design model.
-    await stage("model", async () => {
-      const result = code
-        ? await llm.agent({
-            stage: "model",
-            model: run.models.reasoning,
-            effort: "high",
-            system: REPO_MODEL_SYSTEM,
-            prompt: repoModelPrompt(run, code.outline),
-            schema: DesignModel,
-            tools: readTools(code.reader.fork(), () => {}),
-            maxTurns: MODEL_TURNS,
-          })
-        : await llm.call({
-            stage: "model",
-            model: run.models.reasoning,
-            effort: "high",
-            system: MODEL_SYSTEM,
-            prompt: modelPrompt(run),
-            schema: DesignModel,
-          });
-      run.usage.model = result.usage;
-      if (result.kind === "declined") {
-        throw declined(
-          code ? "analyse this repository" : "analyse this requirement",
-          result.category,
-        );
-      }
-      const { model, warnings } = normalizeModel(result.value);
-      // How the application is put together: a second, small call, so the
-      // model stage's answer format stays within what the API accepts.
-      if (source && code) {
-        try {
-          const drawn = await llm.call({
-            stage: "model",
-            model: run.models.reasoning,
-            effort: "medium",
-            system: ARCHITECTURE_SYSTEM,
-            prompt: architecturePrompt(run, code.outline, model),
-            schema: Architecture,
-          });
-          run.usage.model = addUsage(
-            run.usage.model ?? ZERO_USAGE,
-            drawn.usage,
-          );
-          if (drawn.kind === "ok") {
-            const checked = normalizeArchitecture(
-              drawn.value,
-              source.workspaces?.map((workspace) => workspace.name) ?? [],
-            );
-            source.architecture = checked.architecture;
-            warnings.push(...checked.warnings);
-            await emit({
-              type: "architecture.ready",
-              architecture: checked.architecture,
+    if (kind === "blackbox") {
+      if (!code) throw new RunError("A black box run reads a project's code.");
+      await runBlackbox(ctx, code, () => secretValues);
+    } else {
+      // 1. Model: the requirement, or the code, becomes an explicit design model.
+      await stage("model", async () => {
+        const result = code
+          ? await llm.agent({
+              stage: "model",
+              model: run.models.reasoning,
+              effort: "high",
+              system: REPO_MODEL_SYSTEM,
+              prompt: repoModelPrompt(run, code.outline),
+              schema: DesignModel,
+              tools: readTools(code.reader.fork(), () => {}),
+              maxTurns: MODEL_TURNS,
+            })
+          : await llm.call({
+              stage: "model",
+              model: run.models.reasoning,
+              effort: "high",
+              system: MODEL_SYSTEM,
+              prompt: modelPrompt(run),
+              schema: DesignModel,
             });
-          }
-        } catch (error) {
-          // The diagram is not worth failing a run over.
-          warnings.push(
-            `The architecture could not be drawn: ${error instanceof Error ? error.message : String(error)}`,
+        run.usage.model = result.usage;
+        if (result.kind === "declined") {
+          throw declined(
+            code ? "analyse this repository" : "analyse this requirement",
+            result.category,
           );
         }
-      }
-      if (model.roles.length === 0 || model.operations.length === 0) {
-        throw new RunError(
-          code
-            ? "The design model came back with no roles or no operations. The repository may not hold an application."
-            : "The design model came back with no roles or no operations. Give the requirement more detail and start again.",
-        );
-      }
-      run.designModel = model;
-      run.modelWarnings = warnings;
-      return `${plural(model.roles.length, "role")}, ${plural(model.operations.length, "operation")}, ${plural(model.rules.length, "rule")}`;
-    });
-    const model = run.designModel!;
-
-    // 2. Coverage: the gaps code can see. No model call.
-    await stage("coverage", async () => {
-      run.coverage = findCoverage(model);
-      return plural(run.coverage.gaps.length, "gap");
-    });
-    const coverage = run.coverage!;
-
-    // 3. Agents: five in parallel over one shared, cached context.
-    await stage("agents", async () => {
-      const shared = code
-        ? repoSharedContext(run, model, coverage, code.outline)
-        : agentSharedContext(run, model, coverage);
-      const knownIds = new Set([
-        ...modelIds(model),
-        ...coverage.gaps.map((gap) => gap.id),
-      ]);
-
-      // A cache entry can be read only once the request that writes it has
-      // begun to answer. So the first agent starts alone, and the other four
-      // start when its first bytes arrive and read what it wrote.
-      let release!: () => void;
-      const firstAnswering = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-
-      const runAgent = async (definition: AgentDefinition, first: boolean) => {
-        const agent = run.agents.find(
-          (item) => item.agentId === definition.id,
-        )!;
-        if (!first) await firstAnswering;
-        agent.status = "running";
-        await emit({ type: "agent.started", agentId: agent.agentId });
-
-        let lastRead = 0;
-        let lastSeen = "";
-        try {
-          let lastPath = "";
-          const result = code
-            ? await llm.agent({
-                stage: "agents",
-                model: run.models.agents,
-                effort: "medium",
-                system: REPO_AGENT_SYSTEM,
-                shared,
-                prompt: repoAgentPrompt(definition, expertise[definition.id]),
-                schema: RepoAgentSummary,
-                onStart: first ? release : undefined,
-                maxTurns: AGENT_TURNS,
-                tools: (() => {
-                  const reader = code.reader.fork();
-                  return [
-                    ...readTools(reader, (path) => {
-                      if (path === lastPath) return;
-                      lastPath = path;
-                      emit({
-                        type: "agent.reading",
-                        agentId: agent.agentId,
-                        path,
-                      }).catch(() => undefined);
-                    }),
-                    // A finding is saved on the agent and announced the
-                    // moment it is filed, so the page shows it at once.
-                    reportFindingTool(
-                      agent.agentId,
-                      reader,
-                      agent.findings,
-                      (finding) => {
-                        emit({
-                          type: "agent.finding",
-                          agentId: agent.agentId,
-                          finding: {
-                            uid: finding.uid,
-                            type: finding.type,
-                            severity: finding.severity,
-                            title: finding.title,
-                            path: finding.location?.path ?? null,
-                            startLine: finding.location?.startLine ?? null,
-                          },
-                        }).catch(() => undefined);
-                      },
-                    ),
-                  ];
-                })(),
-              })
-            : await llm.call({
-                stage: "agents",
-                model: run.models.agents,
-                effort: "medium",
-                system: AGENT_SYSTEM,
-                shared,
-                prompt: agentPrompt(definition, expertise[definition.id]),
-                schema: AgentReport,
-                onStart: first ? release : undefined,
-                onText: (soFar) => {
-                  const at = Date.now();
-                  if (at - lastRead < PROGRESS_EVERY_MS) return;
-                  lastRead = at;
-                  const progress = readProgress(soFar);
-                  const seen = `${progress.scenarios.length}/${progress.findings}`;
-                  if (seen === lastSeen) return;
-                  lastSeen = seen;
-                  // Progress is best effort: losing one update is harmless.
-                  emit({
-                    type: "agent.progress",
-                    agentId: agent.agentId,
-                    ...progress,
-                  }).catch(() => undefined);
-                },
+        const { model, warnings } = normalizeModel(result.value);
+        // How the application is put together: a second, small call, so the
+        // model stage's answer format stays within what the API accepts.
+        if (source && code) {
+          try {
+            const drawn = await llm.call({
+              stage: "model",
+              model: run.models.reasoning,
+              effort: "medium",
+              system: ARCHITECTURE_SYSTEM,
+              prompt: architecturePrompt(run, code.outline, model),
+              schema: Architecture,
+            });
+            run.usage.model = addUsage(
+              run.usage.model ?? ZERO_USAGE,
+              drawn.usage,
+            );
+            if (drawn.kind === "ok") {
+              const checked = normalizeArchitecture(
+                drawn.value,
+                source.workspaces?.map((workspace) => workspace.name) ?? [],
+              );
+              source.architecture = checked.architecture;
+              warnings.push(...checked.warnings);
+              await emit({
+                type: "architecture.ready",
+                architecture: checked.architecture,
               });
-          agent.usage = result.usage;
-
-          if (result.kind === "declined") {
-            agent.status = "declined";
-            agent.declinedCategory = result.category;
-            await emit({
-              type: "agent.declined",
-              agentId: agent.agentId,
-              category: result.category,
-            });
-            return;
-          }
-
-          // In a repository run the findings were filed, and checked, one by
-          // one through a tool. In a requirement run they arrive together
-          // and are checked now.
-          if ("scenarios" in result.value) {
-            const checked = checkAgentReport(
-              agent.agentId,
-              result.value,
-              knownIds,
+            }
+          } catch (error) {
+            // The diagram is not worth failing a run over.
+            warnings.push(
+              `The architecture could not be drawn: ${error instanceof Error ? error.message : String(error)}`,
             );
-            agent.scenarios = result.value.scenarios;
-            agent.findings = checked.findings;
-            agent.dropped = checked.dropped;
           }
-          agent.status = "done";
-          await emit({
-            type: "agent.completed",
-            agentId: agent.agentId,
-            scenarios: agent.scenarios.length,
-            findings: agent.findings.length,
-            dropped: agent.dropped.length,
-          });
-        } catch (error) {
-          agent.status = "failed";
-          agent.error = error instanceof Error ? error.message : String(error);
-          await emit({
-            type: "agent.failed",
-            agentId: agent.agentId,
-            error: agent.error,
-          });
-        } finally {
-          // Whatever happened to the first agent, the others must not wait
-          // for ever.
-          if (first) release();
-          await save();
         }
-      };
-
-      await Promise.all(
-        AGENTS.map((definition, index) => runAgent(definition, index === 0)),
-      );
-
-      run.usage.agents = run.agents.reduce(
-        (sum, agent) => addUsage(sum, agent.usage ?? ZERO_USAGE),
-        ZERO_USAGE,
-      );
-
-      const done = run.agents.filter((agent) => agent.status === "done");
-      if (done.length === 0) {
-        const reason = run.agents.find((agent) => agent.error)?.error;
-        throw new RunError(
-          `No agent finished its work.${reason ? ` ${reason}` : ""}`,
-        );
-      }
-      const findings = done.reduce(
-        (sum, agent) => sum + agent.findings.length,
-        0,
-      );
-      return `${plural(findings, "finding")} from ${plural(done.length, "agent")}`;
-    });
-
-    const findings = run.agents.flatMap((agent) => agent.findings);
-
-    // 4. Challenge: each agent reviews what the others found. Best effort:
-    // an agent that fails or is declined here simply has nothing to say.
-    run.challenges = [];
-    await stage("challenge", async () => {
-      const reviewers = run.agents.filter((agent) => agent.status === "done");
-      if (findings.length === 0 || reviewers.length < 2) {
-        return "Nothing to challenge";
-      }
-      const shared = challengeSharedContext(run, model, findings);
-      let usage = ZERO_USAGE;
-
-      // Same cache-aware start as the agents stage: one first, then the rest.
-      let release!: () => void;
-      const firstAnswering = new Promise<void>((resolve) => {
-        release = resolve;
+        if (model.roles.length === 0 || model.operations.length === 0) {
+          throw new RunError(
+            code
+              ? "The design model came back with no roles or no operations. The repository may not hold an application."
+              : "The design model came back with no roles or no operations. Give the requirement more detail and start again.",
+          );
+        }
+        run.designModel = model;
+        run.modelWarnings = warnings;
+        return `${plural(model.roles.length, "role")}, ${plural(model.operations.length, "operation")}, ${plural(model.rules.length, "rule")}`;
       });
-      const review = async (agent: AgentRun, first: boolean) => {
-        const definition = AGENTS.find((item) => item.id === agent.agentId)!;
-        if (!first) await firstAnswering;
-        try {
+      const model = run.designModel!;
+
+      if (kind === "flyoff") {
+        await runFlyoff(ctx);
+      } else {
+        // 2. Coverage: the gaps code can see. No model call.
+        await stage("coverage", async () => {
+          run.coverage = findCoverage(model);
+          return plural(run.coverage.gaps.length, "gap");
+        });
+        const coverage = run.coverage!;
+
+        // 3. Agents: five in parallel over one shared, cached context.
+        await stage("agents", async () => {
+          const shared = [
+            code
+              ? repoSharedContext(run, model, coverage, code.outline)
+              : agentSharedContext(run, model, coverage),
+            changeContext(run),
+          ]
+            .filter(Boolean)
+            .join("\n\n");
+          const knownIds = new Set([
+            ...modelIds(model),
+            ...coverage.gaps.map((gap) => gap.id),
+          ]);
+
+          // A cache entry can be read only once the request that writes it has
+          // begun to answer. So the first agent starts alone, and the other four
+          // start when its first bytes arrive and read what it wrote.
+          let release!: () => void;
+          const firstAnswering = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+
+          const runAgent = async (
+            definition: AgentDefinition,
+            first: boolean,
+          ) => {
+            const agent = run.agents.find(
+              (item) => item.agentId === definition.id,
+            )!;
+            if (!first) await firstAnswering;
+            agent.status = "running";
+            await emit({ type: "agent.started", agentId: agent.agentId });
+
+            let lastRead = 0;
+            let lastSeen = "";
+            try {
+              let lastPath = "";
+              const result = code
+                ? await llm.agent({
+                    stage: "agents",
+                    model: run.models.agents,
+                    effort: "medium",
+                    system: REPO_AGENT_SYSTEM,
+                    shared,
+                    prompt: repoAgentPrompt(
+                      definition,
+                      expertise[definition.id],
+                    ),
+                    schema: RepoAgentSummary,
+                    onStart: first ? release : undefined,
+                    maxTurns: AGENT_TURNS,
+                    tools: (() => {
+                      const reader = code.reader.fork();
+                      return [
+                        ...readTools(reader, (path) => {
+                          if (path === lastPath) return;
+                          lastPath = path;
+                          emit({
+                            type: "agent.reading",
+                            agentId: agent.agentId,
+                            path,
+                          }).catch(() => undefined);
+                        }),
+                        // A finding is saved on the agent and announced the
+                        // moment it is filed, so the page shows it at once.
+                        reportFindingTool(
+                          agent.agentId,
+                          reader,
+                          agent.findings,
+                          (finding) => {
+                            emit({
+                              type: "agent.finding",
+                              agentId: agent.agentId,
+                              finding: {
+                                uid: finding.uid,
+                                type: finding.type,
+                                severity: finding.severity,
+                                title: finding.title,
+                                path: finding.location?.path ?? null,
+                                startLine: finding.location?.startLine ?? null,
+                              },
+                            }).catch(() => undefined);
+                          },
+                        ),
+                      ];
+                    })(),
+                  })
+                : await llm.call({
+                    stage: "agents",
+                    model: run.models.agents,
+                    effort: "medium",
+                    system: AGENT_SYSTEM,
+                    shared,
+                    prompt: agentPrompt(definition, expertise[definition.id]),
+                    schema: AgentReport,
+                    onStart: first ? release : undefined,
+                    onText: (soFar) => {
+                      const at = Date.now();
+                      if (at - lastRead < PROGRESS_EVERY_MS) return;
+                      lastRead = at;
+                      const progress = readProgress(soFar);
+                      const seen = `${progress.scenarios.length}/${progress.findings}`;
+                      if (seen === lastSeen) return;
+                      lastSeen = seen;
+                      // Progress is best effort: losing one update is harmless.
+                      emit({
+                        type: "agent.progress",
+                        agentId: agent.agentId,
+                        ...progress,
+                      }).catch(() => undefined);
+                    },
+                  });
+              agent.usage = result.usage;
+
+              if (result.kind === "declined") {
+                agent.status = "declined";
+                agent.declinedCategory = result.category;
+                await emit({
+                  type: "agent.declined",
+                  agentId: agent.agentId,
+                  category: result.category,
+                });
+                return;
+              }
+
+              // In a repository run the findings were filed, and checked, one by
+              // one through a tool. In a requirement run they arrive together
+              // and are checked now.
+              if ("scenarios" in result.value) {
+                const checked = checkAgentReport(
+                  agent.agentId,
+                  result.value,
+                  knownIds,
+                );
+                agent.scenarios = result.value.scenarios;
+                agent.findings = checked.findings;
+                agent.dropped = checked.dropped;
+              }
+              agent.status = "done";
+              await emit({
+                type: "agent.completed",
+                agentId: agent.agentId,
+                scenarios: agent.scenarios.length,
+                findings: agent.findings.length,
+                dropped: agent.dropped.length,
+              });
+            } catch (error) {
+              agent.status = "failed";
+              agent.error =
+                error instanceof Error ? error.message : String(error);
+              await emit({
+                type: "agent.failed",
+                agentId: agent.agentId,
+                error: agent.error,
+              });
+            } finally {
+              // Whatever happened to the first agent, the others must not wait
+              // for ever.
+              if (first) release();
+              await save();
+            }
+          };
+
+          await Promise.all(
+            AGENTS.map((definition, index) =>
+              runAgent(definition, index === 0),
+            ),
+          );
+
+          run.usage.agents = run.agents.reduce(
+            (sum, agent) => addUsage(sum, agent.usage ?? ZERO_USAGE),
+            ZERO_USAGE,
+          );
+
+          const done = run.agents.filter((agent) => agent.status === "done");
+          if (done.length === 0) {
+            const reason = run.agents.find((agent) => agent.error)?.error;
+            throw new RunError(
+              `No agent finished its work.${reason ? ` ${reason}` : ""}`,
+            );
+          }
+          const findings = done.reduce(
+            (sum, agent) => sum + agent.findings.length,
+            0,
+          );
+          return `${plural(findings, "finding")} from ${plural(done.length, "agent")}`;
+        });
+
+        const findings = run.agents.flatMap((agent) => agent.findings);
+
+        // 4. Challenge: each agent reviews what the others found. Best effort:
+        // an agent that fails or is declined here simply has nothing to say.
+        run.challenges = [];
+        await stage("challenge", async () => {
+          const reviewers = run.agents.filter(
+            (agent) => agent.status === "done",
+          );
+          if (findings.length === 0 || reviewers.length < 2) {
+            return "Nothing to challenge";
+          }
+          const shared = challengeSharedContext(run, model, findings);
+          let usage = ZERO_USAGE;
+
+          // Same cache-aware start as the agents stage: one first, then the rest.
+          let release!: () => void;
+          const firstAnswering = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          const review = async (agent: AgentRun, first: boolean) => {
+            const definition = AGENTS.find(
+              (item) => item.id === agent.agentId,
+            )!;
+            if (!first) await firstAnswering;
+            try {
+              const result = await llm.call({
+                stage: "challenge",
+                model: run.models.agents,
+                effort: "medium",
+                system: CHALLENGE_SYSTEM,
+                shared,
+                prompt: challengePrompt(definition),
+                schema: Challenges,
+                onStart: first ? release : undefined,
+              });
+              usage = addUsage(usage, result.usage);
+              if (result.kind === "ok") {
+                run.challenges!.push(
+                  ...checkChallenges(agent.agentId, result.value, findings),
+                );
+              }
+            } catch {
+              // Leave this agent out of the round.
+            } finally {
+              if (first) release();
+            }
+          };
+          await Promise.all(
+            reviewers.map((agent, index) => review(agent, index === 0)),
+          );
+          run.usage.challenge = usage;
+
+          const disputes = run.challenges!.filter(
+            (item) => item.stance === "dispute",
+          ).length;
+          return `${plural(disputes, "dispute")}, ${run.challenges!.length - disputes} in support`;
+        });
+        const challenges = run.challenges;
+
+        // 5. Judge: merge duplicates, reject what the design does not support.
+        await stage("judge", async () => {
+          if (findings.length === 0) {
+            run.scoreboard = scoreAgents(run.agents, [], []);
+            return "No findings to judge";
+          }
+          const scenarios = new Map<string, Scenario>(
+            run.agents.flatMap((agent) =>
+              agent.scenarios.map(
+                (scenario) =>
+                  [`${agent.agentId}/${scenario.id}`, scenario] as const,
+              ),
+            ),
+          );
           const result = await llm.call({
-            stage: "challenge",
-            model: run.models.agents,
-            effort: "medium",
-            system: CHALLENGE_SYSTEM,
-            shared,
-            prompt: challengePrompt(definition),
-            schema: Challenges,
-            onStart: first ? release : undefined,
+            stage: "judge",
+            model: run.models.reasoning,
+            effort: "high",
+            system: JUDGE_SYSTEM,
+            prompt: [
+              judgePrompt(run, model, findings, scenarios, challenges),
+              changeContext(run),
+            ]
+              .filter(Boolean)
+              .join("\n\n"),
+            schema: Verdict,
           });
-          usage = addUsage(usage, result.usage);
-          if (result.kind === "ok") {
-            run.challenges!.push(
-              ...checkChallenges(agent.agentId, result.value, findings),
-            );
+          run.usage.judge = result.usage;
+          if (result.kind === "declined") {
+            throw declined("judge the findings", result.category);
           }
-        } catch {
-          // Leave this agent out of the round.
-        } finally {
-          if (first) release();
-        }
-      };
-      await Promise.all(
-        reviewers.map((agent, index) => review(agent, index === 0)),
-      );
-      run.usage.challenge = usage;
+          const verdict = reconcileVerdict(result.value, findings);
+          run.groups = verdict.groups;
+          run.rejected = verdict.rejected;
+          run.scoreboard = scoreAgents(
+            run.agents,
+            run.groups,
+            run.rejected,
+            challenges,
+          );
+          return `${plural(run.groups.length, "finding")} accepted, ${run.rejected.length} rejected`;
+        });
 
-      const disputes = run.challenges!.filter(
-        (item) => item.stance === "dispute",
-      ).length;
-      return `${plural(disputes, "dispute")}, ${run.challenges!.length - disputes} in support`;
-    });
-    const challenges = run.challenges;
-
-    // 5. Judge: merge duplicates, reject what the design does not support.
-    await stage("judge", async () => {
-      if (findings.length === 0) {
-        run.scoreboard = scoreAgents(run.agents, [], []);
-        return "No findings to judge";
-      }
-      const scenarios = new Map<string, Scenario>(
-        run.agents.flatMap((agent) =>
-          agent.scenarios.map(
-            (scenario) =>
-              [`${agent.agentId}/${scenario.id}`, scenario] as const,
-          ),
-        ),
-      );
-      const result = await llm.call({
-        stage: "judge",
-        model: run.models.reasoning,
-        effort: "high",
-        system: JUDGE_SYSTEM,
-        prompt: judgePrompt(run, model, findings, scenarios, challenges),
-        schema: Verdict,
-      });
-      run.usage.judge = result.usage;
-      if (result.kind === "declined") {
-        throw declined("judge the findings", result.category);
-      }
-      const verdict = reconcileVerdict(result.value, findings);
-      run.groups = verdict.groups;
-      run.rejected = verdict.rejected;
-      run.scoreboard = scoreAgents(
-        run.agents,
-        run.groups,
-        run.rejected,
-        challenges,
-      );
-      return `${plural(run.groups.length, "finding")} accepted, ${run.rejected.length} rejected`;
-    });
-
-    // Secrets in the code are certain: they join the accepted findings.
-    if (run.inventory && run.inventory.secrets.length > 0) {
-      run.groups = [...run.groups, ...secretGroups(run.inventory)];
-      await save();
-    }
-
-    // 6. Remediation: how to fix each security finding, checked against the
-    // code. Best effort: a remediation that fails never fails the run.
-    await stage("remediation", async () => {
-      if (skipped.has("remediation")) return "Left out of this eval run";
-      const security = run.groups.filter(
-        (group) => group.type === "security_vulnerability",
-      );
-      if (security.length === 0) return "No security findings";
-      run.remediations = {};
-      const done = await remediate({
-        llm,
-        run,
-        reader: code?.reader ?? null,
-        secretValues,
-        onReady: async (record) => {
-          run.remediations = { ...run.remediations, [record.groupId]: record };
+        // Secrets in the code are certain: they join the accepted findings.
+        if (run.inventory && run.inventory.secrets.length > 0) {
+          run.groups = [...run.groups, ...secretGroups(run.inventory)];
           await save();
-          await emit({ type: "remediation.ready", groupId: record.groupId });
-        },
-      });
-      run.usage.remediation = done.usage;
-      const made = Object.values(done.records).filter(
-        (record) => record.status === "made",
-      );
-      const patches = made.filter((record) => record.edits.length > 0).length;
-      return `${plural(made.length, "remediation")}, ${plural(patches, "with a patch", "with a patch")}`;
-    });
+        }
 
-    // 7. Work orders: what to do about each accepted finding.
-    await stage("work_orders", async () => {
-      if (skipped.has("work_orders")) return "Left out of this eval run";
-      if (run.groups.length === 0) return "No work orders needed";
-      const result = await llm.call({
-        stage: "work_orders",
-        model: run.models.reasoning,
-        effort: "medium",
-        system: WORK_ORDER_SYSTEM,
-        prompt: workOrderPrompt(run, model, run.groups),
-        schema: WorkOrders,
-      });
-      run.usage.work_orders = result.usage;
-      if (result.kind === "declined") {
-        throw declined("write the work orders", result.category);
+        // 6. Remediation: how to fix each security finding, checked against the
+        // code. Best effort: a remediation that fails never fails the run.
+        if (has("remediation"))
+          await stage("remediation", async () => {
+            if (skipped.has("remediation")) return "Left out of this eval run";
+            const security = run.groups.filter(
+              (group) => group.type === "security_vulnerability",
+            );
+            if (security.length === 0) return "No security findings";
+            run.remediations = {};
+            const done = await remediate({
+              llm,
+              run,
+              reader: code?.reader ?? null,
+              secretValues,
+              onReady: async (record) => {
+                run.remediations = {
+                  ...run.remediations,
+                  [record.groupId]: record,
+                };
+                await save();
+                await emit({
+                  type: "remediation.ready",
+                  groupId: record.groupId,
+                });
+              },
+            });
+            run.usage.remediation = done.usage;
+            const made = Object.values(done.records).filter(
+              (record) => record.status === "made",
+            );
+            const patches = made.filter(
+              (record) => record.edits.length > 0,
+            ).length;
+            return `${plural(made.length, "remediation")}, ${plural(patches, "with a patch", "with a patch")}`;
+          });
+
+        // Crosswind: what the change does to every service, and what it fixes.
+        if (has("impact")) await stage("impact", () => impactStage(ctx));
+
+        // 7. Work orders: what to do about each accepted finding.
+        if (has("work_orders"))
+          await stage("work_orders", async () => {
+            if (skipped.has("work_orders")) return "Left out of this eval run";
+            if (run.groups.length === 0) return "No work orders needed";
+            const result = await llm.call({
+              stage: "work_orders",
+              model: run.models.reasoning,
+              effort: "medium",
+              system: WORK_ORDER_SYSTEM,
+              prompt: workOrderPrompt(run, model, run.groups),
+              schema: WorkOrders,
+            });
+            run.usage.work_orders = result.usage;
+            if (result.kind === "declined") {
+              throw declined("write the work orders", result.category);
+            }
+            const checked = checkWorkOrders(
+              result.value.workOrders,
+              run.groups,
+            );
+            run.workOrders = checked.workOrders;
+            run.unaddressedGroupIds = checked.unaddressedGroupIds;
+            return plural(run.workOrders.length, "work order");
+          });
       }
-      const checked = checkWorkOrders(result.value.workOrders, run.groups);
-      run.workOrders = checked.workOrders;
-      run.unaddressedGroupIds = checked.unaddressedGroupIds;
-      return plural(run.workOrders.length, "work order");
-    });
+    }
 
     run.status = "completed";
     run.stage = null;
+    run.costUsd = costOf(run) ?? undefined;
     await save();
     await emit({ type: "run.completed" });
   } catch (error) {
     run.status = "failed";
+    run.costUsd = costOf(run) ?? undefined;
     run.error =
       error instanceof RunError
         ? error.message

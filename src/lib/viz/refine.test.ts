@@ -134,6 +134,9 @@ describe("versions", () => {
   ): RunSummary => ({
     id,
     projectId: "p",
+    kind: "audit",
+    costUsd: null,
+    counts: null,
     parentRunId,
     createdAt,
     status: "completed",

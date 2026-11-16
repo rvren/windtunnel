@@ -1,6 +1,7 @@
 import {
   type AnyPgColumn,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -24,6 +25,15 @@ export const projects = pgTable("projects", {
   /** A demo project: its runs replay a script and never call the model. */
   demo: boolean("demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  /** Scheduled audit runs: "off", "daily" or "weekly". */
+  schedule: text("schedule").notNull().default("off"),
+  /** The hour of the day (server time, 0-23) a scheduled run starts. */
+  scheduleHour: integer("schedule_hour").notNull().default(6),
+  /** Scheduled runs stop once this month's runs cost this much, in USD. */
+  monthlyCapUsd: doublePrecision("monthly_cap_usd"),
+  nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+  /** Why the last scheduled run did not start, if it did not. */
+  scheduleNote: text("schedule_note"),
 });
 
 /** One repository inside a project: a frontend, a service, and so on. */
@@ -59,6 +69,17 @@ export const runs = pgTable(
     parentRunId: uuid("parent_run_id").references((): AnyPgColumn => runs.id, {
       onDelete: "set null",
     }),
+    /** "audit", "crosswind", "flyoff" or "blackbox". */
+    kind: text("kind").notNull().default("audit"),
+    /** A code run's requirement run: the idea this code implements. */
+    requirementRunId: uuid("requirement_run_id").references(
+      (): AnyPgColumn => runs.id,
+      { onDelete: "set null" },
+    ),
+    /** What the run cost in US dollars, once it finished. */
+    costUsd: doublePrecision("cost_usd"),
+    /** Accepted findings by severity, once it finished, for trends. */
+    counts: jsonb("counts"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     status: text("status").notNull(),
@@ -183,6 +204,14 @@ export const issues = pgTable(
      * settles issues of its own kind.
      */
     origin: text("origin").notNull().default("code"),
+    /**
+     * A requirement risk's code issue: the issue it became once the idea
+     * was built (set by a code run that names its requirement run).
+     */
+    realizedByIssueId: uuid("realized_by_issue_id").references(
+      (): AnyPgColumn => issues.id,
+      { onDelete: "set null" },
+    ),
     /** The cited file, as workspace/path; null when it cites none. */
     path: text("path"),
     cwe: text("cwe"),

@@ -86,7 +86,9 @@ async function Run({ params }: { params: Promise<{ id: string }> }) {
             item.id !== run.id &&
             item.status === "completed" &&
             item.createdAt < run.createdAt &&
-            // Compare like with like: code with code, idea with idea.
+            // Compare like with like: code with code, idea with idea, and a
+            // kind of run only with its own kind.
+            item.kind === (run.kind ?? "audit") &&
             item.workspaces.length > 0 === Boolean(run.source),
         )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));

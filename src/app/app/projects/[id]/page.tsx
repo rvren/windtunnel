@@ -108,7 +108,11 @@ async function ProjectPage({
     // The cockpit shows the latest finished run of the project's code: a
     // requirement run reads no code, so it has no components to draw. Only
     // a project with no code run yet shows its latest requirement run.
-    const completed = runs.filter((run) => run.status === "completed");
+    // Only audits draw the cockpit: a Crosswind, fly-off or black box run
+    // has its own report.
+    const completed = runs.filter(
+      (run) => run.status === "completed" && run.kind === "audit",
+    );
     const finished =
       completed.find((run) => run.workspaces.length > 0) ?? completed[0];
     const record = finished ? await runStore().get(finished.id) : null;
@@ -119,6 +123,7 @@ async function ProjectPage({
           (run) =>
             run.status === "completed" &&
             run.createdAt < record.createdAt &&
+            run.kind === "audit" &&
             run.workspaces.length > 0 === Boolean(record.source),
         )
         .reverse()

@@ -243,11 +243,13 @@ export async function remediate(options: {
   secretValues: string[];
   /** Called with each remediation as it is made or fails. */
   onReady: (record: RemediationRecord) => Promise<void>;
+  /** Fix every finding, not only security ones (a black box run's defect). */
+  anyKind?: boolean;
 }): Promise<{ records: Record<string, RemediationRecord>; usage: Usage }> {
   const { llm, run, reader } = options;
-  const groups = run.groups.filter(
-    (group) => group.type === "security_vulnerability",
-  );
+  const groups = options.anyKind
+    ? run.groups
+    : run.groups.filter((group) => group.type === "security_vulnerability");
   const records: Record<string, RemediationRecord> = {};
   let usage = ZERO_USAGE;
   let next = 0;

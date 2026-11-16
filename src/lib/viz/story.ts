@@ -4,10 +4,14 @@ import {
   SEVERITY_ORDER,
   STAGE_DESCRIPTION,
   STAGE_LABEL,
-  STAGE_ORDER,
 } from "@/lib/labels";
 import type { Feed, StageState } from "@/lib/run-feed";
-import type { RunRecord, Severity, Stage } from "@/server/engine/schema";
+import {
+  stagesOf,
+  type RunRecord,
+  type Severity,
+  type Stage,
+} from "@/server/engine/schema";
 
 import { stageSplits, type RunTimes } from "./times";
 
@@ -182,6 +186,9 @@ function resultOf(stage: Stage, run: RunRecord): StoryResult | null {
     }
     case "work_orders":
       return { kind: "work_orders", total: run.workOrders.length };
+    default:
+      // The stages of the newer kinds show their result on their own tabs.
+      return null;
   }
 }
 
@@ -213,8 +220,7 @@ export function storyOf(
   times: RunTimes,
 ): Chapter[] {
   const splits = stageSplits(times);
-  const code = Boolean(run.source);
-  return STAGE_ORDER.filter((stage) => code || stage !== "survey")
+  return stagesOf(run)
     .filter(
       // Remediation is only part of runs that have it; older runs skip it.
       (stage) =>

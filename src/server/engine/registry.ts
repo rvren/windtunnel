@@ -5,9 +5,10 @@ import { db } from "../db/client";
 import { engineConfig } from "./config";
 import { AnthropicLlm, RunError } from "./llm";
 import { executeRun, newRun, type RunInput } from "./run";
-import { SAMPLE_SCRIPT, ScriptedLlm } from "./sample";
+import { SAMPLE_SCRIPT, ScriptedLlm, type Script } from "./sample";
+import { sampleTriage } from "./sample-kinds";
 import { sampleProjectScript, sampleServiceOf } from "./sample-project";
-import type { RunRecord, StoredEvent } from "./schema";
+import { kindOf, type RunRecord, type StoredEvent } from "./schema";
 import { PgRunStore, type RunStore } from "./store";
 
 /*
@@ -67,6 +68,22 @@ function publish(runId: string, event: StoredEvent) {
 }
 
 /**
+ * A sample project's script, with what a black box run on it needs: the
+ * catalog's search, which fails on a quote.
+ */
+function withKindSamples(script: Script, input: RunInput): Script {
+  if (input.kind !== "blackbox" || !input.project) return script;
+  const workspaces = input.project.workspaces;
+  const catalog = workspaces.find(
+    (item) => sampleServiceOf(item.origin) === "catalog",
+  );
+  if (!catalog) return script;
+  const path =
+    workspaces.length > 1 ? `${catalog.name}/search.py` : "search.py";
+  return { ...script, kinds: { ...script.kinds, triage: sampleTriage(path) } };
+}
+
+/**
  * Saves a new run and starts it in the background. The run goes on in this
  * server process whether or not anyone is watching.
  */
@@ -91,11 +108,14 @@ export async function startRun(input: RunInput): Promise<RunRecord> {
   const llm = scripted
     ? new ScriptedLlm(
         input.project
-          ? sampleProjectScript(
-              input.project.workspaces.map((item) => ({
-                name: item.name,
-                service: sampleServiceOf(item.origin),
-              })),
+          ? withKindSamples(
+              sampleProjectScript(
+                input.project.workspaces.map((item) => ({
+                  name: item.name,
+                  service: sampleServiceOf(item.origin),
+                })),
+              ),
+              input,
             )
           : SAMPLE_SCRIPT,
         // Paced so the live view has something to show.
@@ -106,6 +126,10 @@ export async function startRun(input: RunInput): Promise<RunRecord> {
   state().active.add(run.id);
   void executeRun({ llm, store, publish, now: () => new Date() }, run)
     .then(async (done) => {
+      // Only an audit's findings are the project's issues and work orders.
+      // A Crosswind run's breaks belong to its change; a fly-off and a
+      // black box have their own outputs.
+      if (kindOf(done) !== "audit") return;
       // The run is over. Its issues fold into the project's tracked ones
       // (imported here: the issue store reads runs through this module).
       await import("../issues/store")
