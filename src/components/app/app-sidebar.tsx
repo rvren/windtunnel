@@ -12,6 +12,7 @@ import {
   FolderKanban,
   History,
   House,
+  LoaderCircle,
   PanelLeft,
   Plug,
   Plus,
@@ -23,6 +24,13 @@ import { Logo } from "@/components/brand/logo";
 import { EASE } from "@/components/motion";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+  sidebarRuns,
+  type SidebarProject,
+  type SidebarRun,
+} from "@/lib/viz/sidebar";
+import type { RunSummary, Severity } from "@/server/engine/schema";
 import {
   Sidebar,
   SidebarContent,
@@ -63,8 +71,8 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// The main menu. Only what exists is listed. Crosswind, Fly-off and Black box
-// join it when they are built.
+// The main menu. Only what exists is listed. The newer kinds of run start
+// from a project's page.
 const MAIN: NavGroup[] = [
   {
     items: [
@@ -89,11 +97,6 @@ const MAIN: NavGroup[] = [
         testId: "app-nav-runs",
         isActive: (path) => Boolean(path?.startsWith("/app/runs")),
       },
-    ],
-  },
-  {
-    label: "Manage",
-    items: [
       {
         href: "/app/settings",
         label: "Settings",
@@ -171,11 +174,14 @@ function NavList({
   groups,
   pathname,
   onEnter,
+  badges = {},
 }: {
   groups: NavGroup[];
   pathname: string | null;
   /** A row that opens a sidebar of its own, while its section is open. */
   onEnter?: () => void;
+  /** Something small at the end of a row, by its href. */
+  badges?: Record<string, React.ReactNode>;
 }) {
   return (
     <div className="flex flex-col gap-5 group-data-[collapsible=icon]:gap-2">
@@ -220,6 +226,11 @@ function NavList({
                       >
                         {entry.label}
                       </span>
+                      {badges[entry.href] ? (
+                        <span className="relative ml-auto flex items-center font-mono text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden">
+                          {badges[entry.href]}
+                        </span>
+                      ) : null}
                       {/* Up in the main menu with a section open: which of
                           its pages is open, then the way back in. */}
                       {entry.into && active ? (
@@ -325,11 +336,218 @@ function SidebarSwap({
   );
 }
 
+const DOT: Record<Severity, string> = {
+  critical: "bg-sev-critical",
+  high: "bg-sev-high",
+  medium: "bg-sev-medium",
+  low: "bg-sev-low",
+};
+
+/** A section under the menu: a small label, an optional link on the right. */
+function Section({
+  label,
+  more,
+  children,
+  testId,
+}: {
+  label: string;
+  more?: { href: string; label: string };
+  children: React.ReactNode;
+  testId: string;
+}) {
+  return (
+    <section
+      className="mt-6 group-data-[collapsible=icon]:hidden"
+      data-testid={testId}
+    >
+      <header className="mb-1 flex h-6 items-center justify-between px-2.5 text-xs text-muted-foreground">
+        <span>{label}</span>
+        {more ? (
+          <Link href={more.href} className="hover:text-foreground">
+            {more.label}
+          </Link>
+        ) : null}
+      </header>
+      <ul className="flex flex-col gap-0.5">{children}</ul>
+    </section>
+  );
+}
+
+/** A two-line row: a mark, a name with a grey line under it, a figure. */
+function ListRow({
+  href,
+  active,
+  mark,
+  title,
+  note,
+  figure,
+  testId,
+}: {
+  href: string;
+  active: boolean;
+  mark: React.ReactNode;
+  title: string;
+  note: string;
+  figure?: React.ReactNode;
+  testId: string;
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        data-testid={testId}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "flex items-start gap-2.5 rounded-md px-2.5 py-1.5 transition-colors hover:bg-sidebar-accent",
+          active && "bg-foreground/[0.06]",
+        )}
+      >
+        <span className="mt-1.5 flex size-3 shrink-0 items-center justify-center">
+          {mark}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] text-foreground">
+            {title}
+          </span>
+          <span className="block truncate text-xs text-muted-foreground">
+            {note}
+          </span>
+        </span>
+        {figure !== undefined ? (
+          <span className="mt-0.5 shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+            {figure}
+          </span>
+        ) : null}
+      </Link>
+    </li>
+  );
+}
+
+/** The projects, newest run first, each with its worst open severity. */
+function ProjectList({
+  projects,
+  count,
+  pathname,
+}: {
+  projects: SidebarProject[];
+  count: number;
+  pathname: string | null;
+}) {
+  if (projects.length === 0) return null;
+  return (
+    <Section
+      label="Projects"
+      more={
+        count > projects.length
+          ? { href: "/app/projects", label: "View all" }
+          : undefined
+      }
+      testId="sidebar-projects"
+    >
+      {projects.map((project) => (
+        <ListRow
+          key={project.id}
+          href={`/app/projects/${project.id}`}
+          active={Boolean(pathname?.startsWith(`/app/projects/${project.id}`))}
+          mark={
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                project.worst ? DOT[project.worst] : "bg-ok",
+              )}
+              aria-hidden="true"
+            />
+          }
+          title={project.name}
+          note={project.note}
+          figure={project.open > 0 ? project.open : undefined}
+          testId="sidebar-project"
+        />
+      ))}
+    </Section>
+  );
+}
+
+/** Runs in progress, with the stage each is at. Hidden when none runs. */
+function RunningList({
+  runs,
+  pathname,
+}: {
+  runs: SidebarRun[];
+  pathname: string | null;
+}) {
+  if (runs.length === 0) return null;
+  return (
+    <Section label="Now" testId="sidebar-now">
+      {runs.map((run) => (
+        <ListRow
+          key={run.id}
+          href={`/app/runs/${run.id}`}
+          active={pathname === `/app/runs/${run.id}`}
+          mark={
+            <LoaderCircle
+              className="size-3 animate-spin text-link"
+              aria-hidden="true"
+            />
+          }
+          title={run.title}
+          note={run.step}
+          testId="sidebar-running"
+        />
+      ))}
+    </Section>
+  );
+}
+
+/**
+ * The runs in progress, kept current: read again on every page change, and
+ * every few seconds while any is running.
+ */
+function useRunning(initial: SidebarRun[], pathname: string | null) {
+  const [running, setRunning] = useState(initial);
+  const [seen, setSeen] = useState(initial);
+  if (seen !== initial) {
+    setSeen(initial);
+    setRunning(initial);
+  }
+  const busy = running.length > 0;
+  useEffect(() => {
+    let stop = false;
+    const read = async () => {
+      try {
+        const answer = (await (await fetch("/api/runs")).json()) as {
+          runs?: RunSummary[];
+        };
+        if (!stop && answer.runs) setRunning(sidebarRuns(answer.runs));
+      } catch {
+        // Offline: keep what is shown.
+      }
+    };
+    void read();
+    const timer = busy ? setInterval(read, 4000) : null;
+    return () => {
+      stop = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [pathname, busy]);
+  return running;
+}
+
 /** A project's own page: /app/projects/<id>. */
 const COCKPIT = /^\/app\/projects\/([0-9a-f-]{36})\/?$/;
 
 /** The sidebar for the page being shown. Needs a Suspense boundary above it. */
-export function AppSidebar({ foldFor }: { foldFor: string[] }) {
+export function AppSidebar({
+  foldFor,
+  projects,
+  projectCount,
+  running,
+}: {
+  foldFor: string[];
+  projects: SidebarProject[];
+  projectCount: number;
+  running: SidebarRun[];
+}) {
   const pathname = usePathname();
   // A project's cockpit gets the whole width: the sidebar folds to its rail
   // on the way in and opens again on the way to any other page. It is only
@@ -347,7 +565,15 @@ export function AppSidebar({ foldFor }: { foldFor: string[] }) {
   useEffect(() => {
     move.current(!cockpit);
   }, [cockpit]);
-  return <AppSidebarFor pathname={pathname} />;
+  const live = useRunning(running, pathname);
+  return (
+    <AppSidebarFor
+      pathname={pathname}
+      projects={projects}
+      projectCount={projectCount}
+      running={live}
+    />
+  );
 }
 
 /**
@@ -356,7 +582,17 @@ export function AppSidebar({ foldFor }: { foldFor: string[] }) {
  * pathname nothing is marked as current: that is what is shown for the
  * instant before the path is known.
  */
-export function AppSidebarFor({ pathname }: { pathname: string | null }) {
+export function AppSidebarFor({
+  pathname,
+  projects = [],
+  projectCount = 0,
+  running = [],
+}: {
+  pathname: string | null;
+  projects?: SidebarProject[];
+  projectCount?: number;
+  running?: SidebarRun[];
+}) {
   // From a project's page, a new run starts in that project.
   const projectId =
     /^\/app\/projects\/([0-9a-f-]{36})/.exec(pathname ?? "")?.[1] ?? null;
@@ -373,7 +609,7 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
   }
   const own = inSettings(pathname) && !up;
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
+    <Sidebar collapsible="icon" variant="floating">
       <SidebarHeader className="gap-0 px-3 pt-3 pb-1 group-data-[collapsible=icon]:px-1">
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
           <Link
@@ -386,30 +622,8 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
           </Link>
           <Collapse />
         </div>
-      </SidebarHeader>
-
-      <SidebarContent className="overflow-x-hidden px-3 pt-3 group-data-[collapsible=icon]:px-1">
-        <SidebarSwap view={own ? "settings" : "main"} depth={own ? 1 : 0}>
-          {own ? (
-            <>
-              <SectionHead label="Settings" onBack={() => setUp(true)} />
-              <NavList groups={SETTINGS} pathname={pathname} />
-            </>
-          ) : (
-            <>
-              <NavList
-                groups={MAIN}
-                pathname={pathname}
-                onEnter={() => setUp(false)}
-              />
-            </>
-          )}
-        </SidebarSwap>
-      </SidebarContent>
-
-      <SidebarFooter className="gap-0 px-3 pb-3 group-data-[collapsible=icon]:px-1">
         {/* The one call to action of the sidebar. */}
-        <SidebarMenu className="group-data-[collapsible=icon]:items-center">
+        <SidebarMenu className="mt-2 group-data-[collapsible=icon]:items-center">
           <SidebarMenuItem>
             <SidebarMenuButton
               render={
@@ -423,7 +637,7 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
               }
               tooltip="New Run"
               data-testid="app-nav-new-run"
-              className="h-8 justify-center gap-2 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-opacity duration-150 hover:bg-primary hover:text-primary-foreground hover:opacity-90 active:bg-primary active:text-primary-foreground group-data-[collapsible=icon]:size-8!"
+              className="h-8 justify-start gap-2 rounded-md border border-sidebar-border bg-foreground/[0.03] px-2.5 text-[13px] font-medium text-foreground transition-colors duration-150 hover:bg-sidebar-accent group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center"
             >
               <Plus />
               <span className="flex-none group-data-[collapsible=icon]:hidden">
@@ -432,7 +646,45 @@ export function AppSidebarFor({ pathname }: { pathname: string | null }) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <div className="mt-3 flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
+      </SidebarHeader>
+
+      <SidebarContent className="overflow-x-hidden px-2 pt-3 group-data-[collapsible=icon]:px-1">
+        <SidebarSwap view={own ? "settings" : "main"} depth={own ? 1 : 0}>
+          {own ? (
+            <>
+              <SectionHead label="Settings" onBack={() => setUp(true)} />
+              <NavList groups={SETTINGS} pathname={pathname} />
+            </>
+          ) : (
+            <>
+              <NavList
+                groups={MAIN}
+                pathname={pathname}
+                onEnter={() => setUp(false)}
+                badges={{
+                  "/app/projects": projectCount > 0 ? projectCount : null,
+                  "/app/runs":
+                    running.length > 0 ? (
+                      <LoaderCircle
+                        className="size-3.5! animate-spin text-link"
+                        aria-label={`${running.length} running`}
+                      />
+                    ) : null,
+                }}
+              />
+              <RunningList runs={running} pathname={pathname} />
+              <ProjectList
+                projects={projects}
+                count={projectCount}
+                pathname={pathname}
+              />
+            </>
+          )}
+        </SidebarSwap>
+      </SidebarContent>
+
+      <SidebarFooter className="gap-0 px-3 pb-3 group-data-[collapsible=icon]:px-1">
+        <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
           <SidebarMenu className="min-w-0 flex-1 group-data-[collapsible=icon]:items-center">
             <SidebarMenuItem>
               <SidebarMenuButton

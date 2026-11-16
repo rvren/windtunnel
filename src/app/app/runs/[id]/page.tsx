@@ -96,6 +96,7 @@ async function Run({ params }: { params: Promise<{ id: string }> }) {
       const record = previous ? await store.get(previous.id) : null;
       const link = await getProjectLink(run.projectId, SOFTWARE_FACTORY);
       context = {
+        projectName: project?.name ?? null,
         cost: project?.demo
           ? "sample-project"
           : sampleMode

@@ -5,7 +5,11 @@ import { connection } from "next/server";
 import { AppSidebar, AppSidebarFor } from "@/components/app/app-sidebar";
 import { AppTopbar, AppTopbarFor } from "@/components/app/app-topbar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { homeNumbers } from "@/lib/viz/home";
+import { sidebarProjects, sidebarRuns } from "@/lib/viz/sidebar";
 import { ensureDatabase } from "@/server/db/ready";
+import { runStore } from "@/server/engine/registry";
+import { listIssues } from "@/server/issues/store";
 import { listProjects } from "@/server/projects/store";
 
 export const metadata: Metadata = {
@@ -28,12 +32,44 @@ const projectList = cache(async () => {
   }
 });
 
+/** The sidebar's lists: projects with their open issues, runs in progress. */
+const sidebarLists = cache(async () => {
+  try {
+    await ensureDatabase();
+    const [projects, issues, runs] = await Promise.all([
+      listProjects(),
+      listIssues(),
+      runStore().list(),
+    ]);
+    const numbers = homeNumbers({
+      projects: projects.map(({ id, name }) => ({ id, name })),
+      issues,
+      runs,
+    });
+    return {
+      projects: sidebarProjects(numbers),
+      projectCount: projects.length,
+      running: sidebarRuns(runs),
+    };
+  } catch {
+    return { projects: [], projectCount: 0, running: [] };
+  }
+});
+
 /** The sidebar, told which projects have code for the cockpit to fill. */
 async function Sidebar() {
-  const withCode = (await projectList())
+  const [list, lists] = await Promise.all([projectList(), sidebarLists()]);
+  const withCode = list
     .filter((project) => project.workspaces > 0)
     .map((project) => project.id);
-  return <AppSidebar foldFor={withCode} />;
+  return (
+    <AppSidebar
+      foldFor={withCode}
+      projects={lists.projects}
+      projectCount={lists.projectCount}
+      running={lists.running}
+    />
+  );
 }
 
 async function Topbar() {

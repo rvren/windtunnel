@@ -189,13 +189,13 @@
   --rank-high: #a1a1aa;
   --rank-medium: #63636c;
   --rank-low: #36363d;
-  --sidebar: #08080a;
+  --sidebar: #0e0e11;
   --sidebar-foreground: #ededef;
   --sidebar-primary: #ededef;
   --sidebar-primary-foreground: #08080a;
-  --sidebar-accent: #16161a;
+  --sidebar-accent: #18181c;
   --sidebar-accent-foreground: #ededef;
-  --sidebar-border: rgb(255 255 255 / 6%);
+  --sidebar-border: rgb(255 255 255 / 8%);
   --sidebar-ring: #7c5cff;
   --brand-foreground: #ffffff;
   --surface: #0e0e11;

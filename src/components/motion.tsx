@@ -37,18 +37,15 @@ export function MotionRoot({ children }: { children: React.ReactNode }) {
 
 type SectionProps = HTMLMotionProps<"section"> & { delay?: number };
 
-/** Fades and rises in when it mounts. For page content and tab panels. */
-export function FadeIn({ delay = 0, ...props }: SectionProps) {
-  // With reduced motion nothing starts hidden: it is simply there.
-  const reduced = useReducedMotion();
-  return (
-    <motion.section
-      initial={reduced ? false : hidden}
-      animate={shown}
-      transition={{ duration: DURATION, ease: EASE, delay }}
-      {...props}
-    />
-  );
+/**
+ * Page content and tab panels. They are shown at once, never started
+ * hidden: an animation that does not run (a background tab, a paused
+ * frame) must not leave a page blank. `delay` is kept for callers.
+ */
+export function FadeIn(props: SectionProps) {
+  const { delay, ...rest } = props;
+  void delay;
+  return <motion.section initial={false} {...rest} />;
 }
 
 /** Fades and rises in the first time it scrolls into view. */

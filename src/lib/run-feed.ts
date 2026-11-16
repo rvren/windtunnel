@@ -162,3 +162,24 @@ export function applyEvent(feed: Feed, event: RunEvent): Feed {
     }
   }
 }
+
+/**
+ * Each agent's state for display: the live feed when it has heard of the
+ * agent, otherwise what the saved run holds. A finished run read before its
+ * events replay (or with no events) still shows its agents as done.
+ */
+export function agentStates(
+  feed: Feed,
+  saved: { agentId: AgentId; status: AgentStatus; findings: unknown[] }[],
+): Record<AgentId, { status: AgentStatus; findings: number }> {
+  const out = {} as Record<AgentId, { status: AgentStatus; findings: number }>;
+  for (const id of AGENT_IDS) {
+    const live = feed.agents[id];
+    const stored = saved.find((agent) => agent.agentId === id);
+    out[id] =
+      live.status === "pending" && stored
+        ? { status: stored.status, findings: stored.findings.length }
+        : { status: live.status, findings: live.findings };
+  }
+  return out;
+}

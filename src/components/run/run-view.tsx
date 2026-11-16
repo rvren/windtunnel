@@ -4,29 +4,34 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  ChevronDown,
-  Clock,
-  Cpu,
-  Download,
+  Activity,
+  Boxes,
+  Braces,
+  ClipboardList,
+  FileDown,
   FileText,
-  GitBranch,
-  Maximize2,
   FolderKanban,
+  LayoutList,
+  ListChecks,
   LoaderCircle,
+  Maximize2,
+  Network,
   PencilLine,
   RotateCcw,
+  Trophy,
+  Wind,
 } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Panel } from "@/components/panel";
+import { ArchitectureDiagram } from "@/components/project/architecture-diagram";
 import { LocalTime } from "@/components/local-time";
 import { LiveMap } from "@/components/project/live-map";
-import { FadeIn } from "@/components/motion";
-import { applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
+import { agentStates, applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
 import { storyOf } from "@/lib/viz/story";
 import { applyTime, emptyTimes, type RunTimes } from "@/lib/viz/times";
-import { cn } from "@/lib/utils";
 import type { VersionChanges } from "@/lib/viz/refine";
 import type {
   RunRecord,
@@ -36,6 +41,7 @@ import type {
 } from "@/server/engine/schema";
 
 import { ConfirmRunDialog, type RunCost } from "./confirm-run";
+import { NowCard, RunHeader, StageChecklist, TopIssues } from "./run-header";
 import { DeleteRunButton } from "./run-delete";
 import { ActivityRail } from "./activity-rail";
 import {
@@ -43,15 +49,10 @@ import {
   CrosswindReport,
   FlyoffReport,
 } from "./kinds/kind-report";
-import { KIND_LABEL } from "@/lib/labels";
-import { MetaChip, PageHeader } from "@/components/app/page-header";
 import { RefineSheet } from "./refine/refine-sheet";
 import { RequirementDiff, VersionSwitcher } from "./refine/versions";
 
-import { ProbableTag, SampleBadge, StatusBadge } from "./badges";
-import { Stepper } from "./story/stepper";
-import { Story, type ReportTab } from "./story/story";
-import { seconds } from "./stage-time";
+import { Story } from "./story/story";
 import { RunFocus } from "./story/focus";
 import type { TrackedState } from "@/components/issues/state-chip";
 import { Insights } from "./insights/insights";
@@ -189,8 +190,23 @@ function RunAgain({ run, cost }: { run: RunRecord; cost: RunCost }) {
 
 const noSubscribe = () => () => undefined;
 
+const RUN_TABS = [
+  "summary",
+  "impact",
+  "report",
+  "map",
+  "findings",
+  "work-orders",
+  "model",
+  "activity",
+  "scoreboard",
+] as const;
+type RunTab = (typeof RUN_TABS)[number];
+
 /** What the report's right column needs from beyond the run itself. */
 export interface RunContext {
+  /** The run's project, for the breadcrumb. */
+  projectName?: string | null;
   /** The project's previous finished run, for "What changed". */
   previous: RunSummary | null;
   previousSeverity: { critical: number; high: number } | null;
@@ -240,15 +256,20 @@ export function RunView({
   // The report waits for the end of the run; until then the story is it.
   const ended = !running;
   const chapters = storyOf(run, feed, times);
-  const [storyOpen, setStoryOpen] = useState(false);
-  const [tab, setTab] = useState<ReportTab>(
-    kind === "crosswind" ? "impact" : "findings",
+  const reportReady = hasReport && ended;
+  const canMap = Boolean(
+    run.source &&
+    (running || (run.source.architecture?.components.length ?? 0) > 0),
   );
+  const params = useSearchParams();
+  const [tab, setTabState] = useState<RunTab>(() => {
+    const asked = params.get("tab") as RunTab | null;
+    return asked && RUN_TABS.includes(asked) ? asked : "summary";
+  });
   // Focus mode lives in the address (?focus=1); it only turns on in the
   // browser, since the full-screen view is drawn into the body.
   const router = useRouter();
   const pathname = usePathname();
-  const params = useSearchParams();
   const mounted = useSyncExternalStore(
     noSubscribe,
     () => true,
@@ -261,22 +282,26 @@ export function RunView({
   useEffect(() => {
     if (startedLive && run.status !== "running") router.refresh();
   }, [startedLive, run.status, router]);
-  const setFocus = (on: boolean) => {
+  const setQuery = (change: (query: URLSearchParams) => void) => {
     const query = new URLSearchParams(params.toString());
-    if (on) query.set("focus", "1");
-    else query.delete("focus");
+    change(query);
     const text = query.toString();
     router.replace(text ? `${pathname}?${text}` : pathname, { scroll: false });
   };
-  const openTab = (next: ReportTab) => {
-    setTab(next);
-    if (focus) setFocus(false);
-    requestAnimationFrame(() =>
-      document
-        .getElementById("run-report")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-    );
+  const setFocus = (on: boolean) =>
+    setQuery((query) => {
+      if (on) query.set("focus", "1");
+      else query.delete("focus");
+    });
+  const setTab = (next: RunTab) => {
+    setTabState(next);
+    setQuery((query) => {
+      if (next === "summary") query.delete("tab");
+      else query.set("tab", next);
+      query.delete("focus");
+    });
   };
+  const openTab = (next: string) => setTab(next as RunTab);
   const liveMap =
     running && run.source && run.projectId ? (
       <LiveMap
@@ -292,259 +317,352 @@ export function RunView({
         }
       />
     ) : null;
+  const agents =
+    kind === "audit" || kind === "crosswind"
+      ? agentStates(feed, run.agents)
+      : null;
+  const doneStages = chapters.filter((item) => item.state === "done").length;
+  const issueWord = run.source ? "issue" : "risk";
+  const architecture = run.source?.architecture ?? null;
+
+  const tabs = (
+    <TabsList variant="pill" className="w-max">
+      <TabsTrigger value="summary" data-testid="run-tab-summary">
+        <LayoutList />
+        Summary
+      </TabsTrigger>
+      {reportReady && kind === "crosswind" ? (
+        <TabsTrigger value="impact" data-testid="run-tab-impact">
+          <Wind />
+          Impact
+        </TabsTrigger>
+      ) : null}
+      {reportReady && (kind === "flyoff" || kind === "blackbox") ? (
+        <TabsTrigger value="report" data-testid="run-tab-report">
+          <FileText />
+          {kind === "flyoff" ? "Blueprints" : "Incident"}
+        </TabsTrigger>
+      ) : null}
+      {canMap ? (
+        <TabsTrigger value="map" data-testid="run-tab-map">
+          <Network />
+          Map
+        </TabsTrigger>
+      ) : null}
+      {reportReady && (kind === "audit" || kind === "crosswind") ? (
+        <>
+          <TabsTrigger value="findings" data-testid="run-tab-findings">
+            <ListChecks />
+            {kind === "crosswind"
+              ? "What It Breaks"
+              : run.source
+                ? "Issues"
+                : "Risks"}
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {run.groups.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="work-orders" data-testid="run-tab-work-orders">
+            <ClipboardList />
+            Work Orders
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {run.workOrders.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="model" data-testid="run-tab-model">
+            <Boxes />
+            Model
+          </TabsTrigger>
+        </>
+      ) : null}
+      <TabsTrigger value="activity" data-testid="run-tab-activity">
+        <Activity />
+        Activity
+      </TabsTrigger>
+      {reportReady && (kind === "audit" || kind === "crosswind") ? (
+        <TabsTrigger value="scoreboard" data-testid="run-tab-scoreboard">
+          <Trophy />
+          Scoreboard
+        </TabsTrigger>
+      ) : null}
+    </TabsList>
+  );
+
+  const icon = buttonVariants({ variant: "ghost", size: "icon-sm" });
+  const tools = !running ? (
+    <>
+      {run.projectId ? (
+        <Link
+          href={`/app/projects/${run.projectId}`}
+          data-testid="run-open-project"
+          title="Project Cockpit"
+          aria-label="Project Cockpit"
+          className={icon}
+        >
+          <FolderKanban />
+        </Link>
+      ) : null}
+      <a
+        href={`/api/runs/${run.id}/export?format=md`}
+        download
+        data-testid="run-export-markdown"
+        title="Download as Markdown"
+        aria-label="Download as Markdown"
+        className={icon}
+      >
+        <FileDown />
+      </a>
+      <a
+        href={`/api/runs/${run.id}/export?format=json`}
+        download
+        data-testid="run-export-json"
+        title="Download as JSON"
+        aria-label="Download as JSON"
+        className={icon}
+      >
+        <Braces />
+      </a>
+      <DeleteRunButton runId={run.id} compact />
+    </>
+  ) : null;
+
+  const actions =
+    !running && run.projectId && kind === "audit" ? (
+      run.source ? (
+        <RunAgain run={run} cost={context.cost} />
+      ) : (
+        <RefineSheet
+          run={run}
+          cost={context.cost}
+          nextNumber={
+            Math.max(1, ...context.versions.map((item) => item.number)) + 1
+          }
+        >
+          <Button size="sm" data-testid="run-refine">
+            <PencilLine />
+            Refine Requirement
+          </Button>
+        </RefineSheet>
+      )
+    ) : null;
+
+  const dot = <span aria-hidden="true">·</span>;
+  const subtitle = (
+    <>
+      {run.sample ? <span>Sample run</span> : null}
+      {run.sample ? dot : null}
+      {!run.source ? <span>Tests an idea: every risk is probable</span> : null}
+      {!run.source ? dot : null}
+      <span data-testid="run-source">
+        {run.source
+          ? run.source.workspaces
+            ? `${run.source.workspaces.length} workspaces`
+            : `${run.workspaces?.[0] ? `${run.workspaces[0]} · ` : ""}${originText(run.source)}`
+          : "Requirement run"}
+      </span>
+      {run.source?.files != null ? (
+        <>
+          {dot}
+          <span>
+            {run.source.files.toLocaleString("en")} files
+            {run.source.languages.length > 0
+              ? ` · ${run.source.languages.join(" ")}`
+              : ""}
+          </span>
+        </>
+      ) : null}
+      {dot}
+      <LocalTime iso={run.createdAt} />
+      {context.versions.length > 1 ? (
+        <VersionSwitcher versions={context.versions} current={run.id} />
+      ) : null}
+    </>
+  );
 
   return (
-    <div className="space-y-6" data-testid="run-view" data-status={run.status}>
-      <PageHeader
-        title={run.title}
-        meta={
-          <>
-            <StatusBadge status={run.status} />
-            {kind !== "audit" ? (
-              <MetaChip className="text-foreground">
-                {KIND_LABEL[kind]}
-              </MetaChip>
-            ) : null}
-            {run.sample ? <SampleBadge /> : null}
-            {!run.source ? <ProbableTag /> : null}
-            <MetaChip icon={Clock}>
-              <LocalTime iso={run.createdAt} />
-            </MetaChip>
-            <MetaChip icon={run.source ? GitBranch : FileText}>
-              <span data-testid="run-source">
-                {run.source
-                  ? run.source.workspaces
-                    ? `${run.source.workspaces.length} workspaces`
-                    : `${run.workspaces?.[0] ? `${run.workspaces[0]} · ` : ""}${originText(run.source)}`
-                  : "Requirement run"}
-              </span>
-            </MetaChip>
-            {run.source?.files != null ? (
-              <MetaChip>
-                {run.source.files.toLocaleString("en")} files
-                {run.source.languages.length > 0
-                  ? ` · ${run.source.languages.join(" ")}`
-                  : ""}
-              </MetaChip>
-            ) : null}
-            {run.sample ? null : (
-              <MetaChip icon={Cpu}>
-                {run.models.reasoning} / {run.models.agents}
-              </MetaChip>
-            )}
-            {times.start !== null && times.end !== null ? (
-              <MetaChip>
-                took {seconds((times.end - times.start) / 1000)}
-              </MetaChip>
-            ) : null}
-            {context.versions.length > 1 ? (
-              <VersionSwitcher versions={context.versions} current={run.id} />
-            ) : null}
-          </>
-        }
-      >
-        {!running ? (
-          <>
-            {run.projectId ? (
-              <>
-                <Link
-                  href={`/app/projects/${run.projectId}`}
-                  data-testid="run-open-project"
-                  className={buttonVariants({
-                    variant: "outline",
-                    size: "sm",
-                  })}
-                >
-                  <FolderKanban />
-                  Project Cockpit
-                </Link>
-                {kind !== "audit" ? null : run.source ? (
-                  <RunAgain run={run} cost={context.cost} />
-                ) : (
-                  <RefineSheet
-                    run={run}
-                    cost={context.cost}
-                    nextNumber={
-                      Math.max(
-                        1,
-                        ...context.versions.map((item) => item.number),
-                      ) + 1
-                    }
-                  >
-                    <Button size="sm" data-testid="run-refine">
-                      <PencilLine />
-                      Refine Requirement
-                    </Button>
-                  </RefineSheet>
-                )}
-              </>
-            ) : null}
-            <DeleteRunButton runId={run.id} />
-            <a
-              href={`/api/runs/${run.id}/export?format=md`}
-              download
-              data-testid="run-export-markdown"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              <Download />
-              Markdown
-            </a>
-            <a
-              href={`/api/runs/${run.id}/export?format=json`}
-              download
-              data-testid="run-export-json"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              <Download />
-              JSON
-            </a>
-          </>
-        ) : null}
-      </PageHeader>
-
-      {!run.source ? (
-        <p
-          className="-mt-3 text-[13px] text-muted-foreground"
-          data-testid="run-probable-note"
-        >
-          Tests an idea: every risk is probable until it is built.
-        </p>
-      ) : null}
-      {(run.requirement &&
-        (run.requirement !== run.title || run.documents.length > 0)) ||
-      context.parent ? (
-        <div className="-mt-2 space-y-2">
-          {run.requirement &&
-          (run.requirement !== run.title || run.documents.length > 0) ? (
-            <details className="max-w-4xl text-[13px]">
-              <summary
-                className="cursor-pointer text-muted-foreground hover:text-foreground"
-                data-testid="run-requirement-toggle"
-              >
-                Requirement
-                {run.documents.length > 0
-                  ? ` and ${run.documents.length} ${run.documents.length === 1 ? "file" : "files"}`
-                  : ""}
-              </summary>
-              <p className="mt-3 leading-relaxed whitespace-pre-wrap">
-                {run.requirement}
-              </p>
-              {run.documents.length > 0 ? (
-                <ul className="mt-3 flex flex-wrap gap-2 font-mono text-xs text-muted-foreground">
-                  {run.documents.map((document) => (
-                    <li
-                      key={document.name}
-                      className="rounded-md border px-2 py-1"
-                    >
-                      {document.name}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </details>
-          ) : null}
-          {context.parent ? (
-            <details className="max-w-4xl text-[13px]">
-              <summary
-                className="cursor-pointer text-muted-foreground hover:text-foreground"
-                data-testid="run-requirement-changes"
-              >
-                What changed in the text since version {context.parent.number}
-              </summary>
-              <div className="mt-3">
-                <RequirementDiff
-                  before={context.parent.requirement}
-                  after={run.requirement}
-                />
-              </div>
-            </details>
-          ) : null}
-        </div>
-      ) : null}
-
-      {run.error ? (
-        <Alert variant="destructive" data-testid="run-error">
-          <AlertTitle>
-            {run.status === "interrupted"
-              ? "This run was interrupted"
-              : "This run failed"}
-          </AlertTitle>
-          <AlertDescription>{run.error}</AlertDescription>
-        </Alert>
-      ) : null}
-      {running && !connected ? (
-        <Alert data-testid="run-reconnecting">
-          <AlertDescription>
-            Lost the connection to the server. Reconnecting; the run goes on.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {/* The run told stage by stage, beside its activity log. */}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_16rem]">
-        <div className="min-w-0 space-y-6">
-          {/* The stages, then the run told stage by stage. */}
-          <Stepper
-            chapters={chapters}
-            action={
-              <button
-                type="button"
-                onClick={() => setFocus(true)}
-                data-testid="run-focus-open"
-                className="ml-2 flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-foreground/10 hover:text-foreground"
-              >
-                <Maximize2 className="size-3" aria-hidden="true" />
-                Focus
-              </button>
-            }
-            onSelect={(chapter) => {
-              if (ended && !storyOpen) setStoryOpen(true);
-              requestAnimationFrame(() =>
-                document
-                  .getElementById(`chapter-${chapter.stage}`)
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-              );
-            }}
-          />
-
-          {ended && run.status === "completed" ? (
-            <FadeIn>
-              <button
-                type="button"
-                onClick={() => setStoryOpen((open) => !open)}
-                aria-expanded={storyOpen}
-                data-testid="run-story-toggle"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <ChevronDown
-                  className={cn(
-                    "size-3.5 transition-transform duration-300",
-                    storyOpen && "rotate-180",
-                  )}
-                  aria-hidden="true"
-                />
-                {storyOpen ? "Hide how the run went" : "How the run went"}
-              </button>
-            </FadeIn>
-          ) : null}
-
-          {!ended || run.status !== "completed" || storyOpen ? (
-            <Story
-              probable={!run.source}
-              chapters={chapters}
-              feed={feed}
-              times={times}
-              onOpen={openTab}
-              liveMap={liveMap}
-            />
-          ) : null}
-        </div>
-        <ActivityRail
-          chapters={chapters}
-          feed={feed}
-          showAgents={kind === "audit" || kind === "crosswind"}
+    <div className="space-y-5" data-testid="run-view" data-status={run.status}>
+      <Tabs value={tab} onValueChange={(next) => setTab(next as RunTab)}>
+        <RunHeader
+          run={run}
+          times={times}
+          projectName={context.projectName ?? null}
+          subtitle={subtitle}
+          agents={agents}
+          stageAt={`Stage ${Math.min(doneStages + (running ? 1 : 0), chapters.length)}/${chapters.length}`}
+          tools={tools}
+          actions={actions}
+          tabs={tabs}
         />
-      </div>
+
+        {running && !connected ? (
+          <Alert data-testid="run-reconnecting" className="mt-5">
+            <AlertDescription>
+              Lost the connection to the server. Reconnecting; the run goes on.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div className="mt-5" id="run-report">
+          <TabsContent value="summary">
+            <div className="mx-auto max-w-3xl space-y-4">
+              <NowCard
+                run={run}
+                chapters={chapters}
+                issueWord={issueWord}
+                onOpen={openTab}
+                canMap={canMap}
+              />
+              <StageChecklist title={run.title} chapters={chapters} />
+              {reportReady && (kind === "audit" || kind === "crosswind") ? (
+                <TopIssues run={run} onOpen={() => setTab("findings")} />
+              ) : null}
+              {(run.requirement &&
+                (run.requirement !== run.title || run.documents.length > 0)) ||
+              context.parent ? (
+                <Panel className="space-y-3 px-4 py-3 text-[13px]">
+                  {run.requirement &&
+                  (run.requirement !== run.title ||
+                    run.documents.length > 0) ? (
+                    <details>
+                      <summary
+                        className="cursor-pointer text-muted-foreground hover:text-foreground"
+                        data-testid="run-requirement-toggle"
+                      >
+                        Requirement
+                        {run.documents.length > 0
+                          ? ` and ${run.documents.length} ${run.documents.length === 1 ? "file" : "files"}`
+                          : ""}
+                      </summary>
+                      <p className="mt-3 leading-relaxed whitespace-pre-wrap">
+                        {run.requirement}
+                      </p>
+                      {run.documents.length > 0 ? (
+                        <ul className="mt-3 flex flex-wrap gap-2 font-mono text-xs text-muted-foreground">
+                          {run.documents.map((document) => (
+                            <li
+                              key={document.name}
+                              className="rounded-md border px-2 py-1"
+                            >
+                              {document.name}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </details>
+                  ) : null}
+                  {context.parent ? (
+                    <details>
+                      <summary
+                        className="cursor-pointer text-muted-foreground hover:text-foreground"
+                        data-testid="run-requirement-changes"
+                      >
+                        What changed in the text since version{" "}
+                        {context.parent.number}
+                      </summary>
+                      <div className="mt-3">
+                        <RequirementDiff
+                          before={context.parent.requirement}
+                          after={run.requirement}
+                        />
+                      </div>
+                    </details>
+                  ) : null}
+                </Panel>
+              ) : null}
+            </div>
+          </TabsContent>
+
+          {canMap ? (
+            <TabsContent value="map">
+              <Panel className="relative overflow-hidden p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    {running
+                      ? "What the agents are reading, live."
+                      : "The application as the model read it."}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setFocus(true)}
+                    data-testid="run-focus-open"
+                  >
+                    <Maximize2 />
+                    Focus
+                  </Button>
+                </div>
+                {running ? (
+                  liveMap
+                ) : architecture ? (
+                  <ArchitectureDiagram
+                    components={architecture.components.map((item) => ({
+                      id: item.id,
+                      name: item.name,
+                      kind: item.kind,
+                      workspace: item.workspace,
+                      description: item.description,
+                      issues: 0,
+                      worst: null,
+                    }))}
+                    connections={architecture.connections}
+                    showWorkspace={Boolean(run.source?.workspaces)}
+                  />
+                ) : null}
+              </Panel>
+            </TabsContent>
+          ) : null}
+
+          {reportReady && kind === "crosswind" ? (
+            <TabsContent value="impact">
+              <CrosswindReport run={run} />
+            </TabsContent>
+          ) : null}
+          {reportReady && kind === "flyoff" ? (
+            <TabsContent value="report">
+              <FlyoffReport run={run} />
+            </TabsContent>
+          ) : null}
+          {reportReady && kind === "blackbox" ? (
+            <TabsContent value="report">
+              <BlackboxReport run={run} tracked={context.tracked} />
+            </TabsContent>
+          ) : null}
+          {reportReady && (kind === "audit" || kind === "crosswind") ? (
+            <>
+              <TabsContent value="findings">
+                <Insights run={run} context={context} onOpen={openTab} />
+              </TabsContent>
+              <TabsContent value="work-orders">
+                <WorkOrdersTab run={run} />
+              </TabsContent>
+              <TabsContent value="model">
+                <ModelTab run={run} />
+              </TabsContent>
+              <TabsContent value="scoreboard">
+                <ScoreboardTab run={run} times={times} />
+              </TabsContent>
+            </>
+          ) : null}
+
+          <TabsContent value="activity">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_15rem]">
+              <Story
+                probable={!run.source}
+                chapters={chapters}
+                feed={feed}
+                times={times}
+                onOpen={openTab}
+                liveMap={liveMap}
+              />
+              <ActivityRail
+                chapters={chapters}
+                feed={feed}
+                showAgents={kind === "audit" || kind === "crosswind"}
+              />
+            </div>
+          </TabsContent>
+        </div>
+      </Tabs>
 
       {focus ? (
         <RunFocus
@@ -556,105 +674,6 @@ export function RunView({
           onExit={() => setFocus(false)}
           onOpen={openTab}
         />
-      ) : null}
-
-      {hasReport && ended && kind === "flyoff" ? (
-        <FadeIn>
-          <FlyoffReport run={run} />
-        </FadeIn>
-      ) : null}
-      {hasReport && ended && kind === "blackbox" ? (
-        <FadeIn>
-          <BlackboxReport run={run} tracked={context.tracked} />
-        </FadeIn>
-      ) : null}
-      {hasReport && ended && (kind === "audit" || kind === "crosswind") ? (
-        <Tabs
-          value={tab}
-          onValueChange={(next) => setTab(next as ReportTab)}
-          className="scroll-mt-6 gap-6"
-          id="run-report"
-        >
-          {/* The four tabs do not fit a phone: the strip scrolls sideways. */}
-          <div className="overflow-x-auto">
-            <TabsList className="w-max min-w-full">
-              {kind === "crosswind" ? (
-                <TabsTrigger
-                  value="impact"
-                  data-testid="run-tab-impact"
-                  className="flex-none px-4"
-                >
-                  Impact
-                </TabsTrigger>
-              ) : null}
-              <TabsTrigger
-                value="findings"
-                data-testid="run-tab-findings"
-                className="flex-none px-4"
-              >
-                {kind === "crosswind"
-                  ? "What it breaks"
-                  : run.source
-                    ? "Issues"
-                    : "Risks"}
-                <span className="font-mono text-xs text-muted-foreground">
-                  {run.groups.length}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="work-orders"
-                data-testid="run-tab-work-orders"
-                className="flex-none px-4"
-              >
-                {run.source ? "Work orders" : "Proposed work orders"}
-                <span className="font-mono text-xs text-muted-foreground">
-                  {run.workOrders.length}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="model"
-                data-testid="run-tab-model"
-                className="flex-none px-4"
-              >
-                Design model
-              </TabsTrigger>
-              <TabsTrigger
-                value="scoreboard"
-                data-testid="run-tab-scoreboard"
-                className="flex-none px-4"
-              >
-                Scoreboard
-              </TabsTrigger>
-            </TabsList>
-          </div>
-          {kind === "crosswind" ? (
-            <TabsContent value="impact">
-              <FadeIn>
-                <CrosswindReport run={run} />
-              </FadeIn>
-            </TabsContent>
-          ) : null}
-          <TabsContent value="findings">
-            <FadeIn>
-              <Insights run={run} context={context} onOpen={openTab} />
-            </FadeIn>
-          </TabsContent>
-          <TabsContent value="work-orders">
-            <FadeIn>
-              <WorkOrdersTab run={run} />
-            </FadeIn>
-          </TabsContent>
-          <TabsContent value="model">
-            <FadeIn>
-              <ModelTab run={run} />
-            </FadeIn>
-          </TabsContent>
-          <TabsContent value="scoreboard">
-            <FadeIn>
-              <ScoreboardTab run={run} times={times} />
-            </FadeIn>
-          </TabsContent>
-        </Tabs>
       ) : null}
     </div>
   );

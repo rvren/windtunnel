@@ -60,6 +60,9 @@ export function AppTopbar({
 }
 
 /** The top bar itself. With no pathname the trail is left empty. */
+/** A run's or a project's own page. */
+const DETAIL = /^\/app\/(runs|projects)\/[0-9a-f-]{36}/;
+
 export function AppTopbarFor({
   pathname,
   scope = "Windtunnel",
@@ -71,7 +74,13 @@ export function AppTopbarFor({
   const steps = trail(pathname);
 
   return (
-    <header className="sticky top-0 z-30 flex h-11 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-6">
+    <header
+      className={cn(
+        "sticky top-0 z-30 flex h-11 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-6",
+        // A run or a project page carries its own breadcrumb in its header.
+        DETAIL.test(pathname ?? "") && "md:hidden",
+      )}
+    >
       {/* On a phone the sidebar is a sheet, and this opens it. */}
       <SidebarTrigger
         className="-ml-1.5 md:hidden"

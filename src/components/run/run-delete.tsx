@@ -109,19 +109,28 @@ function DeleteDialog({
 }
 
 /** "Delete Run" on a run's own page; afterwards, back to the runs. */
-export function DeleteRunButton({ runId }: { runId: string }) {
+export function DeleteRunButton({
+  runId,
+  compact = false,
+}: {
+  runId: string;
+  /** An icon alone, named by its tooltip. */
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button
-        variant="outline"
-        size="sm"
+        variant={compact ? "ghost" : "outline"}
+        size={compact ? "icon-sm" : "sm"}
         onClick={() => setOpen(true)}
         data-testid="run-delete"
+        title="Delete Run"
+        aria-label="Delete Run"
       >
         <Trash2 />
-        Delete Run
+        {compact ? null : "Delete Run"}
       </Button>
       <DeleteDialog
         open={open}
