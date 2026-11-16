@@ -253,4 +253,48 @@ describe("tracking a project's issues across runs", () => {
     );
     expect((await listIssues(project.id))[0].state).toBe("gone");
   });
+
+  it("links an idea's risks to the code issues they became", async () => {
+    const project = await createProject({ name: "Built", description: "" });
+    const idea = await finishedRun(
+      project.id,
+      [
+        {
+          ...group("r1", "Invitations never expire", "x"),
+          type: "missing_requirement",
+          location: undefined,
+        },
+        {
+          ...group("r2", "Refunds have no time limit", "x"),
+          type: "missing_requirement",
+          location: undefined,
+        },
+      ],
+      "2026-10-01T10:00:00Z",
+      "requirement",
+    );
+    await reconcileRun(idea);
+    // The code that implements it, audited and named as such.
+    const code = await finishedRun(
+      project.id,
+      [
+        {
+          ...group("g1", "Invitation links never expire", "invite.ts"),
+          type: "missing_requirement",
+        },
+      ],
+      "2026-10-05T10:00:00Z",
+    );
+    await reconcileRun({ ...code, requirementRunId: idea.id });
+    const tracked = await listIssues(project.id);
+    const built = tracked.find((issue) => issue.origin === "code")!;
+    const invite = tracked.find(
+      (issue) => issue.title === "Invitations never expire",
+    )!;
+    const refunds = tracked.find(
+      (issue) => issue.title === "Refunds have no time limit",
+    )!;
+    expect(invite.realizedByIssueId).toBe(built.id);
+    expect(refunds.realizedByIssueId).toBeNull();
+  });
 });

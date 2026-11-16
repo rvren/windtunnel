@@ -475,3 +475,89 @@ describe("reading a pull request (GitHub mocked)", () => {
     await expect(readChange(ctx(run) as never)).rejects.toThrow(/fork/);
   });
 });
+
+describe("starting a run of a newer kind", () => {
+  it("checks each kind's input", async () => {
+    const { parseKind } = await import("./input");
+    const code = ["web", "api"];
+    expect(parseKind({}, null)).toEqual({ ok: true, kind: "audit" });
+    expect(parseKind({ kind: "nope" }, null).ok).toBe(false);
+    expect(parseKind({ kind: "flyoff" }, null)).toEqual({
+      ok: true,
+      kind: "flyoff",
+    });
+    expect(parseKind({ kind: "flyoff" }, code).ok).toBe(false);
+    expect(
+      parseKind(
+        { kind: "crosswind", change: { kind: "text", text: "x" } },
+        null,
+      ).ok,
+    ).toBe(false);
+    expect(
+      parseKind(
+        {
+          kind: "crosswind",
+          change: { kind: "pr", workspace: "web", number: 12 },
+        },
+        code,
+      ),
+    ).toEqual({
+      ok: true,
+      kind: "crosswind",
+      change: { kind: "pr", workspace: "web", number: 12 },
+    });
+    expect(
+      parseKind(
+        {
+          kind: "crosswind",
+          change: { kind: "pr", workspace: "db", number: 1 },
+        },
+        code,
+      ).ok,
+    ).toBe(false);
+    expect(
+      parseKind(
+        {
+          kind: "crosswind",
+          change: { kind: "pr", workspace: "web", number: 0 },
+        },
+        code,
+      ).ok,
+    ).toBe(false);
+    expect(
+      parseKind(
+        {
+          kind: "crosswind",
+          change: {
+            kind: "branches",
+            workspace: "api",
+            base: "main",
+            head: "main",
+          },
+        },
+        code,
+      ).ok,
+    ).toBe(false);
+    expect(
+      parseKind(
+        {
+          kind: "crosswind",
+          change: { kind: "text", text: "  Move sessions to Redis  " },
+        },
+        code,
+      ),
+    ).toEqual({
+      ok: true,
+      kind: "crosswind",
+      change: { kind: "text", text: "Move sessions to Redis" },
+    });
+    expect(parseKind({ kind: "blackbox", incident: "" }, code).ok).toBe(false);
+    expect(
+      parseKind({ kind: "blackbox", incident: "500 on search" }, code),
+    ).toEqual({
+      ok: true,
+      kind: "blackbox",
+      incident: "500 on search",
+    });
+  });
+});

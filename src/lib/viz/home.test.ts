@@ -15,6 +15,7 @@ const issue = (over: Partial<Issue> & { id: string }): Issue => ({
   severity: "high",
   state: "open",
   origin: "code",
+  realizedByIssueId: null,
   path: null,
   cwe: null,
   firstRunId: null,

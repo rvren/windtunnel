@@ -7,7 +7,7 @@ import { issues } from "../db/schema";
 import { runStore } from "../engine/registry";
 import type { FindingType, RunRecord, Severity } from "../engine/schema";
 import { getProject } from "../projects/store";
-import { seenIn, type IssueState } from "./match";
+import { linkAcross, seenIn, type IssueState } from "./match";
 import { reconcile } from "./reconcile";
 
 /*
@@ -35,6 +35,8 @@ export interface Issue {
   state: IssueState;
   /** The kind of run that found it; a run settles only its own kind. */
   origin: IssueOrigin;
+  /** A requirement risk's code issue, once the idea was built and audited. */
+  realizedByIssueId: string | null;
   path: string | null;
   cwe: string | null;
   firstRunId: string | null;
@@ -63,6 +65,7 @@ const toIssue = (row: Row): Issue => ({
   severity: row.severity as Severity,
   state: row.state as IssueState,
   origin: row.origin as IssueOrigin,
+  realizedByIssueId: row.realizedByIssueId ?? null,
   path: row.path,
   cwe: row.cwe,
   firstRunId: row.firstRunId,
@@ -198,6 +201,38 @@ export async function reconcileRun(run: RunRecord): Promise<void> {
           updatedAt: at,
         })),
       );
+    }
+  });
+
+  // Idea to code: a code audit that names the requirement run it implements
+  // links that requirement's risks to the code issues they became.
+  if (origin === "code" && run.requirementRunId) {
+    await linkRequirement(run, run.requirementRunId);
+  }
+}
+
+/** Links a requirement's probable risks to this code run's issues. */
+async function linkRequirement(run: RunRecord, requirementRunId: string) {
+  const idea = await runStore().get(requirementRunId);
+  if (!idea || idea.projectId !== run.projectId) return;
+  const ideaThread = await versionsBefore(idea);
+  const all = await listIssues(run.projectId!);
+  const risks = all.filter(
+    (issue) =>
+      issue.origin === "requirement" &&
+      issue.firstRunId !== null &&
+      ideaThread.has(issue.firstRunId),
+  );
+  const code = all.filter(
+    (issue) => issue.origin === "code" && issue.lastRunId === run.id,
+  );
+  const links = linkAcross(risks, code);
+  await db().transaction(async (tx) => {
+    for (const risk of risks) {
+      await tx
+        .update(issues)
+        .set({ realizedByIssueId: links.get(risk.id) ?? null })
+        .where(eq(issues.id, risk.id));
     }
   });
 }

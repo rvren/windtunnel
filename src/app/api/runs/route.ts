@@ -2,6 +2,7 @@ import { connection } from "next/server";
 
 import { ensureDatabase } from "@/server/db/ready";
 import { parseRunInput } from "@/server/engine/input";
+import { parseKind } from "@/server/engine/kinds/input";
 import { RunError } from "@/server/engine/llm";
 import { runStore, startRun } from "@/server/engine/registry";
 import { getProject } from "@/server/projects/store";
@@ -42,8 +43,9 @@ export async function POST(request: Request) {
   } catch {
     return failure("Send the run as JSON.", 400);
   }
-  const { projectId, workspaces, repository, parentRunId } = (body ??
-    {}) as Record<string, unknown>;
+  const fields = (body ?? {}) as Record<string, unknown>;
+  const { projectId, workspaces, repository, parentRunId, requirementRunId } =
+    fields;
   if (repository !== undefined && repository !== null) {
     return failure(
       "Add the repository to a project as a workspace, then run it.",
@@ -57,8 +59,29 @@ export async function POST(request: Request) {
     Array.isArray(workspaces) && workspaces.length > 0
       ? workspaces.filter((name): name is string => typeof name === "string")
       : null;
+  const kind = parseKind(fields, names);
+  if (!kind.ok) return failure(kind.error, 400);
   const parsed = parseRunInput(body, names !== null);
   if (!parsed.ok) return failure(parsed.error, 400);
+  if (kind.kind === "flyoff" && !parsed.input.requirement) {
+    return failure("A fly-off needs a requirement to design.", 400);
+  }
+  const implementing =
+    requirementRunId === undefined || requirementRunId === null
+      ? null
+      : requirementRunId;
+  if (
+    implementing !== null &&
+    (typeof implementing !== "string" ||
+      !UUID.test(implementing) ||
+      !names ||
+      kind.kind !== "audit")
+  ) {
+    return failure(
+      "Only an audit of a project's code can name the requirement run it implements.",
+      400,
+    );
+  }
   const parent =
     parentRunId === undefined || parentRunId === null ? null : parentRunId;
   if (parent !== null && (typeof parent !== "string" || !UUID.test(parent))) {
@@ -82,6 +105,13 @@ export async function POST(request: Request) {
     if (names && chosen.length !== new Set(names).size) {
       return failure("One of those workspaces is not in the project.", 400);
     }
+    if (implementing) {
+      // The idea this code implements: a requirement run of the project.
+      const idea = await runStore().get(implementing);
+      if (!idea || idea.projectId !== project.id || idea.source) {
+        return failure("That is not a requirement run of this project.", 400);
+      }
+    }
     if (parent) {
       // A new version refines a requirement run of the same project.
       const earlier = await runStore().get(parent);
@@ -95,6 +125,10 @@ export async function POST(request: Request) {
     const run = await startRun({
       requirement: parsed.input.requirement,
       documents: parsed.input.documents,
+      kind: kind.kind,
+      ...(kind.change ? { change: kind.change } : {}),
+      ...(kind.incident ? { incident: kind.incident } : {}),
+      ...(implementing ? { requirementRunId: implementing } : {}),
       ...(names
         ? {
             project: {

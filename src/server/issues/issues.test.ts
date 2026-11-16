@@ -7,6 +7,7 @@ import {
   type TrackedIssue,
 } from "./match";
 import { inScope, reconcile } from "./reconcile";
+import { linkAcross } from "./match";
 
 const seen = (over: Partial<SeenIssue> & { groupId: string }): SeenIssue => ({
   title: "The search box can run SQL",
@@ -188,5 +189,72 @@ describe("what a finished run changes", () => {
       scope,
     );
     expect(updates).toEqual([]);
+  });
+});
+
+describe("linking an idea's risks to the code issues they became", () => {
+  it("pairs by shared title words, looser within a kind", () => {
+    const links = linkAcross(
+      [
+        {
+          id: "r1",
+          kind: "security_vulnerability",
+          title: "Admins can edit any tenant's users",
+        },
+        {
+          id: "r2",
+          kind: "missing_requirement",
+          title: "Refunds have no time limit",
+        },
+        {
+          id: "r3",
+          kind: "unhandled_journey",
+          title: "Invitations never expire",
+        },
+      ],
+      [
+        {
+          id: "c1",
+          kind: "security_vulnerability",
+          title: "User edit does not check the tenant of the admin",
+        },
+        {
+          id: "c2",
+          kind: "architecture_weakness",
+          title: "Search reads the whole table",
+        },
+        {
+          id: "c3",
+          kind: "security_vulnerability",
+          title: "Invitation links never expire and can be reused",
+        },
+      ],
+    );
+    expect(Object.fromEntries(links)).toEqual({ r1: "c1", r3: "c3" });
+  });
+
+  it("uses each code issue once", () => {
+    const links = linkAcross(
+      [
+        {
+          id: "r1",
+          kind: "missing_requirement",
+          title: "Invitations never expire",
+        },
+        {
+          id: "r2",
+          kind: "missing_requirement",
+          title: "Invitations never expire after use",
+        },
+      ],
+      [
+        {
+          id: "c1",
+          kind: "missing_requirement",
+          title: "Invitations never expire",
+        },
+      ],
+    );
+    expect([...links]).toEqual([["r1", "c1"]]);
   });
 });
