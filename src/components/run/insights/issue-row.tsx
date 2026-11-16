@@ -72,31 +72,20 @@ export function IssueRowView({
 
   return (
     <article
-      className="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_17rem]"
+      className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_15rem]"
       data-testid="insight-row"
       data-severity={row.severity}
     >
-      <div className="flex min-w-0 gap-4">
+      <div className="flex min-w-0 gap-3">
         <span
           aria-hidden="true"
-          className="flex size-10 shrink-0 items-center justify-center rounded-tile"
-          style={{
-            color: tone,
-            background: `color-mix(in oklab, ${tone} 12%, transparent)`,
-            boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${tone} 35%, transparent)`,
-          }}
+          className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground"
         >
-          <Icon className="size-4.5" />
+          <Icon className="size-3.5" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            <span
-              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase"
-              style={{
-                color: tone,
-                background: `color-mix(in oklab, ${tone} 14%, transparent)`,
-              }}
-            >
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
               <span
                 aria-hidden="true"
                 className="size-1.5 rounded-full"

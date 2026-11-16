@@ -5,7 +5,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronDown,
+  Clock,
+  Cpu,
   Download,
+  FileText,
+  GitBranch,
   Maximize2,
   FolderKanban,
   LoaderCircle,
@@ -33,6 +37,8 @@ import type {
 
 import { ConfirmRunDialog, type RunCost } from "./confirm-run";
 import { DeleteRunButton } from "./run-delete";
+import { ActivityRail } from "./activity-rail";
+import { MetaChip, PageHeader } from "@/components/app/page-header";
 import { RefineSheet } from "./refine/refine-sheet";
 import { RequirementDiff, VersionSwitcher } from "./refine/versions";
 
@@ -272,158 +278,168 @@ export function RunView({
     ) : null;
 
   return (
-    <div className="space-y-8" data-testid="run-view" data-status={run.status}>
-      <header className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={run.status} />
-          {run.sample ? <SampleBadge /> : null}
-          <LocalTime
-            iso={run.createdAt}
-            className="font-mono text-xs text-muted-foreground"
-          />
-          {!running ? (
-            <span className="ml-auto flex gap-2">
-              {run.projectId ? (
-                <>
-                  <Link
-                    href={`/app/projects/${run.projectId}`}
-                    data-testid="run-open-project"
-                    className={buttonVariants({
-                      variant: "outline",
-                      size: "sm",
-                    })}
+    <div className="space-y-6" data-testid="run-view" data-status={run.status}>
+      <PageHeader
+        title={run.title}
+        meta={
+          <>
+            <StatusBadge status={run.status} />
+            {run.sample ? <SampleBadge /> : null}
+            {!run.source ? <ProbableTag /> : null}
+            <MetaChip icon={Clock}>
+              <LocalTime iso={run.createdAt} />
+            </MetaChip>
+            <MetaChip icon={run.source ? GitBranch : FileText}>
+              <span data-testid="run-source">
+                {run.source
+                  ? run.source.workspaces
+                    ? `${run.source.workspaces.length} workspaces`
+                    : `${run.workspaces?.[0] ? `${run.workspaces[0]} · ` : ""}${originText(run.source)}`
+                  : "Requirement run"}
+              </span>
+            </MetaChip>
+            {run.source?.files != null ? (
+              <MetaChip>
+                {run.source.files.toLocaleString("en")} files
+                {run.source.languages.length > 0
+                  ? ` · ${run.source.languages.join(" ")}`
+                  : ""}
+              </MetaChip>
+            ) : null}
+            {run.sample ? null : (
+              <MetaChip icon={Cpu}>
+                {run.models.reasoning} / {run.models.agents}
+              </MetaChip>
+            )}
+            {times.start !== null && times.end !== null ? (
+              <MetaChip>
+                took {seconds((times.end - times.start) / 1000)}
+              </MetaChip>
+            ) : null}
+            {context.versions.length > 1 ? (
+              <VersionSwitcher versions={context.versions} current={run.id} />
+            ) : null}
+          </>
+        }
+      >
+        {!running ? (
+          <>
+            {run.projectId ? (
+              <>
+                <Link
+                  href={`/app/projects/${run.projectId}`}
+                  data-testid="run-open-project"
+                  className={buttonVariants({
+                    variant: "outline",
+                    size: "sm",
+                  })}
+                >
+                  <FolderKanban />
+                  Project Cockpit
+                </Link>
+                {run.source ? (
+                  <RunAgain run={run} cost={context.cost} />
+                ) : (
+                  <RefineSheet
+                    run={run}
+                    cost={context.cost}
+                    nextNumber={
+                      Math.max(
+                        1,
+                        ...context.versions.map((item) => item.number),
+                      ) + 1
+                    }
                   >
-                    <FolderKanban />
-                    Project Cockpit
-                  </Link>
-                  {run.source ? (
-                    <RunAgain run={run} cost={context.cost} />
-                  ) : (
-                    <RefineSheet
-                      run={run}
-                      cost={context.cost}
-                      nextNumber={
-                        Math.max(
-                          1,
-                          ...context.versions.map((item) => item.number),
-                        ) + 1
-                      }
+                    <Button size="sm" data-testid="run-refine">
+                      <PencilLine />
+                      Refine Requirement
+                    </Button>
+                  </RefineSheet>
+                )}
+              </>
+            ) : null}
+            <DeleteRunButton runId={run.id} />
+            <a
+              href={`/api/runs/${run.id}/export?format=md`}
+              download
+              data-testid="run-export-markdown"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <Download />
+              Markdown
+            </a>
+            <a
+              href={`/api/runs/${run.id}/export?format=json`}
+              download
+              data-testid="run-export-json"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <Download />
+              JSON
+            </a>
+          </>
+        ) : null}
+      </PageHeader>
+
+      {!run.source ? (
+        <p
+          className="-mt-3 text-[13px] text-muted-foreground"
+          data-testid="run-probable-note"
+        >
+          Tests an idea: every risk is probable until it is built.
+        </p>
+      ) : null}
+      {(run.requirement &&
+        (run.requirement !== run.title || run.documents.length > 0)) ||
+      context.parent ? (
+        <div className="-mt-2 space-y-2">
+          {run.requirement &&
+          (run.requirement !== run.title || run.documents.length > 0) ? (
+            <details className="max-w-4xl text-[13px]">
+              <summary
+                className="cursor-pointer text-muted-foreground hover:text-foreground"
+                data-testid="run-requirement-toggle"
+              >
+                Requirement
+                {run.documents.length > 0
+                  ? ` and ${run.documents.length} ${run.documents.length === 1 ? "file" : "files"}`
+                  : ""}
+              </summary>
+              <p className="mt-3 leading-relaxed whitespace-pre-wrap">
+                {run.requirement}
+              </p>
+              {run.documents.length > 0 ? (
+                <ul className="mt-3 flex flex-wrap gap-2 font-mono text-xs text-muted-foreground">
+                  {run.documents.map((document) => (
+                    <li
+                      key={document.name}
+                      className="rounded-md border px-2 py-1"
                     >
-                      <Button size="sm" data-testid="run-refine">
-                        <PencilLine />
-                        Refine Requirement
-                      </Button>
-                    </RefineSheet>
-                  )}
-                </>
+                      {document.name}
+                    </li>
+                  ))}
+                </ul>
               ) : null}
-              <DeleteRunButton runId={run.id} />
-              <a
-                href={`/api/runs/${run.id}/export?format=md`}
-                download
-                data-testid="run-export-markdown"
-                className={buttonVariants({ variant: "outline", size: "sm" })}
+            </details>
+          ) : null}
+          {context.parent ? (
+            <details className="max-w-4xl text-[13px]">
+              <summary
+                className="cursor-pointer text-muted-foreground hover:text-foreground"
+                data-testid="run-requirement-changes"
               >
-                <Download />
-                Markdown
-              </a>
-              <a
-                href={`/api/runs/${run.id}/export?format=json`}
-                download
-                data-testid="run-export-json"
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <Download />
-                JSON
-              </a>
-            </span>
+                What changed in the text since version {context.parent.number}
+              </summary>
+              <div className="mt-3">
+                <RequirementDiff
+                  before={context.parent.requirement}
+                  after={run.requirement}
+                />
+              </div>
+            </details>
           ) : null}
         </div>
-        <h1 className="max-w-4xl text-2xl leading-tight font-semibold tracking-[-0.03em] text-balance sm:text-3xl">
-          {run.title}
-        </h1>
-        {!run.source ? (
-          <p
-            className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
-            data-testid="run-probable-note"
-          >
-            <ProbableTag />
-            Tests an idea: every risk is probable until it is built.
-          </p>
-        ) : null}
-        {context.versions.length > 1 ? (
-          <VersionSwitcher versions={context.versions} current={run.id} />
-        ) : null}
-        {/* One line of context: what was read, by which models, how long. */}
-        <p
-          className="font-mono text-xs text-muted-foreground"
-          data-testid="run-source"
-        >
-          {[
-            run.source
-              ? run.source.workspaces
-                ? `${run.source.workspaces.length} workspaces · ${run.source.workspaces.map((item) => item.name).join(", ")}`
-                : `${run.workspaces?.[0] ? `${run.workspaces[0]} · ` : ""}${originText(run.source)}`
-              : "Requirement run",
-            run.source?.files != null
-              ? `${run.source.files.toLocaleString("en")} files · ${run.source.languages.join(" ")}`
-              : null,
-            run.sample
-              ? null
-              : `${run.models.reasoning} / ${run.models.agents}`,
-            times.start !== null && times.end !== null
-              ? `took ${seconds((times.end - times.start) / 1000)}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {run.requirement &&
-        (run.requirement !== run.title || run.documents.length > 0) ? (
-          <details className="max-w-4xl text-sm">
-            <summary
-              className="cursor-pointer text-muted-foreground hover:text-foreground"
-              data-testid="run-requirement-toggle"
-            >
-              Requirement
-              {run.documents.length > 0
-                ? ` and ${run.documents.length} ${run.documents.length === 1 ? "file" : "files"}`
-                : ""}
-            </summary>
-            <p className="mt-3 leading-relaxed whitespace-pre-wrap">
-              {run.requirement}
-            </p>
-            {run.documents.length > 0 ? (
-              <ul className="mt-3 flex flex-wrap gap-2 font-mono text-xs text-muted-foreground">
-                {run.documents.map((document) => (
-                  <li
-                    key={document.name}
-                    className="rounded-md border px-2 py-1"
-                  >
-                    {document.name}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </details>
-        ) : null}
-        {context.parent ? (
-          <details className="max-w-4xl text-sm">
-            <summary
-              className="cursor-pointer text-muted-foreground hover:text-foreground"
-              data-testid="run-requirement-changes"
-            >
-              What changed in the text since version {context.parent.number}
-            </summary>
-            <div className="mt-3">
-              <RequirementDiff
-                before={context.parent.requirement}
-                after={run.requirement}
-              />
-            </div>
-          </details>
-        ) : null}
-      </header>
+      ) : null}
 
       {run.error ? (
         <Alert variant="destructive" data-testid="run-error">
@@ -443,61 +459,67 @@ export function RunView({
         </Alert>
       ) : null}
 
-      {/* The stages, then the run told stage by stage. */}
-      <Stepper
-        chapters={chapters}
-        action={
-          <button
-            type="button"
-            onClick={() => setFocus(true)}
-            data-testid="run-focus-open"
-            className="ml-2 flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-foreground/10 hover:text-foreground"
-          >
-            <Maximize2 className="size-3" aria-hidden="true" />
-            Focus
-          </button>
-        }
-        onSelect={(chapter) => {
-          if (ended && !storyOpen) setStoryOpen(true);
-          requestAnimationFrame(() =>
-            document
-              .getElementById(`chapter-${chapter.stage}`)
-              ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-          );
-        }}
-      />
+      {/* The run told stage by stage, beside its activity log. */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_16rem]">
+        <div className="min-w-0 space-y-6">
+          {/* The stages, then the run told stage by stage. */}
+          <Stepper
+            chapters={chapters}
+            action={
+              <button
+                type="button"
+                onClick={() => setFocus(true)}
+                data-testid="run-focus-open"
+                className="ml-2 flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-foreground/10 hover:text-foreground"
+              >
+                <Maximize2 className="size-3" aria-hidden="true" />
+                Focus
+              </button>
+            }
+            onSelect={(chapter) => {
+              if (ended && !storyOpen) setStoryOpen(true);
+              requestAnimationFrame(() =>
+                document
+                  .getElementById(`chapter-${chapter.stage}`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+              );
+            }}
+          />
 
-      {ended && run.status === "completed" ? (
-        <FadeIn>
-          <button
-            type="button"
-            onClick={() => setStoryOpen((open) => !open)}
-            aria-expanded={storyOpen}
-            data-testid="run-story-toggle"
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ChevronDown
-              className={cn(
-                "size-3.5 transition-transform duration-300",
-                storyOpen && "rotate-180",
-              )}
-              aria-hidden="true"
+          {ended && run.status === "completed" ? (
+            <FadeIn>
+              <button
+                type="button"
+                onClick={() => setStoryOpen((open) => !open)}
+                aria-expanded={storyOpen}
+                data-testid="run-story-toggle"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <ChevronDown
+                  className={cn(
+                    "size-3.5 transition-transform duration-300",
+                    storyOpen && "rotate-180",
+                  )}
+                  aria-hidden="true"
+                />
+                {storyOpen ? "Hide how the run went" : "How the run went"}
+              </button>
+            </FadeIn>
+          ) : null}
+
+          {!ended || run.status !== "completed" || storyOpen ? (
+            <Story
+              probable={!run.source}
+              chapters={chapters}
+              feed={feed}
+              times={times}
+              onOpen={openTab}
+              liveMap={liveMap}
             />
-            {storyOpen ? "Hide how the run went" : "How the run went"}
-          </button>
-        </FadeIn>
-      ) : null}
-
-      {!ended || run.status !== "completed" || storyOpen ? (
-        <Story
-          probable={!run.source}
-          chapters={chapters}
-          feed={feed}
-          times={times}
-          onOpen={openTab}
-          liveMap={liveMap}
-        />
-      ) : null}
+          ) : null}
+        </div>
+        <ActivityRail chapters={chapters} feed={feed} />
+      </div>
 
       {focus ? (
         <RunFocus

@@ -31,7 +31,7 @@ export function Widget({
   testId: string;
 }) {
   return (
-    <section className="rounded-card bg-card p-5" data-testid={testId}>
+    <section className="rounded-card border bg-card p-4" data-testid={testId}>
       <h3 className="mb-4 flex items-center gap-1.5 text-sm font-medium">
         {title}
         <InfoTip about={about} label={title} />
@@ -63,7 +63,7 @@ function Gauge({ score }: { score: number }) {
         <motion.path
           d={`M ${-r} 0 A ${r} ${r} 0 0 1 ${r} 0`}
           fill="none"
-          stroke="var(--brand)"
+          stroke="var(--foreground)"
           strokeWidth="12"
           strokeLinecap="round"
           strokeDasharray={length}
@@ -77,7 +77,7 @@ function Gauge({ score }: { score: number }) {
         <p className="text-[11px] text-muted-foreground">of 100</p>
         <RollingNumber
           value={String(score)}
-          className="text-4xl leading-none font-light tabular-nums"
+          className="text-2xl leading-none font-normal tabular-nums"
         />
       </div>
     </div>
@@ -237,7 +237,7 @@ export function DeliveryWidget({
       <div className="flex items-baseline gap-2">
         <RollingNumber
           value={String(workOrders)}
-          className="text-3xl leading-none font-light tabular-nums"
+          className="text-xl leading-none font-normal tabular-nums"
         />
         <span className="text-xs text-muted-foreground">work orders</span>
       </div>
