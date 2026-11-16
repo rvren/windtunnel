@@ -147,7 +147,7 @@ export function SummaryCards({
         <div className="flex items-baseline gap-3">
           <RollingNumber
             value={String(totals.issues)}
-            className="text-3xl font-light tabular-nums"
+            className="text-2xl font-normal tabular-nums"
           />
           {difference !== null ? (
             <span
@@ -400,7 +400,7 @@ export function DockCards({
     : 0;
   const exposed = cockpit.privacy?.exposedPlaces ?? 0;
   const glass =
-    "flex h-full min-w-0 flex-col overflow-hidden rounded-tile bg-card/80 p-3 ring-1 ring-foreground/10 backdrop-blur-md";
+    "flex h-full min-w-0 flex-col overflow-hidden rounded-tile border bg-card p-3";
   const title =
     "mb-1.5 flex items-center gap-1 text-[11px] tracking-[0.1em] text-muted-foreground uppercase";
 

@@ -15,8 +15,7 @@ import type { Drill } from "./drawer";
  * it opens the full detail in the drawer.
  */
 
-const glass =
-  "rounded-tile bg-card/80 p-3.5 ring-1 ring-foreground/10 backdrop-blur-md";
+const glass = "rounded-tile border bg-card p-3.5";
 const heading =
   "flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase";
 

@@ -3,16 +3,23 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  Clock,
   FolderGit2,
   GitBranch,
   GitMerge,
+  History,
   Play,
+  Plug,
   Plus,
   RotateCcw,
   Trash2,
 } from "lucide-react";
 
-import { PageLoading } from "@/components/app/page-header";
+import {
+  MetaChip,
+  PageHeader,
+  PageLoading,
+} from "@/components/app/page-header";
 import { LocalTime } from "@/components/local-time";
 import { Panel } from "@/components/panel";
 import { Cockpit } from "@/components/project/cockpit";
@@ -32,7 +39,6 @@ import {
 } from "@/components/run/run-delete";
 import { RunFilters, WorkspaceChips } from "@/components/run/run-filters";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Table,
@@ -231,64 +237,59 @@ async function ProjectPage({
   );
 
   return (
-    <div className="space-y-8" data-testid="project-page">
-      <header>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="flex flex-wrap items-center gap-3 text-4xl font-semibold tracking-[-0.03em]">
-              {project.name}
-              {project.demo ? <Badge variant="secondary">Sample</Badge> : null}
-            </h1>
-            {/* One line, so the cockpit sits right under the title. */}
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted-foreground">
+    <div className="space-y-6" data-testid="project-page">
+      <PageHeader
+        title={project.name}
+        meta={
+          <>
+            {project.demo ? <SampleBadge /> : null}
+            <MetaChip icon={Clock}>
               {cockpit ? (
                 <>
                   {cockpit.fromRequirement
                     ? "Last requirement run"
                     : "Last run"}{" "}
                   <LocalTime iso={cockpit.ranAt} />
-                  {cockpit.sample ? <SampleBadge /> : null}
                 </>
               ) : (
                 "Not run yet"
               )}
-              <span aria-hidden="true">·</span>
-              <a
-                href="#setup"
-                className="underline-offset-4 hover:text-foreground hover:underline"
-                data-testid="project-setup-link"
-              >
+            </MetaChip>
+            <a href="#setup" data-testid="project-setup-link">
+              <MetaChip icon={GitBranch} className="hover:text-foreground">
                 {count} {count === 1 ? "workspace" : "workspaces"}
-              </a>
-              <span aria-hidden="true">·</span>
-              <a
-                href="#setup"
-                className="underline-offset-4 hover:text-foreground hover:underline"
-              >
+              </MetaChip>
+            </a>
+            <a href="#setup">
+              <MetaChip icon={Plug} className="hover:text-foreground">
                 {link ? "Sends work orders to 8090" : "Not linked to 8090"}
-              </a>
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <DeleteProjectDialog
-              projectId={project.id}
-              name={project.name}
-              runs={runs.length}
-            >
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Delete this project"
-                data-testid="project-delete"
-              >
-                <Trash2 />
-              </Button>
-            </DeleteProjectDialog>
-            {/* The one solid button on the page. */}
-            {runProject(count > 0)}
-          </div>
-        </div>
-      </header>
+              </MetaChip>
+            </a>
+            <a href="#runs">
+              <MetaChip icon={History} className="hover:text-foreground">
+                {runs.length} {runs.length === 1 ? "run" : "runs"}
+              </MetaChip>
+            </a>
+          </>
+        }
+      >
+        <DeleteProjectDialog
+          projectId={project.id}
+          name={project.name}
+          runs={runs.length}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Delete this project"
+            data-testid="project-delete"
+          >
+            <Trash2 />
+          </Button>
+        </DeleteProjectDialog>
+        {/* The one solid button on the page. */}
+        {runProject(count > 0)}
+      </PageHeader>
 
       {running ? (
         <ProjectLive
@@ -306,7 +307,7 @@ async function ProjectPage({
       <PullRequestRefresher projectId={project.id} />
       {mergedCount > 0 && !running ? (
         <div
-          className="flex flex-wrap items-center gap-3 rounded-card bg-sev-high/10 px-5 py-3 text-sm ring-1 ring-sev-high/30"
+          className="flex flex-wrap items-center gap-3 rounded-card border bg-card px-4 py-2.5 text-[13px]"
           data-testid="project-rescan"
         >
           <GitMerge className="size-4 text-sev-high" aria-hidden="true" />
@@ -351,7 +352,7 @@ async function ProjectPage({
           className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"
           data-testid="project-empty-workspaces"
         >
-          <h2 className="text-lg font-medium">Add the first workspace</h2>
+          <h2 className="text-[15px] font-medium">Add the first workspace</h2>
           <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
             A workspace is one repository of this application: its frontend, a
             backend service, a shared library. Add one or several; the agents
@@ -364,7 +365,7 @@ async function ProjectPage({
           className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"
           data-testid="project-empty-run"
         >
-          <h2 className="text-lg font-medium">
+          <h2 className="text-[15px] font-medium">
             {running
               ? "The first run is in progress"
               : "Ready for its first run"}
@@ -379,8 +380,8 @@ async function ProjectPage({
       )}
 
       {runs.length > 0 ? (
-        <section>
-          <h2 className="mb-4 text-lg font-medium">Runs</h2>
+        <section id="runs" className="scroll-mt-16">
+          <h2 className="mb-3 text-[13px] font-medium">Runs</h2>
           <RunFilters
             workspaces={project.workspaces.map((item) => item.name)}
           />
@@ -480,7 +481,7 @@ async function ProjectPage({
         className="scroll-mt-6 space-y-4"
         data-testid="project-setup"
       >
-        <h2 className="text-lg font-medium">Setup</h2>
+        <h2 className="text-[15px] font-medium">Setup</h2>
         {project.description ? (
           <p className="max-w-3xl text-sm text-muted-foreground">
             {project.description}
