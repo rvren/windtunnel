@@ -87,7 +87,7 @@ function Severity({ project }: { project: Project }) {
           ) : null,
         )}
       </div>
-      <span className="flex gap-2.5 font-mono text-[11px] text-muted-foreground tabular-nums">
+      <span className="flex gap-2.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums">
         {SEVERITY_ORDER.filter((s) => project.bySeverity[s] > 0).map((s) => (
           <span key={s} title={SEVERITY_LABEL[s]}>
             <span style={{ color: SEVERITY_TONE[s] }}>●</span>{" "}
@@ -104,19 +104,26 @@ function ProjectRow({ project }: { project: Project }) {
   const urgent = project.next.kind !== "open" && project.next.kind !== "run";
   return (
     <li
-      className="grid grid-cols-1 items-center gap-x-6 gap-y-2 px-4 py-3 md:grid-cols-[minmax(10rem,1.2fr)_minmax(12rem,1.4fr)_7rem_9rem_auto]"
+      className="grid grid-cols-1 items-center gap-y-2 px-4 py-3 md:col-span-full md:grid-cols-subgrid"
       data-testid="home-project"
     >
       <div className="min-w-0">
         <Link
           href={`/app/projects/${project.id}`}
-          className="block truncate text-[13px] font-medium hover:underline"
+          className="block truncate text-sm font-medium hover:underline"
         >
           {project.name}
         </Link>
         <p className="text-xs text-muted-foreground">
           {Math.round(project.fixedShare * 100)}% fixed · {project.fixed} of{" "}
           {project.fixed + project.open}
+        </p>
+        <p className="hidden text-xs text-muted-foreground md:block xl:hidden">
+          {project.lastRun ? (
+            <LocalTime iso={project.lastRun.at} />
+          ) : (
+            "Not run yet"
+          )}
         </p>
       </div>
 
@@ -125,17 +132,20 @@ function ProjectRow({ project }: { project: Project }) {
         {project.risks > 0 && project.requirementRunId ? (
           <Link
             href={`/app/runs/${project.requirementRunId}`}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
             data-testid="home-project-risks"
+            title={`${project.risks} probable ${project.risks === 1 ? "risk" : "risks"} in the requirement`}
           >
-            <Lightbulb className="size-3" aria-hidden="true" />
-            {project.risks} probable {project.risks === 1 ? "risk" : "risks"} in
-            the requirement
+            <Lightbulb className="size-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">
+              {project.risks} probable {project.risks === 1 ? "risk" : "risks"}{" "}
+              in the requirement
+            </span>
           </Link>
         ) : null}
       </div>
 
-      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="flex items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground">
         <GitPullRequest className="size-3.5" aria-hidden="true" />
         <span className="font-mono text-foreground tabular-nums">
           {project.prs}
@@ -146,7 +156,7 @@ function ProjectRow({ project }: { project: Project }) {
         ) : null}
       </span>
 
-      <span className="text-xs text-muted-foreground">
+      <span className="text-xs whitespace-nowrap text-muted-foreground md:hidden xl:block">
         {project.lastRun ? (
           <LocalTime iso={project.lastRun.at} />
         ) : (
@@ -161,7 +171,7 @@ function ProjectRow({ project }: { project: Project }) {
             variant: urgent ? "secondary" : "ghost",
             size: "sm",
           }),
-          "justify-self-start md:justify-self-end",
+          "max-w-full justify-self-start md:justify-self-end",
           urgent && "text-foreground",
         )}
         data-testid="home-project-next"
@@ -205,7 +215,19 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
             Add your first project
           </Link>
         ) : (
-          <ul className="divide-y">
+          // One grid for the whole list, each row on its subgrid, so every
+          // column lines up from row to row.
+          <ul className="divide-y md:grid md:grid-cols-[minmax(8rem,1fr)_minmax(11rem,1.4fr)_auto_auto] md:gap-x-5 xl:grid-cols-[minmax(8rem,1fr)_minmax(12rem,1.4fr)_auto_auto_auto]">
+            <li
+              aria-hidden="true"
+              className="hidden px-4 py-2 text-xs text-muted-foreground md:col-span-full md:grid md:grid-cols-subgrid"
+            >
+              <span>Project</span>
+              <span>Open issues</span>
+              <span>Pull requests</span>
+              <span className="hidden xl:block">Last run</span>
+              <span className="justify-self-end">Next</span>
+            </li>
             {numbers.projects.map((project) => (
               <ProjectRow key={project.id} project={project} />
             ))}
