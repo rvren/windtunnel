@@ -286,7 +286,7 @@ export function Stage<V extends string>({
     <section
       ref={ref}
       className={cn(
-        "overflow-hidden border bg-canvas",
+        "overflow-hidden bg-canvas dot-grid",
         focus ? "fixed inset-0 z-50 overflow-y-auto" : "relative rounded-card",
         !focus && !narrow && "h-[max(560px,calc(100svh-16rem))]",
       )}

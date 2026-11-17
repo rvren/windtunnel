@@ -146,7 +146,7 @@ const inSettings = (path: string | null) =>
 
 /** A row of the sidebar: quiet until it is the page you are on. */
 const item =
-  "relative h-8 gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-sidebar-accent hover:text-foreground data-active:bg-foreground/[0.06] data-active:font-medium data-active:text-foreground [&_svg]:size-4 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center";
+  "relative h-10 gap-3 rounded-tile px-3 text-[15px] text-muted-foreground transition-[color,background-color,transform] duration-200 hover:bg-sidebar-accent hover:text-foreground active:scale-[0.98] data-active:bg-foreground/[0.09] data-active:font-medium data-active:text-foreground [&_svg]:size-[18px] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center";
 
 /** The collapse control, in the sidebar's own header. */
 function Collapse() {
@@ -227,7 +227,7 @@ function NavList({
                         {entry.label}
                       </span>
                       {badges[entry.href] ? (
-                        <span className="relative ml-auto flex items-center font-mono text-[11px] text-muted-foreground group-data-[collapsible=icon]:hidden">
+                        <span className="relative ml-auto flex items-center font-mono text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
                           {badges[entry.href]}
                         </span>
                       ) : null}
@@ -276,7 +276,7 @@ function SectionHead({ label, onBack }: { label: string; onBack: () => void }) {
           tooltip={label}
           aria-label={`${label}: back to the main menu`}
           data-testid="sidebar-up"
-          className="group/up h-8 gap-2 rounded-md px-2.5 text-[13px] font-semibold text-foreground transition-colors duration-150 hover:bg-sidebar-accent group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center"
+          className="group/up h-10 gap-2 rounded-tile px-3 text-[15px] font-semibold text-foreground transition-[background-color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.98] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center"
         >
           <ArrowLeft className="size-4! text-muted-foreground transition-transform duration-200 group-hover/up:-translate-x-0.5 group-hover/up:text-foreground" />
           <span
@@ -360,7 +360,7 @@ function Section({
       className="mt-6 group-data-[collapsible=icon]:hidden"
       data-testid={testId}
     >
-      <header className="mb-1 flex h-6 items-center justify-between px-2.5 text-xs text-muted-foreground">
+      <header className="mb-1 flex h-7 items-center justify-between px-3 text-[13px] text-muted-foreground">
         <span>{label}</span>
         {more ? (
           <Link href={more.href} className="hover:text-foreground">
@@ -398,15 +398,15 @@ function ListRow({
         data-testid={testId}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex items-start gap-2.5 rounded-md px-2.5 py-1.5 transition-colors hover:bg-sidebar-accent",
-          active && "bg-foreground/[0.06]",
+          "flex items-start gap-3 rounded-tile px-3 py-2 transition-colors hover:bg-sidebar-accent",
+          active && "bg-foreground/[0.09]",
         )}
       >
         <span className="mt-1.5 flex size-3 shrink-0 items-center justify-center">
           {mark}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] text-foreground">
+          <span className="block truncate text-sm text-foreground">
             {title}
           </span>
           <span className="block truncate text-xs text-muted-foreground">
@@ -414,7 +414,7 @@ function ListRow({
           </span>
         </span>
         {figure !== undefined ? (
-          <span className="mt-0.5 shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+          <span className="mt-0.5 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
             {figure}
           </span>
         ) : null}
@@ -610,7 +610,7 @@ export function AppSidebarFor({
   const own = inSettings(pathname) && !up;
   return (
     <Sidebar collapsible="icon" variant="floating">
-      <SidebarHeader className="gap-0 px-3 pt-3 pb-1 group-data-[collapsible=icon]:px-1">
+      <SidebarHeader className="gap-0 px-3.5 pt-5 pb-2 group-data-[collapsible=icon]:px-1">
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
           <Link
             href="/app/projects"
@@ -623,7 +623,7 @@ export function AppSidebarFor({
           <Collapse />
         </div>
         {/* The one call to action of the sidebar. */}
-        <SidebarMenu className="mt-2 group-data-[collapsible=icon]:items-center">
+        <SidebarMenu className="mt-4 group-data-[collapsible=icon]:items-center">
           <SidebarMenuItem>
             <SidebarMenuButton
               render={
@@ -637,7 +637,7 @@ export function AppSidebarFor({
               }
               tooltip="New Run"
               data-testid="app-nav-new-run"
-              className="h-8 justify-start gap-2 rounded-md border border-sidebar-border bg-foreground/[0.03] px-2.5 text-[13px] font-medium text-foreground transition-colors duration-150 hover:bg-sidebar-accent group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center"
+              className="h-11 justify-center gap-2.5 rounded-tile bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-[opacity,transform] duration-200 hover:bg-primary hover:text-primary-foreground hover:opacity-90 active:scale-[0.98] active:bg-primary active:text-primary-foreground group-data-[collapsible=icon]:size-10!"
             >
               <Plus />
               <span className="flex-none group-data-[collapsible=icon]:hidden">
@@ -648,7 +648,7 @@ export function AppSidebarFor({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="overflow-x-hidden px-2 pt-3 group-data-[collapsible=icon]:px-1">
+      <SidebarContent className="overflow-x-hidden px-3.5 pt-4 group-data-[collapsible=icon]:px-1">
         <SidebarSwap view={own ? "settings" : "main"} depth={own ? 1 : 0}>
           {own ? (
             <>
@@ -683,7 +683,7 @@ export function AppSidebarFor({
         </SidebarSwap>
       </SidebarContent>
 
-      <SidebarFooter className="gap-0 px-3 pb-3 group-data-[collapsible=icon]:px-1">
+      <SidebarFooter className="gap-0 px-3.5 pb-4 group-data-[collapsible=icon]:px-1">
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
           <SidebarMenu className="min-w-0 flex-1 group-data-[collapsible=icon]:items-center">
             <SidebarMenuItem>

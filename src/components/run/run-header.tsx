@@ -123,11 +123,11 @@ export function RunHeader({
   const tokens = tokensOf(run);
   const kind = run.kind ?? "audit";
   return (
-    <Panel className="p-4 sm:p-5" data-testid="run-header">
+    <Panel className="p-5 sm:p-6" data-testid="run-header">
       <div className="flex items-center justify-between gap-3">
         <nav
           aria-label="Breadcrumb"
-          className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
+          className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground"
         >
           <Link href="/app/runs" className="hover:text-foreground">
             Runs
@@ -159,54 +159,62 @@ export function RunHeader({
 
       <div className="mt-2 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-lg leading-snug font-semibold tracking-tight">
+          <h1 className="text-3xl leading-tight font-semibold tracking-[-0.03em]">
             {run.title}
           </h1>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
             {subtitle}
           </p>
         </div>
-        {/* The figures, as one quiet group. */}
-        <div
-          className="flex shrink-0 items-stretch overflow-hidden rounded-md border text-xs"
-          data-testid="run-figures"
-        >
-          <span className="flex items-center gap-1.5 px-2.5 py-1">
-            {running ? (
-              <LoaderCircle
-                className="size-3 animate-spin text-link"
-                aria-hidden="true"
-              />
-            ) : (
-              <span
-                className={cn("size-1.5 rounded-full", STATUS_DOT[run.status])}
-                aria-hidden="true"
-              />
-            )}
-            <span data-testid="run-status">{RUN_STATUS_LABEL[run.status]}</span>
-          </span>
-          <span
-            className="border-l px-2.5 py-1 font-mono tabular-nums"
-            title="What this run cost"
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* The figures, as one quiet group. */}
+          <div
+            className="flex shrink-0 items-stretch overflow-hidden rounded-control border text-[13px]"
+            data-testid="run-figures"
           >
-            {run.sample ? "$0" : formatCost(run.costUsd ?? null)}
-          </span>
-          {elapsed !== null ? (
-            <span className="border-l px-2.5 py-1 font-mono tabular-nums">
-              {seconds(elapsed)}
+            <span className="flex items-center gap-1.5 px-2.5 py-1">
+              {running ? (
+                <LoaderCircle
+                  className="size-3 animate-spin text-link"
+                  aria-hidden="true"
+                />
+              ) : (
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    STATUS_DOT[run.status],
+                  )}
+                  aria-hidden="true"
+                />
+              )}
+              <span data-testid="run-status">
+                {RUN_STATUS_LABEL[run.status]}
+              </span>
             </span>
-          ) : null}
-          {tokens > 0 ? (
-            <span className="border-l px-2.5 py-1 font-mono text-muted-foreground tabular-nums">
-              {compact(tokens)} tokens
+            <span
+              className="border-l px-2.5 py-1 font-mono tabular-nums"
+              title="What this run cost"
+            >
+              {run.sample ? "$0" : formatCost(run.costUsd ?? null)}
             </span>
-          ) : null}
+            {elapsed !== null ? (
+              <span className="border-l px-2.5 py-1 font-mono tabular-nums">
+                {seconds(elapsed)}
+              </span>
+            ) : null}
+            {tokens > 0 ? (
+              <span className="border-l px-2.5 py-1 font-mono text-muted-foreground tabular-nums">
+                {compact(tokens)} tokens
+              </span>
+            ) : null}
+          </div>
+          {actions}
         </div>
       </div>
 
       {/* The agents, in one mono line: who is doing what. */}
       <p
-        className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-muted-foreground"
+        className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground"
         data-testid="run-agents-row"
       >
         {agents
@@ -234,10 +242,7 @@ export function RunHeader({
         <span>{stageAt}</span>
       </p>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0 overflow-x-auto">{tabs}</div>
-        <div className="flex flex-wrap items-center gap-1.5">{actions}</div>
-      </div>
+      <div className="mt-5 min-w-0 overflow-x-auto">{tabs}</div>
     </Panel>
   );
 }
@@ -364,10 +369,12 @@ export function NowCard({
     detail = run.error;
   }
   return (
-    <Panel className="p-5" data-testid="run-now">
-      <p className="text-[15px] leading-snug font-medium">{headline}</p>
+    <Panel className="p-6" data-testid="run-now">
+      <p className="text-xl leading-snug font-semibold tracking-[-0.02em]">
+        {headline}
+      </p>
       {detail ? (
-        <p className="mt-1 text-[13px] text-muted-foreground">{detail}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
       ) : null}
       {run.status === "completed" && run.groups.length > 0 ? (
         <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

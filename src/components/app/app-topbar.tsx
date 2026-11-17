@@ -76,7 +76,7 @@ export function AppTopbarFor({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 flex h-11 shrink-0 items-center gap-2 border-b bg-background px-4 md:px-6",
+        "sticky top-0 z-30 flex h-13 shrink-0 items-center gap-2 bg-background/85 px-4 backdrop-blur-md md:px-9",
         // A run or a project page carries its own breadcrumb in its header.
         DETAIL.test(pathname ?? "") && "md:hidden",
       )}
@@ -88,7 +88,7 @@ export function AppTopbarFor({
       />
       <nav
         aria-label="Breadcrumb"
-        className="flex min-w-0 items-center gap-2 text-[13px] whitespace-nowrap text-muted-foreground"
+        className="flex min-w-0 items-center gap-2 text-sm whitespace-nowrap text-muted-foreground"
         data-testid="app-breadcrumb"
       >
         <span className="max-w-[18ch] shrink-0 truncate max-sm:hidden">
@@ -138,11 +138,11 @@ export function AppTopbarFor({
         title="Architecture docs"
         data-testid="app-docs"
         className={cn(
-          "ml-auto grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+          "ml-auto grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-200 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
           pathname?.startsWith("/app/docs") && "bg-accent text-foreground",
         )}
       >
-        <BookOpen className="size-4" aria-hidden="true" />
+        <BookOpen className="size-[18px]" aria-hidden="true" />
       </Link>
     </header>
   );

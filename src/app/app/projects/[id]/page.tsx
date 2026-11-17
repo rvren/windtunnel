@@ -298,6 +298,7 @@ async function ProjectPage({
     >
       <Button
         variant={primary ? "default" : "outline"}
+        size="sm"
         disabled={count === 0 || Boolean(running)}
         data-testid="project-run"
       >
@@ -336,11 +337,11 @@ async function ProjectPage({
 
   return (
     <div className="space-y-5" data-testid="project-page">
-      <Panel className="p-4 sm:p-5" data-testid="project-header">
+      <Panel className="p-5 sm:p-6" data-testid="project-header">
         <div className="flex items-center justify-between gap-3">
           <nav
             aria-label="Breadcrumb"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            className="flex items-center gap-1.5 text-[13px] text-muted-foreground"
           >
             <Link href="/app/projects" className="hover:text-foreground">
               Projects
@@ -357,7 +358,7 @@ async function ProjectPage({
             >
               <button
                 type="button"
-                className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-8 items-center gap-1.5 rounded-control px-2.5 text-[13px] text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                 data-testid="project-schedule"
                 title={schedule.note ?? "Scheduled runs"}
               >
@@ -393,10 +394,10 @@ async function ProjectPage({
 
         <div className="mt-2 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div className="min-w-0">
-            <h1 className="text-lg leading-snug font-semibold tracking-tight">
+            <h1 className="text-3xl leading-tight font-semibold tracking-[-0.03em]">
               {project.name}
             </h1>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               {project.demo ? (
                 <>
                   <span>Sample project</span>
@@ -423,49 +424,56 @@ async function ProjectPage({
               )}
             </p>
           </div>
-          {/* The numbers that matter, as one quiet group. */}
-          <div
-            className="flex shrink-0 items-stretch overflow-hidden rounded-md border text-xs"
-            data-testid="project-figures"
-          >
-            {running ? (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 text-link">
-                <span className="size-1.5 animate-pulse rounded-full bg-brand" />
-                Running
-              </span>
-            ) : null}
-            <span className={cn("px-2.5 py-1", running && "border-l")}>
-              <span className="font-mono tabular-nums">
-                {cockpit?.totals.issues ?? 0}
-              </span>{" "}
-              <span className="text-muted-foreground">open</span>
-            </span>
-            {cockpit && cockpit.totals.bySeverity.critical > 0 ? (
-              <span className="flex items-center gap-1.5 border-l px-2.5 py-1">
-                <span className="size-1.5 rounded-full bg-sev-critical" />
-                <span className="font-mono tabular-nums">
-                  {cockpit.totals.bySeverity.critical}
-                </span>
-                <span className="text-muted-foreground">critical</span>
-              </span>
-            ) : null}
-            <span className="border-l px-2.5 py-1">
-              <span className="font-mono tabular-nums">{fixed.length}</span>{" "}
-              <span className="text-muted-foreground">fixed</span>
-            </span>
-            <span
-              className="border-l px-2.5 py-1 font-mono tabular-nums"
-              title="Spent on this project's runs this month"
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {/* The numbers that matter, as one quiet group. */}
+            <div
+              className="flex shrink-0 items-stretch overflow-hidden rounded-control border text-[13px]"
+              data-testid="project-figures"
             >
-              {formatCost(spentUsd)}
-              {schedule.monthlyCapUsd !== null
-                ? ` / ${formatCost(schedule.monthlyCapUsd)}`
-                : ""}
-            </span>
+              {running ? (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 text-link">
+                  <span className="size-1.5 animate-pulse rounded-full bg-brand" />
+                  Running
+                </span>
+              ) : null}
+              <span className={cn("px-2.5 py-1", running && "border-l")}>
+                <span className="font-mono tabular-nums">
+                  {cockpit?.totals.issues ?? 0}
+                </span>{" "}
+                <span className="text-muted-foreground">open</span>
+              </span>
+              {cockpit && cockpit.totals.bySeverity.critical > 0 ? (
+                <span className="flex items-center gap-1.5 border-l px-2.5 py-1">
+                  <span className="size-1.5 rounded-full bg-sev-critical" />
+                  <span className="font-mono tabular-nums">
+                    {cockpit.totals.bySeverity.critical}
+                  </span>
+                  <span className="text-muted-foreground">critical</span>
+                </span>
+              ) : null}
+              <span className="border-l px-2.5 py-1">
+                <span className="font-mono tabular-nums">{fixed.length}</span>{" "}
+                <span className="text-muted-foreground">fixed</span>
+              </span>
+              <span
+                className="border-l px-2.5 py-1 font-mono tabular-nums"
+                title="Spent on this project's runs this month"
+              >
+                {formatCost(spentUsd)}
+                {schedule.monthlyCapUsd !== null
+                  ? ` / ${formatCost(schedule.monthlyCapUsd)}`
+                  : ""}
+              </span>
+            </div>
+            {kindButton("crosswind", "Crosswind", Wind, true)}
+            {kindButton("flyoff", "Fly-Off", Swords, false)}
+            {kindButton("blackbox", "Black Box", Siren, true)}
+            {/* The one solid button on the page. */}
+            {runProject(count > 0)}
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <nav
             aria-label="Project sections"
             className="flex flex-wrap gap-1"
@@ -483,7 +491,7 @@ async function ProjectPage({
                 aria-current={tab === item.id ? "page" : undefined}
                 data-testid={`project-tab-${item.id}`}
                 className={cn(
-                  "flex h-7 items-center gap-1.5 rounded-md border border-transparent px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground [&_svg]:size-3.5",
+                  "flex h-8 items-center gap-1.5 rounded-control border border-transparent px-3 text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground [&_svg]:size-4",
                   tab === item.id &&
                     "border-border bg-secondary text-foreground",
                 )}
@@ -491,20 +499,13 @@ async function ProjectPage({
                 <item.icon aria-hidden="true" />
                 {item.label}
                 {item.count !== undefined ? (
-                  <span className="font-mono text-[11px] text-muted-foreground">
+                  <span className="font-mono text-xs text-muted-foreground">
                     {item.count}
                   </span>
                 ) : null}
               </Link>
             ))}
           </nav>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {kindButton("crosswind", "Crosswind", Wind, true)}
-            {kindButton("flyoff", "Fly-Off", Swords, false)}
-            {kindButton("blackbox", "Black Box", Siren, true)}
-            {/* The one solid button on the page. */}
-            {runProject(count > 0)}
-          </div>
         </div>
       </Panel>
 

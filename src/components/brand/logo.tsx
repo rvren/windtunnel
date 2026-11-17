@@ -33,7 +33,7 @@ export function Mark({ className, ...props }: React.ComponentProps<"svg">) {
   );
 }
 
-/* Mark plus the name. The name is live text in the UI face, semibold, lowercase. */
+/* Mark plus the name. The name is live text in Barlow SemiBold, lowercase. */
 export function Logo({
   className,
   wordClassName,

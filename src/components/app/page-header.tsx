@@ -21,9 +21,9 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <header className={cn("flex flex-col gap-2", tabs ? "mb-4" : "mb-6")}>
+    <header className={cn("flex flex-col gap-2", tabs ? "mb-5" : "mb-7")}>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <h1 className="min-w-0 text-xl leading-tight font-semibold tracking-[-0.01em] text-balance">
+        <h1 className="min-w-0 text-4xl leading-tight font-semibold tracking-[-0.03em] text-balance">
           {title}
         </h1>
         {children ? (

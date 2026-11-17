@@ -24,7 +24,7 @@ function RunningRing() {
   return (
     <motion.svg
       viewBox="-20 -20 40 40"
-      className="absolute inset-0 size-full text-brand"
+      className="absolute inset-0 size-full text-brand glow"
       aria-hidden="true"
       animate={reduced ? undefined : { rotate: 360 }}
       transition={{ duration: 8, ease: "linear", repeat: Infinity }}
@@ -73,10 +73,10 @@ export function Stepper({
   return (
     <section
       aria-label="Stages"
-      className={cn("rounded-card border bg-card px-4 pt-3 pb-2", className)}
+      className={cn("rounded-card bg-card px-5 pt-4 pb-3", className)}
       data-testid="run-stages"
     >
-      <p className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <p className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
         Stages
         <InfoTip about="stages" label="Stages" />
         <span className="ml-auto font-mono tabular-nums">
@@ -94,7 +94,7 @@ export function Stepper({
           {/* The line behind the stages, and how far it has filled */}
           <span
             aria-hidden="true"
-            className="absolute top-3 h-px bg-border"
+            className="absolute top-4 h-px bg-border"
             style={{
               left: `${50 / chapters.length}%`,
               right: `${50 / chapters.length}%`,
@@ -102,7 +102,7 @@ export function Stepper({
           />
           <motion.span
             aria-hidden="true"
-            className="absolute top-3 h-px origin-left bg-foreground/40"
+            className="absolute top-4 h-px origin-left bg-brand glow"
             style={{
               left: `${50 / chapters.length}%`,
               width: `${100 - 100 / chapters.length}%`,
@@ -125,9 +125,9 @@ export function Stepper({
                 >
                   <span
                     className={cn(
-                      "relative flex size-6 items-center justify-center rounded-full bg-card ring-1 transition-colors duration-300",
+                      "relative flex size-8 items-center justify-center rounded-full bg-card ring-1 transition-colors duration-300",
                       chapter.state === "done" &&
-                        "text-foreground ring-foreground/30",
+                        "bg-brand text-brand-foreground ring-brand",
                       chapter.state === "running" && "ring-brand/40",
                       chapter.state === "failed" &&
                         "bg-sev-critical text-white ring-sev-critical",
@@ -142,10 +142,10 @@ export function Stepper({
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.35, ease: EASE }}
                       >
-                        <Check className="size-3.5" aria-hidden="true" />
+                        <Check className="size-4" aria-hidden="true" />
                       </motion.span>
                     ) : chapter.state === "failed" ? (
-                      <X className="size-3.5" aria-hidden="true" />
+                      <X className="size-4" aria-hidden="true" />
                     ) : chapter.state === "running" ? (
                       <>
                         <RunningRing />

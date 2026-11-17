@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
+import { Barlow } from "next/font/google";
 
 import { MotionRoot } from "@/components/motion";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -8,8 +8,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
 
-// Geist Sans for text and headings: quiet and dense, for a clean, minimal
-// console. Geist Mono for ids and numbers. See brand/README.md.
+// Barlow is the one typeface for text and headings: a DIN-style face, in the
+// engineered manner of SpaceX's D-DIN. Geist Mono is for ids and numbers.
+// See brand/README.md.
+const barlow = Barlow({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-barlow",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   // Where the app is served from, for absolute links in share cards.
@@ -32,7 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       id="top"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
+      className={`${barlow.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         {/* Dark is the default look. The theme toggle switches it. */}
