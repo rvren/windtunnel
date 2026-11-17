@@ -17,10 +17,9 @@ import { PullRequestRefresher } from "@/components/issues/pr-refresher";
 import { LocalTime } from "@/components/local-time";
 import { Panel } from "@/components/panel";
 import { StatusBadge } from "@/components/run/badges";
+import { SeverityBar } from "@/components/severity-bar";
 import { buttonVariants } from "@/components/ui/button";
-import { SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import { SEVERITY_TONE } from "@/lib/viz/cockpit-views";
 import type { HomeNumbers } from "@/lib/viz/home";
 
 /*
@@ -61,7 +60,7 @@ function SectionTitle({
   );
 }
 
-/** A thin bar of open issues by severity, with the counts beside it. */
+/** Open issues by severity, or a quiet line when none is open. */
 function Severity({ project }: { project: Project }) {
   if (project.open === 0) {
     return (
@@ -69,33 +68,10 @@ function Severity({ project }: { project: Project }) {
     );
   }
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-      <div
-        className="flex h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-foreground/[0.06]"
-        role="img"
-        aria-label={`${project.name}: open issues by severity`}
-      >
-        {SEVERITY_ORDER.map((severity) =>
-          project.bySeverity[severity] > 0 ? (
-            <span
-              key={severity}
-              style={{
-                flexGrow: project.bySeverity[severity],
-                background: SEVERITY_TONE[severity],
-              }}
-            />
-          ) : null,
-        )}
-      </div>
-      <span className="flex flex-wrap gap-x-2.5 font-mono text-[0.6875rem] whitespace-nowrap text-muted-foreground tabular-nums">
-        {SEVERITY_ORDER.filter((s) => project.bySeverity[s] > 0).map((s) => (
-          <span key={s} title={SEVERITY_LABEL[s]}>
-            <span style={{ color: SEVERITY_TONE[s] }}>●</span>{" "}
-            {project.bySeverity[s]}
-          </span>
-        ))}
-      </span>
-    </div>
+    <SeverityBar
+      counts={project.bySeverity}
+      label={`${project.name}: open issues by severity`}
+    />
   );
 }
 

@@ -267,6 +267,10 @@ under a project called "Demo project" in a workspace called "demo".
 The Runs page and each project's Runs table can be narrowed by workspace (and
 the Runs page by project). The filter is in the address, so it can be linked.
 
+Each row of the Runs page shows the run's state, its project and the
+workspaces it read, its findings by severity, its work orders, what it cost
+and when it started. The bar above the list adds up the runs shown.
+
 ## The live map
 
 While a project's code is being read, the run page and the project page show
