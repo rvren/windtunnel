@@ -149,6 +149,8 @@ function SidebarProvider({
   )
 }
 
+const noSubscribe = () => () => {}
+
 function Sidebar({
   side = "left",
   variant = "sidebar",
@@ -163,6 +165,14 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  // The sidebar can hydrate later than the provider (inside a Suspense
+  // boundary), when isMobile has already turned true. Until it has hydrated
+  // it draws the desktop markup the server sent; on a phone that is hidden.
+  const hydrated = React.useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false
+  )
 
   if (collapsible === "none") {
     return (
@@ -179,7 +189,7 @@ function Sidebar({
     )
   }
 
-  if (isMobile) {
+  if (isMobile && hydrated) {
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
         <SheetContent
