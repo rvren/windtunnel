@@ -278,3 +278,15 @@
     @apply font-sans;
   }
 }
+
+/* Text size, picked in the sidebar (src/components/text-size.tsx) and kept
+   in this browser. Every text size is in rem, so the root sets them all. */
+html[data-text-size="small"] {
+  font-size: 14px;
+}
+html[data-text-size="large"] {
+  font-size: 18px;
+}
+html[data-text-size="xl"] {
+  font-size: 20px;
+}

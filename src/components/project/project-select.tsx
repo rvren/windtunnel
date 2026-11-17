@@ -34,7 +34,7 @@ function Initial({ name, muted }: { name: string; muted?: boolean }) {
     <span
       aria-hidden="true"
       className={cn(
-        "grid size-5 shrink-0 place-items-center rounded-[5px] text-[10px] font-semibold uppercase",
+        "grid size-5 shrink-0 place-items-center rounded-[5px] text-[0.625rem] font-semibold uppercase",
         muted
           ? "bg-muted text-muted-foreground"
           : "bg-brand/15 text-brand ring-1 ring-brand/25",
@@ -127,7 +127,7 @@ export function ProjectSelect({
               <span className="flex min-w-0 flex-col">
                 <span className="truncate">{project.name}</span>
                 {meta(project) ? (
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-[0.6875rem] text-muted-foreground">
                     {meta(project)}
                   </span>
                 ) : null}

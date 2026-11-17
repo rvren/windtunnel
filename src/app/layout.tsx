@@ -3,6 +3,7 @@ import { GeistMono } from "geist/font/mono";
 import { Barlow } from "next/font/google";
 
 import { MotionRoot } from "@/components/motion";
+import { TEXT_SIZE_SCRIPT } from "@/components/text-size";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -41,6 +42,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={`${barlow.variable} ${GeistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* The text size picked in this browser, before the first paint. */}
+        <script dangerouslySetInnerHTML={{ __html: TEXT_SIZE_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         {/* Dark is the default look. The theme toggle switches it. */}
         <ThemeProvider

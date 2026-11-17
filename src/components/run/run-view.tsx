@@ -326,7 +326,7 @@ export function RunView({
   const architecture = run.source?.architecture ?? null;
 
   const tabs = (
-    <TabsList variant="pill" className="w-max">
+    <TabsList variant="pill">
       <TabsTrigger value="summary" data-testid="run-tab-summary">
         <LayoutList />
         Summary
@@ -358,14 +358,14 @@ export function RunView({
               : run.source
                 ? "Issues"
                 : "Risks"}
-            <span className="font-mono text-[11px] text-muted-foreground">
+            <span className="font-mono text-[0.6875rem] text-muted-foreground">
               {run.groups.length}
             </span>
           </TabsTrigger>
           <TabsTrigger value="work-orders" data-testid="run-tab-work-orders">
             <ClipboardList />
             Work Orders
-            <span className="font-mono text-[11px] text-muted-foreground">
+            <span className="font-mono text-[0.6875rem] text-muted-foreground">
               {run.workOrders.length}
             </span>
           </TabsTrigger>
@@ -519,7 +519,7 @@ export function RunView({
               {(run.requirement &&
                 (run.requirement !== run.title || run.documents.length > 0)) ||
               context.parent ? (
-                <Panel className="space-y-3 px-4 py-3 text-[13px]">
+                <Panel className="space-y-3 px-4 py-3 text-[0.8125rem]">
                   {run.requirement &&
                   (run.requirement !== run.title ||
                     run.documents.length > 0) ? (

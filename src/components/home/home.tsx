@@ -52,7 +52,7 @@ function SectionTitle({
 }) {
   return (
     <div className="flex items-center justify-between border-b px-4 py-2.5">
-      <h2 className="flex items-center gap-1.5 text-[13px] font-medium">
+      <h2 className="flex items-center gap-1.5 text-[0.8125rem] font-medium">
         {children}
         <InfoTip about={about} label={label} />
       </h2>
@@ -69,7 +69,7 @@ function Severity({ project }: { project: Project }) {
     );
   }
   return (
-    <div className="flex min-w-0 items-center gap-3">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
       <div
         className="flex h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-foreground/[0.06]"
         role="img"
@@ -87,7 +87,7 @@ function Severity({ project }: { project: Project }) {
           ) : null,
         )}
       </div>
-      <span className="flex gap-2.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums">
+      <span className="flex flex-wrap gap-x-2.5 font-mono text-[0.6875rem] whitespace-nowrap text-muted-foreground tabular-nums">
         {SEVERITY_ORDER.filter((s) => project.bySeverity[s] > 0).map((s) => (
           <span key={s} title={SEVERITY_LABEL[s]}>
             <span style={{ color: SEVERITY_TONE[s] }}>●</span>{" "}
@@ -209,7 +209,7 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
         {numbers.projects.length === 0 ? (
           <Link
             href="/app/projects"
-            className="flex items-center justify-center gap-2 px-4 py-10 text-[13px] text-muted-foreground hover:text-foreground"
+            className="flex items-center justify-center gap-2 px-4 py-10 text-[0.8125rem] text-muted-foreground hover:text-foreground"
           >
             <FolderPlus className="size-4" aria-hidden="true" />
             Add your first project
@@ -256,13 +256,13 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
               <li key={run.id}>
                 <Link
                   href={`/app/runs/${run.id}`}
-                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-[13px] hover:bg-muted/40"
+                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-[0.8125rem] hover:bg-muted/40"
                 >
                   <span className="truncate">{run.title}</span>
                   <StatusBadge status={run.status} />
                   <LocalTime
                     iso={run.createdAt}
-                    className="font-mono text-[11px] text-muted-foreground"
+                    className="font-mono text-[0.6875rem] text-muted-foreground"
                   />
                 </Link>
               </li>
@@ -275,7 +275,7 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
             Recent pull requests
           </SectionTitle>
           {numbers.recentPrs.length === 0 ? (
-            <p className="px-4 py-6 text-[13px] text-muted-foreground">
+            <p className="px-4 py-6 text-[0.8125rem] text-muted-foreground">
               No fix pull requests yet. Open one from a security issue in a run.
             </p>
           ) : (
@@ -286,13 +286,13 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
                     href={item.pr!.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-[13px] hover:bg-muted/40"
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-[0.8125rem] hover:bg-muted/40"
                   >
                     <span className="font-mono text-xs text-muted-foreground">
                       #{item.pr!.number}
                     </span>
                     <span className="truncate">{item.title}</span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[0.6875rem] text-muted-foreground">
                       {item.projectName} · {item.pr!.state}
                     </span>
                   </a>

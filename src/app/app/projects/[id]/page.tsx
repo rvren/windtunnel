@@ -341,7 +341,7 @@ async function ProjectPage({
         <div className="flex items-center justify-between gap-3">
           <nav
             aria-label="Breadcrumb"
-            className="flex items-center gap-1.5 text-[13px] text-muted-foreground"
+            className="flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground"
           >
             <Link href="/app/projects" className="hover:text-foreground">
               Projects
@@ -358,7 +358,7 @@ async function ProjectPage({
             >
               <button
                 type="button"
-                className="flex h-8 items-center gap-1.5 rounded-control px-2.5 text-[13px] text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-8 items-center gap-1.5 rounded-control px-2.5 text-[0.8125rem] text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                 data-testid="project-schedule"
                 title={schedule.note ?? "Scheduled runs"}
               >
@@ -427,7 +427,7 @@ async function ProjectPage({
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {/* The numbers that matter, as one quiet group. */}
             <div
-              className="flex shrink-0 items-stretch overflow-hidden rounded-control border text-[13px]"
+              className="flex shrink-0 items-stretch overflow-hidden rounded-control border text-[0.8125rem]"
               data-testid="project-figures"
             >
               {running ? (
@@ -525,7 +525,7 @@ async function ProjectPage({
       <PullRequestRefresher projectId={project.id} />
       {mergedCount > 0 && !running && tab === "overview" ? (
         <div
-          className="flex flex-wrap items-center gap-3 rounded-card border bg-card px-4 py-2.5 text-[13px]"
+          className="flex flex-wrap items-center gap-3 rounded-card border bg-card px-4 py-2.5 text-[0.8125rem]"
           data-testid="project-rescan"
         >
           <GitMerge className="size-4 text-sev-high" aria-hidden="true" />
@@ -571,7 +571,7 @@ async function ProjectPage({
           className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"
           data-testid="project-empty-workspaces"
         >
-          <h2 className="text-[15px] font-medium">Add the first workspace</h2>
+          <h2 className="text-[0.9375rem] font-medium">Add the first workspace</h2>
           <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
             A workspace is one repository of this application: its frontend, a
             backend service, a shared library. Add one or several; the agents
@@ -584,7 +584,7 @@ async function ProjectPage({
           className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"
           data-testid="project-empty-run"
         >
-          <h2 className="text-[15px] font-medium">
+          <h2 className="text-[0.9375rem] font-medium">
             {running
               ? "The first run is in progress"
               : "Ready for its first run"}

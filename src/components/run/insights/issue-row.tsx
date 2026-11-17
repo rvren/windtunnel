@@ -91,7 +91,7 @@ export function IssueRowView({
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <span
-              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase"
+              className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[0.625rem] font-medium tracking-wide uppercase"
               style={{
                 color: tone,
                 background: `color-mix(in oklab, ${tone} 14%, transparent)`,
@@ -111,12 +111,12 @@ export function IssueRowView({
             <span>{FINDING_TYPE_LABEL[row.type]}</span>
             {row.where ? <span>· {row.where}</span> : null}
             {row.location ? (
-              <span className="truncate font-mono text-[11px]">
+              <span className="truncate font-mono text-[0.6875rem]">
                 · {row.location.path}:{row.location.line}
               </span>
             ) : null}
           </p>
-          <h3 className="mt-1.5 text-[15px] leading-snug font-medium">
+          <h3 className="mt-1.5 text-[0.9375rem] leading-snug font-medium">
             {row.title}
           </h3>
           <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">

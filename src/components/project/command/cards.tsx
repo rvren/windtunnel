@@ -239,7 +239,7 @@ export function SummaryCards({
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-2 text-sm">{issue.title}</span>
                     {issue.path ? (
-                      <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                      <span className="block truncate font-mono text-[0.6875rem] text-muted-foreground">
                         {issue.path}
                         {issue.startLine ? `:${issue.startLine}` : ""}
                       </span>
@@ -402,7 +402,7 @@ export function DockCards({
   const glass =
     "flex h-full min-w-0 flex-col overflow-hidden rounded-tile bg-card/80 p-3 ring-1 ring-foreground/10 backdrop-blur-md";
   const title =
-    "mb-1.5 flex items-center gap-1 text-[11px] tracking-[0.1em] text-muted-foreground uppercase";
+    "mb-1.5 flex items-center gap-1 text-[0.6875rem] tracking-[0.1em] text-muted-foreground uppercase";
 
   return (
     <div className="grid h-full grid-cols-4 gap-2" data-testid="cockpit-dock">
@@ -422,7 +422,7 @@ export function DockCards({
           />
           <span
             className={cn(
-              "font-mono text-[11px] tabular-nums",
+              "font-mono text-[0.6875rem] tabular-nums",
               difference === null
                 ? "text-muted-foreground"
                 : difference > 0
@@ -448,7 +448,7 @@ export function DockCards({
               data-testid={`dock-severity-${severity}`}
               onClick={() => onPick({ key: "severity", value: severity })}
               className={cn(
-                "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums enabled:hover:bg-muted disabled:opacity-40",
+                "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[0.6875rem] tabular-nums enabled:hover:bg-muted disabled:opacity-40",
                 selectedSeverity === severity && "bg-muted ring-1 ring-brand",
               )}
             >
@@ -522,7 +522,7 @@ export function DockCards({
         </h3>
         {history.length > 1 ? (
           <>
-            <p className="font-mono text-[11px] text-muted-foreground tabular-nums">
+            <p className="font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
               lowest {Math.min(...history)} · now {totals.issues}
             </p>
             <div className="mt-auto">
@@ -584,7 +584,7 @@ function DockMeter({
   tone: "brand" | "positive" | "negative";
 }) {
   return (
-    <div className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-[11px]">
+    <div className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-[0.6875rem]">
       <span className="truncate text-muted-foreground">{label}</span>
       <ProgressBar
         label={label}

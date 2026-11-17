@@ -254,7 +254,7 @@ export function PullRequestDialog({
                       {target.problem}
                     </p>
                   ) : null}
-                  <pre className="max-h-64 overflow-auto px-3 pb-3 font-mono text-[11px] leading-relaxed">
+                  <pre className="max-h-64 overflow-auto px-3 pb-3 font-mono text-[0.6875rem] leading-relaxed">
                     {target.diff.split("\n").map((line, index) => (
                       <span
                         key={index}

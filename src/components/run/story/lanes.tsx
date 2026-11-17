@@ -62,7 +62,7 @@ export function AgentLanes({
 
   return (
     <section aria-label="Agents in parallel" data-testid="agent-lanes">
-      <div className="mb-2 flex items-baseline justify-between text-[11px] text-muted-foreground">
+      <div className="mb-2 flex items-baseline justify-between text-[0.6875rem] text-muted-foreground">
         <span>
           {live && together > 1
             ? `${together} agents working at the same time`
@@ -162,13 +162,13 @@ export function AgentLanes({
                   ) : null}
                 </div>
                 {live && now_ ? (
-                  <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                  <p className="mt-1 truncate text-[0.6875rem] text-muted-foreground">
                     {now_}
                   </p>
                 ) : null}
               </div>
 
-              <span className="text-right font-mono text-[11px] tabular-nums">
+              <span className="text-right font-mono text-[0.6875rem] tabular-nums">
                 {lane.findings}
                 <span className="text-muted-foreground"> found</span>
               </span>

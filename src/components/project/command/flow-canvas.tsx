@@ -309,7 +309,7 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
           initial={false}
           animate={{ left: index === 2 ? x + 60 : x }}
           transition={glide}
-          className="absolute -top-5 -translate-x-1/2 text-[10px] tracking-[0.14em] whitespace-nowrap text-muted-foreground uppercase"
+          className="absolute -top-5 -translate-x-1/2 text-[0.625rem] tracking-[0.14em] whitespace-nowrap text-muted-foreground uppercase"
         >
           {view.heading[index]}
         </motion.p>
@@ -329,7 +329,7 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
             title={`${node.data.label}: ${node.data.sub ?? node.data.value}`}
             className="absolute flex w-40 -translate-x-full -translate-y-1/2 items-baseline justify-end gap-2 text-right outline-none focus-visible:outline-2 focus-visible:outline-ring"
           >
-            <span className="truncate text-[11px] tracking-[0.08em] uppercase">
+            <span className="truncate text-[0.6875rem] tracking-[0.08em] uppercase">
               {node.data.label}
             </span>
           </motion.div>
@@ -353,11 +353,11 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
             >
               {node.data.value}
             </span>
-            <span className="mt-2.5 line-clamp-1 max-w-full rounded-sm bg-canvas/85 px-1.5 text-[11px] tracking-[0.1em] uppercase">
+            <span className="mt-2.5 line-clamp-1 max-w-full rounded-sm bg-canvas/85 px-1.5 text-[0.6875rem] tracking-[0.1em] uppercase">
               {node.data.label}
             </span>
             {node.data.sub ? (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[0.6875rem] text-muted-foreground">
                 {node.data.sub}
               </span>
             ) : null}
@@ -404,7 +404,7 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
               {node.data.label}
             </span>
             {node.data.sub ? (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[0.6875rem] text-muted-foreground">
                 {node.data.sub}
               </span>
             ) : null}
@@ -428,7 +428,7 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
             <span className="text-lg leading-none font-light tabular-nums">
               {node.data.value}
             </span>
-            <span className="text-[11px] tracking-[0.1em] uppercase">
+            <span className="text-[0.6875rem] tracking-[0.1em] uppercase">
               {node.data.label}
             </span>
           </div>
@@ -443,7 +443,7 @@ export function FlowCanvas({ view, width, height, selected, onPick }: Props) {
                   />
                   <span className="min-w-0 flex-1 truncate">{leaf.label}</span>
                   {leaf.meta ? (
-                    <span className="max-w-24 shrink-0 truncate font-mono text-[10px] text-muted-foreground">
+                    <span className="max-w-24 shrink-0 truncate font-mono text-[0.625rem] text-muted-foreground">
                       {leaf.meta}
                     </span>
                   ) : null}

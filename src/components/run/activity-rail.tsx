@@ -41,7 +41,7 @@ export function ActivityRail({
 }) {
   return (
     <aside
-      className="space-y-5 text-[13px] xl:sticky xl:top-16 xl:self-start"
+      className="space-y-5 text-[0.8125rem] xl:sticky xl:top-16 xl:self-start"
       aria-label="Activity"
       data-testid="run-activity"
     >
@@ -68,7 +68,7 @@ export function ActivityRail({
                   {chapter.label}
                 </span>
                 {chapter.seconds !== null ? (
-                  <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                  <span className="font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
                     {seconds(chapter.seconds)}
                   </span>
                 ) : null}

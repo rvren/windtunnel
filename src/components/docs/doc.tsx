@@ -7,7 +7,7 @@ import { Mermaid } from "./mermaid";
 export function Doc({ markdown }: { markdown: string }) {
   return (
     <article
-      className="max-w-5xl text-[15px] leading-relaxed text-muted-foreground [&_a]:text-link [&_a]:underline-offset-4 hover:[&_a]:underline [&_code]:rounded-sm [&_code]:bg-accent [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12.5px] [&_code]:text-foreground [&_h1]:hidden [&_h2]:mt-14 [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-[-0.02em] [&_h2]:text-foreground [&_h3]:mt-8 [&_h3]:mb-3 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:text-foreground [&_li]:my-1 [&_p]:my-3 [&_strong]:font-medium [&_strong]:text-foreground [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5"
+      className="max-w-5xl text-[0.9375rem] leading-relaxed text-muted-foreground [&_a]:text-link [&_a]:underline-offset-4 hover:[&_a]:underline [&_code]:rounded-sm [&_code]:bg-accent [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.78125rem] [&_code]:text-foreground [&_h1]:hidden [&_h2]:mt-14 [&_h2]:mb-4 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-[-0.02em] [&_h2]:text-foreground [&_h3]:mt-8 [&_h3]:mb-3 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:text-foreground [&_li]:my-1 [&_p]:my-3 [&_strong]:font-medium [&_strong]:text-foreground [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5"
       data-testid="docs-article"
     >
       <Markdown

@@ -120,7 +120,7 @@ export function WorkspaceChips({ names }: { names: string[] }) {
       {names.map((name) => (
         <span
           key={name}
-          className="rounded-md border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+          className="rounded-md border px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted-foreground"
         >
           {name}
         </span>

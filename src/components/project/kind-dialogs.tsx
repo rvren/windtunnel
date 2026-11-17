@@ -36,7 +36,7 @@ export interface KindWorkspace {
 }
 
 const field =
-  "h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+  "h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-[0.8125rem] outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 
 const COPY = {
   crosswind: {
@@ -163,7 +163,7 @@ export function StartKindDialog({
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 placeholder="Move sessions from cookies to a shared Redis, and let the gateway check them."
-                className="min-h-28 text-[13px]"
+                className="min-h-28 text-[0.8125rem]"
                 data-testid="crosswind-text"
               />
             ) : (
@@ -233,7 +233,7 @@ export function StartKindDialog({
                 : "500 Internal Server Error on GET /catalog/search?q=men's shoes …"
             }
             className={cn(
-              "min-h-36 text-[13px]",
+              "min-h-36 text-[0.8125rem]",
               kind === "blackbox" && "font-mono text-xs",
             )}
             data-testid={`${kind}-text`}
@@ -242,7 +242,7 @@ export function StartKindDialog({
 
         <p className="text-xs text-muted-foreground">{costText(cost)}</p>
         {blocked || error ? (
-          <p className="text-[13px] text-sev-critical" role="alert">
+          <p className="text-[0.8125rem] text-sev-critical" role="alert">
             {blocked ?? error}
           </p>
         ) : null}
@@ -384,7 +384,7 @@ export function ScheduleDialog({
             : `Setting a schedule is your standing permission for these runs. Each is billed to your Claude API key; a run is skipped when this month's spending plus the last run's cost would pass the cap. This month so far: ${formatCost(spentUsd)}.`}
         </p>
         {error ? (
-          <p className="text-[13px] text-sev-critical" role="alert">
+          <p className="text-[0.8125rem] text-sev-critical" role="alert">
             {error}
           </p>
         ) : null}

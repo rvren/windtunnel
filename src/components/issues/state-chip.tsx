@@ -104,7 +104,7 @@ export function StateChip({
     </>
   );
   const classes = cn(
-    "inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap ring-1",
+    "inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[0.625rem] font-medium whitespace-nowrap ring-1",
     look.className,
     className,
   );

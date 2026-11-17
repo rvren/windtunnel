@@ -191,7 +191,7 @@ export function Stage<V extends string>({
           >
             <Minimize2 className="size-3.5" aria-hidden="true" />
             Exit Focus
-            <kbd className="ml-1 font-mono text-[10px] text-muted-foreground">
+            <kbd className="ml-1 font-mono text-[0.625rem] text-muted-foreground">
               Esc
             </kbd>
           </button>
@@ -241,7 +241,7 @@ export function Stage<V extends string>({
         {legend.map((item) => (
           <span
             key={item.label}
-            className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+            className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground"
           >
             <span
               aria-hidden="true"
@@ -257,7 +257,7 @@ export function Stage<V extends string>({
             onClick={toggleDock}
             aria-expanded={docked}
             data-testid="cockpit-dock-toggle"
-            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground ring-1 ring-foreground/10 hover:text-foreground"
+            className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.6875rem] text-muted-foreground ring-1 ring-foreground/10 hover:text-foreground"
           >
             {docked ? (
               <ChevronDown className="size-3" aria-hidden="true" />
@@ -271,7 +271,7 @@ export function Stage<V extends string>({
           <button
             type="button"
             onClick={onSecrets}
-            className="flex items-center gap-1.5 rounded-md bg-sev-critical/12 px-2 py-0.5 text-[11px] text-sev-critical"
+            className="flex items-center gap-1.5 rounded-md bg-sev-critical/12 px-2 py-0.5 text-[0.6875rem] text-sev-critical"
             data-testid="cockpit-secrets"
           >
             <KeyRound className="size-3" aria-hidden="true" />

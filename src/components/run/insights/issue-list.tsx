@@ -123,7 +123,7 @@ export function IssueList({
                 label: (
                   <span className="flex items-center gap-1.5">
                     All
-                    <span className="font-mono text-[11px] text-muted-foreground">
+                    <span className="font-mono text-[0.6875rem] text-muted-foreground">
                       {scoped.length}
                     </span>
                   </span>
@@ -134,7 +134,7 @@ export function IssueList({
                 label: (
                   <span className="flex items-center gap-1.5 whitespace-nowrap">
                     {item.label}
-                    <span className="font-mono text-[11px] text-muted-foreground">
+                    <span className="font-mono text-[0.6875rem] text-muted-foreground">
                       {item.count}
                     </span>
                   </span>
@@ -198,7 +198,7 @@ export function IssueList({
               className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
               data-testid="insights-search"
             />
-            <kbd className="rounded-sm px-1 font-mono text-[10px] text-muted-foreground ring-1 ring-foreground/10">
+            <kbd className="rounded-sm px-1 font-mono text-[0.625rem] text-muted-foreground ring-1 ring-foreground/10">
               /
             </kbd>
           </label>

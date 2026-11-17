@@ -91,7 +91,7 @@ export function RunSummary({
                 color: SEVERITY_TONE[severity],
               }))}
           />
-          <p className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+          <p className="flex flex-wrap gap-3 text-[0.6875rem] text-muted-foreground">
             {bySeverity
               .filter((item) => item.value > 0)
               .map(({ severity, value }) => (
@@ -125,7 +125,7 @@ export function RunSummary({
             value={patched}
             onClick={() => onOpen("findings")}
           >
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[0.6875rem] text-muted-foreground">
               of {security} security {security === 1 ? "issue" : "issues"}
             </p>
           </Tile>

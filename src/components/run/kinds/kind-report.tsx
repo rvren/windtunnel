@@ -60,7 +60,7 @@ function Section({
 }) {
   return (
     <Panel className={cn("overflow-hidden", className)} data-testid={testId}>
-      <h3 className="border-b px-4 py-2.5 text-[13px] font-medium">{title}</h3>
+      <h3 className="border-b px-4 py-2.5 text-[0.8125rem] font-medium">{title}</h3>
       <div className="p-4">{children}</div>
     </Panel>
   );
@@ -114,7 +114,7 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
   const [view, setView] = useState<"after" | "before">("after");
   if (!impact || !change) {
     return (
-      <p className="text-[13px] text-muted-foreground">
+      <p className="text-[0.8125rem] text-muted-foreground">
         The impact is written when the run finishes.
       </p>
     );
@@ -136,7 +136,7 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
   return (
     <div className="space-y-4" data-testid="crosswind-report">
       <Section title="What the change does">
-        <p className="max-w-3xl text-[13px] leading-relaxed">
+        <p className="max-w-3xl text-[0.8125rem] leading-relaxed">
           {impact.summary}
         </p>
         <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -196,7 +196,7 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
               />
             </LayoutGroup>
           ) : (
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[0.8125rem] text-muted-foreground">
               {view === "before"
                 ? "No earlier audit of this project to compare with."
                 : "The architecture could not be drawn."}
@@ -218,12 +218,12 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
 
         <Section title={`Parts touched · ${impact.components.length}`}>
           {impact.components.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[0.8125rem] text-muted-foreground">
               No part of the architecture was matched to the change.
             </p>
           ) : (
             <ul
-              className="space-y-2.5 text-[13px]"
+              className="space-y-2.5 text-[0.8125rem]"
               data-testid="crosswind-parts"
             >
               {impact.components.map((part) => (
@@ -263,11 +263,11 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <Section title={`Known issues it fixes · ${impact.fixes.length}`}>
           {impact.fixes.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[0.8125rem] text-muted-foreground">
               None of the project&apos;s open issues.
             </p>
           ) : (
-            <ul className="space-y-2.5 text-[13px]">
+            <ul className="space-y-2.5 text-[0.8125rem]">
               {impact.fixes.map((fix) => (
                 <li key={fix.issueId} className="flex gap-2">
                   <Dot color="var(--ok)" />
@@ -291,7 +291,7 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
             </span>
           }
         >
-          <pre className="max-h-72 overflow-auto font-sans text-[13px] leading-relaxed whitespace-pre-wrap">
+          <pre className="max-h-72 overflow-auto font-sans text-[0.8125rem] leading-relaxed whitespace-pre-wrap">
             {impact.review || "No review was written."}
           </pre>
           <p className="mt-3 text-xs text-muted-foreground">
@@ -346,13 +346,13 @@ export function FlyoffReport({ run }: { run: RunRecord }) {
           }
           testId="flyoff-verdict"
         >
-          <p className="max-w-3xl text-[13px] leading-relaxed">
+          <p className="max-w-3xl text-[0.8125rem] leading-relaxed">
             {verdict.summary}
           </p>
           <div className="mt-4 grid gap-6 md:grid-cols-2">
             <div>
               <h4 className="mb-2 text-xs text-muted-foreground">Ranking</h4>
-              <ol className="space-y-2 text-[13px]">
+              <ol className="space-y-2 text-[0.8125rem]">
                 {verdict.ranking.map((item) => (
                   <li key={item.blueprintId} className="flex gap-2">
                     <span className="w-4 font-mono text-xs text-muted-foreground">
@@ -374,7 +374,7 @@ export function FlyoffReport({ run }: { run: RunRecord }) {
               <h4 className="mb-2 text-xs text-muted-foreground">
                 First steps
               </h4>
-              <ol className="list-decimal space-y-1.5 pl-4 text-[13px]">
+              <ol className="list-decimal space-y-1.5 pl-4 text-[0.8125rem]">
                 {verdict.nextSteps.map((step) => (
                   <li key={step}>{step}</li>
                 ))}
@@ -416,7 +416,7 @@ export function FlyoffReport({ run }: { run: RunRecord }) {
             >
               <p className="text-xs text-muted-foreground">{entry.angle}</p>
               {entry.blueprint ? (
-                <div className="mt-3 space-y-4 text-[13px]">
+                <div className="mt-3 space-y-4 text-[0.8125rem]">
                   <p className="leading-relaxed">{entry.blueprint.summary}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {entry.blueprint.components.map((part) => (
@@ -477,7 +477,7 @@ export function FlyoffReport({ run }: { run: RunRecord }) {
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-3 text-[13px] text-muted-foreground">
+                <p className="mt-3 text-[0.8125rem] text-muted-foreground">
                   {entry.error ?? "No blueprint."}
                 </p>
               )}
@@ -530,7 +530,7 @@ export function BlackboxReport({
           }
           testId="blackbox-triage"
         >
-          <p className="max-w-3xl text-[13px] leading-relaxed">
+          <p className="max-w-3xl text-[0.8125rem] leading-relaxed">
             {triage.hypothesis}
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
@@ -553,7 +553,7 @@ export function BlackboxReport({
               ))}
             </div>
           ) : (
-            <p className="mt-3 text-[13px] text-muted-foreground">
+            <p className="mt-3 text-[0.8125rem] text-muted-foreground">
               No lines in the code could be named.
             </p>
           )}
@@ -562,7 +562,7 @@ export function BlackboxReport({
               <h4 className="mb-1.5 text-xs text-muted-foreground">
                 To confirm it
               </h4>
-              <ol className="list-decimal space-y-1 pl-4 text-[13px]">
+              <ol className="list-decimal space-y-1 pl-4 text-[0.8125rem]">
                 {triage.checks.map((check) => (
                   <li key={check}>{check}</li>
                 ))}

@@ -80,6 +80,10 @@ take something away.
 - **The side navigation** is an inset panel: New Run on top, the menu, then
   "Now" (runs in progress) and "Projects" (worst open severity, open count),
   from real data only (`src/lib/viz/sidebar.ts`).
+- **Text sizes are in rem, never px.** The sidebar's text size control
+  (Small, Default, Large, Extra Large; `src/components/text-size.tsx`) sets
+  the root font size, so a `text-[13px]` would not follow it: write
+  `text-[0.8125rem]` or a named size.
 - **Nothing starts hidden.** Content never waits for an animation to become
   visible (`FadeIn` mounts shown): a background tab or a paused frame must
   not leave a page blank.

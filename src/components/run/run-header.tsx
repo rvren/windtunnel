@@ -127,7 +127,7 @@ export function RunHeader({
       <div className="flex items-center justify-between gap-3">
         <nav
           aria-label="Breadcrumb"
-          className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground"
+          className="flex flex-wrap items-center gap-1.5 text-[0.8125rem] text-muted-foreground"
         >
           <Link href="/app/runs" className="hover:text-foreground">
             Runs
@@ -169,7 +169,7 @@ export function RunHeader({
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {/* The figures, as one quiet group. */}
           <div
-            className="flex shrink-0 items-stretch overflow-hidden rounded-control border text-[13px]"
+            className="flex shrink-0 items-stretch overflow-hidden rounded-control border text-[0.8125rem]"
             data-testid="run-figures"
           >
             <span className="flex items-center gap-1.5 px-2.5 py-1">
@@ -270,7 +270,7 @@ function Step({ chapter }: { chapter: Chapter }) {
       <span className="min-w-0 flex-1">
         <span
           className={cn(
-            "block text-[13px]",
+            "block text-[0.8125rem]",
             pending ? "text-muted-foreground/60" : "text-foreground",
           )}
         >
@@ -285,7 +285,7 @@ function Step({ chapter }: { chapter: Chapter }) {
       {chapter.state === "running" ? (
         <span className="text-xs text-link">Running</span>
       ) : chapter.seconds !== null ? (
-        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+        <span className="font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
           {seconds(chapter.seconds)}
         </span>
       ) : null}
@@ -305,8 +305,8 @@ export function StageChecklist({
   return (
     <Panel className="overflow-hidden" data-testid="run-checklist">
       <header className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
-        <h2 className="truncate text-[13px] font-medium">{title}</h2>
-        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+        <h2 className="truncate text-[0.8125rem] font-medium">{title}</h2>
+        <span className="font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
           {done}/{chapters.length}
         </span>
       </header>
@@ -437,7 +437,7 @@ export function TopIssues({
   return (
     <Panel className="overflow-hidden" data-testid="run-top-issues">
       <header className="flex items-center justify-between border-b px-4 py-2.5">
-        <h2 className="text-[13px] font-medium">Most severe</h2>
+        <h2 className="text-[0.8125rem] font-medium">Most severe</h2>
         <button
           type="button"
           onClick={onOpen}
@@ -457,7 +457,7 @@ export function TopIssues({
               aria-hidden="true"
             />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px]">{group.title}</span>
+              <span className="block truncate text-[0.8125rem]">{group.title}</span>
               <span className="line-clamp-1 text-xs text-muted-foreground">
                 {group.summary}
               </span>

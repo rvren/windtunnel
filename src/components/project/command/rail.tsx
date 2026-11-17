@@ -18,7 +18,7 @@ import type { Drill } from "./drawer";
 const glass =
   "rounded-tile bg-card/80 p-3.5 ring-1 ring-foreground/10 backdrop-blur-md";
 const heading =
-  "flex items-center gap-1.5 text-[11px] tracking-[0.1em] text-muted-foreground uppercase";
+  "flex items-center gap-1.5 text-[0.6875rem] tracking-[0.1em] text-muted-foreground uppercase";
 
 function Open({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -128,7 +128,7 @@ export function FocusRail({
               {security.length}
             </span>
           </header>
-          <div className="mb-1 flex justify-between text-[11px] text-muted-foreground">
+          <div className="mb-1 flex justify-between text-[0.6875rem] text-muted-foreground">
             <span>With a checked patch</span>
             <span className="font-mono tabular-nums">
               {patched}/{security.length}
@@ -177,17 +177,17 @@ export function FocusRail({
           </header>
           <dl className="grid grid-cols-3 gap-2 text-center">
             <div>
-              <dt className="text-[10px] text-muted-foreground">Places</dt>
+              <dt className="text-[0.625rem] text-muted-foreground">Places</dt>
               <dd className="font-mono text-sm tabular-nums">{places}</dd>
             </div>
             <div>
-              <dt className="text-[10px] text-muted-foreground">To logs</dt>
+              <dt className="text-[0.625rem] text-muted-foreground">To logs</dt>
               <dd className="font-mono text-sm tabular-nums">
                 {privacy.exposedPlaces}
               </dd>
             </div>
             <div>
-              <dt className="text-[10px] text-muted-foreground">Secrets</dt>
+              <dt className="text-[0.625rem] text-muted-foreground">Secrets</dt>
               <dd
                 className={
                   privacy.secrets.length > 0

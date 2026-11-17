@@ -73,7 +73,7 @@ export function HeroVisual({ className }: { className?: string }) {
           className="stroke-muted-foreground"
         />
       </svg>
-      <p className="absolute inset-x-0 top-[57.3%] text-center font-mono text-[11px] text-muted-foreground">
+      <p className="absolute inset-x-0 top-[57.3%] text-center font-mono text-[0.6875rem] text-muted-foreground">
         not built yet
       </p>
     </div>

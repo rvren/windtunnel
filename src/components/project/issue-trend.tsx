@@ -56,7 +56,7 @@ export function IssueTrend({
     <Panel className="p-5" data-testid="project-trend">
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div>
-          <h2 className="flex items-center gap-1.5 text-[13px] font-medium">
+          <h2 className="flex items-center gap-1.5 text-[0.8125rem] font-medium">
             Open issues
             <InfoTip about="openTrend" label="Open issues" />
           </h2>
@@ -103,14 +103,14 @@ export function IssueTrend({
       </header>
 
       {points.length < 2 ? (
-        <p className="mt-4 text-[13px] text-muted-foreground">
+        <p className="mt-4 text-[0.8125rem] text-muted-foreground">
           The trend starts with the next finished run.
         </p>
       ) : (
         <div className="mt-5 flex gap-2" aria-hidden="true">
           {/* The y axis: a few round values, quiet. */}
           <div
-            className="relative w-6 shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums"
+            className="relative w-6 shrink-0 font-mono text-[0.625rem] text-muted-foreground tabular-nums"
             style={{ height: PLOT }}
           >
             {ticks.map((tick) => (
@@ -208,7 +208,7 @@ export function IssueTrend({
                 })}
               </div>
             </div>
-            <div className="mt-2 flex justify-between font-mono text-[10px] text-muted-foreground">
+            <div className="mt-2 flex justify-between font-mono text-[0.625rem] text-muted-foreground">
               <span>{day(points[0].createdAt)}</span>
               <span>{day(points[points.length - 1].createdAt)}</span>
             </div>

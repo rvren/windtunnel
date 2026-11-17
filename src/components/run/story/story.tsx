@@ -201,7 +201,7 @@ function Result({
                   color: SEVERITY_TONE[severity],
                 }))}
               />
-              <p className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+              <p className="mt-2 flex flex-wrap gap-3 text-[0.6875rem] text-muted-foreground">
                 {SEVERITY_ORDER.filter((s) => result.bySeverity[s] > 0).map(
                   (severity) => (
                     <span key={severity} className="flex items-center gap-1">
@@ -339,12 +339,12 @@ function AgentsAtWork({ feed }: { feed: Feed }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25, ease: EASE }}
-                className="line-clamp-2 min-h-8 text-[11px] leading-snug text-muted-foreground"
+                className="line-clamp-2 min-h-8 text-[0.6875rem] leading-snug text-muted-foreground"
               >
                 {now}
               </motion.p>
             </AnimatePresence>
-            <p className="font-mono text-[11px] tabular-nums">
+            <p className="font-mono text-[0.6875rem] tabular-nums">
               {lane.findings} {lane.findings === 1 ? "finding" : "findings"}
               {lane.scenarios.length > 0 ? (
                 <span className="text-muted-foreground">

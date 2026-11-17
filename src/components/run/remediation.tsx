@@ -78,7 +78,7 @@ export function Remediation({
             href={record.cwe.url}
             target="_blank"
             rel="noreferrer"
-            className="rounded-sm border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            className="rounded-sm border px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             title={`${record.cwe.name}${record.cwe.fallback ? " (the closest category; the model's own id was not known)" : ""}`}
             data-testid="remediation-cwe"
           >
@@ -90,7 +90,7 @@ export function Remediation({
             href={record.owasp.url}
             target="_blank"
             rel="noreferrer"
-            className="rounded-sm border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            className="rounded-sm border px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             data-testid="remediation-owasp"
           >
             OWASP {record.owasp.id.slice(0, 3)} · {record.owasp.name}

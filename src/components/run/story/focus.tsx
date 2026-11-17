@@ -89,7 +89,7 @@ export function RunFocus({
         >
           <Minimize2 className="size-3.5" aria-hidden="true" />
           Exit Focus
-          <kbd className="ml-1 font-mono text-[10px] text-muted-foreground">
+          <kbd className="ml-1 font-mono text-[0.625rem] text-muted-foreground">
             Esc
           </kbd>
         </button>

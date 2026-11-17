@@ -433,7 +433,7 @@ export function ArchitectureDiagram({
                   y={line.at.y}
                   textAnchor={line.anchor}
                   dominantBaseline="central"
-                  className="fill-muted-foreground stroke-background font-mono text-[10px] [paint-order:stroke] [stroke-width:4px]"
+                  className="fill-muted-foreground stroke-background font-mono text-[0.625rem] [paint-order:stroke] [stroke-width:4px]"
                 >
                   {line.label}
                 </text>

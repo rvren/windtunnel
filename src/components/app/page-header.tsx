@@ -31,7 +31,7 @@ export function PageHeader({
         ) : null}
       </div>
       {description ? (
-        <p className="max-w-3xl text-[13px] text-muted-foreground">
+        <p className="max-w-3xl text-[0.8125rem] text-muted-foreground">
           {description}
         </p>
       ) : null}
@@ -87,7 +87,7 @@ export function MetaChip({
 /* Shown while a page's data is being read. One quiet line, no shimmer. */
 export function PageLoading({ label }: { label: string }) {
   return (
-    <p className="py-10 text-[13px] text-muted-foreground" role="status">
+    <p className="py-10 text-[0.8125rem] text-muted-foreground" role="status">
       {label}
     </p>
   );

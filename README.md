@@ -203,6 +203,12 @@ project (share fixed, open issues by severity, pull requests, last run and
 the next thing to do), then recent runs and pull requests. Pull requests need `GITHUB_TOKEN` with Contents and Pull requests
 write access.
 
+## Text size
+
+The "T" button at the bottom of the sidebar sets the text size for the
+whole app: Small, Default, Large or Extra Large. It is kept in this
+browser.
+
 ## Crosswind, Fly-off and Black box
 
 Besides the audit, a project has three more kinds of run, started from

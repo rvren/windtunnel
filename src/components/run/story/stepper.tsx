@@ -163,7 +163,7 @@ export function Stepper({
                   >
                     {chapter.label}
                   </span>
-                  <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                  <span className="font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
                     {chapter.state === "done" && chapter.seconds !== null
                       ? seconds(chapter.seconds)
                       : chapter.state === "running"

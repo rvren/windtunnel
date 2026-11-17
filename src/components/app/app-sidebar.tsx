@@ -22,6 +22,7 @@ import {
 
 import { Logo } from "@/components/brand/logo";
 import { EASE } from "@/components/motion";
+import { TextSizeControl } from "@/components/text-size";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -146,7 +147,7 @@ const inSettings = (path: string | null) =>
 
 /** A row of the sidebar: quiet until it is the page you are on. */
 const item =
-  "relative h-10 gap-3 rounded-tile px-3 text-[15px] text-muted-foreground transition-[color,background-color,transform] duration-200 hover:bg-sidebar-accent hover:text-foreground active:scale-[0.98] data-active:bg-foreground/[0.09] data-active:font-medium data-active:text-foreground [&_svg]:size-[18px] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center";
+  "relative h-10 gap-3 rounded-tile px-3 text-[0.9375rem] text-muted-foreground transition-[color,background-color,transform] duration-200 hover:bg-sidebar-accent hover:text-foreground active:scale-[0.98] data-active:bg-foreground/[0.09] data-active:font-medium data-active:text-foreground [&_svg]:size-[18px] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center";
 
 /** The collapse control, in the sidebar's own header. */
 function Collapse() {
@@ -235,7 +236,7 @@ function NavList({
                           its pages is open, then the way back in. */}
                       {entry.into && active ? (
                         <span
-                          className="relative ml-auto min-w-0 truncate text-[13px] font-normal text-muted-foreground group-data-[collapsible=icon]:hidden"
+                          className="relative ml-auto min-w-0 truncate text-[0.8125rem] font-normal text-muted-foreground group-data-[collapsible=icon]:hidden"
                           data-testid="sidebar-open-page"
                         >
                           {openPage(SETTINGS, pathname)}
@@ -276,7 +277,7 @@ function SectionHead({ label, onBack }: { label: string; onBack: () => void }) {
           tooltip={label}
           aria-label={`${label}: back to the main menu`}
           data-testid="sidebar-up"
-          className="group/up h-10 gap-2 rounded-tile px-3 text-[15px] font-semibold text-foreground transition-[background-color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.98] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center"
+          className="group/up h-10 gap-2 rounded-tile px-3 text-[0.9375rem] font-semibold text-foreground transition-[background-color,transform] duration-200 hover:bg-sidebar-accent active:scale-[0.98] group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center"
         >
           <ArrowLeft className="size-4! text-muted-foreground transition-transform duration-200 group-hover/up:-translate-x-0.5 group-hover/up:text-foreground" />
           <span
@@ -360,7 +361,7 @@ function Section({
       className="mt-6 group-data-[collapsible=icon]:hidden"
       data-testid={testId}
     >
-      <header className="mb-1 flex h-7 items-center justify-between px-3 text-[13px] text-muted-foreground">
+      <header className="mb-1 flex h-7 items-center justify-between px-3 text-[0.8125rem] text-muted-foreground">
         <span>{label}</span>
         {more ? (
           <Link href={more.href} className="hover:text-foreground">
@@ -637,7 +638,7 @@ export function AppSidebarFor({
               }
               tooltip="New Run"
               data-testid="app-nav-new-run"
-              className="h-11 justify-center gap-2.5 rounded-tile bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-[opacity,transform] duration-200 hover:bg-primary hover:text-primary-foreground hover:opacity-90 active:scale-[0.98] active:bg-primary active:text-primary-foreground group-data-[collapsible=icon]:size-10!"
+              className="h-11 justify-center gap-2.5 rounded-tile bg-primary px-4 text-[0.9375rem] font-medium text-primary-foreground transition-[opacity,transform] duration-200 hover:bg-primary hover:text-primary-foreground hover:opacity-90 active:scale-[0.98] active:bg-primary active:text-primary-foreground group-data-[collapsible=icon]:size-10!"
             >
               <Plus />
               <span className="flex-none group-data-[collapsible=icon]:hidden">
@@ -691,7 +692,7 @@ export function AppSidebarFor({
                 render={<Link href="/" />}
                 tooltip="Back To Site"
                 data-testid="app-nav-back-to-site"
-                className={item}
+                className={cn(item, "gap-2 px-2.5 text-sm")}
               >
                 <ArrowLeft />
                 <span className="group-data-[collapsible=icon]:hidden">
@@ -700,6 +701,7 @@ export function AppSidebarFor({
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
+          <TextSizeControl />
           <ThemeToggle />
         </div>
       </SidebarFooter>

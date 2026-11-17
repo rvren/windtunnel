@@ -137,7 +137,7 @@ export function IssueDrawer({
                         {finding.description}
                       </p>
                       {finding.location ? (
-                        <pre className="mt-2 overflow-x-auto rounded-md bg-background/60 p-2 font-mono text-[11px] leading-relaxed text-foreground/80">
+                        <pre className="mt-2 overflow-x-auto rounded-md bg-background/60 p-2 font-mono text-[0.6875rem] leading-relaxed text-foreground/80">
                           {`${finding.location.path}:${finding.location.startLine}\n${finding.location.quote}`}
                         </pre>
                       ) : null}
@@ -160,8 +160,8 @@ export function IssueDrawer({
                         <span
                           className={
                             comment.stance === "support"
-                              ? "mt-0.5 shrink-0 rounded-sm bg-ok/15 px-1.5 text-[10px] font-medium text-ok uppercase"
-                              : "mt-0.5 shrink-0 rounded-sm bg-sev-high/15 px-1.5 text-[10px] font-medium text-sev-high uppercase"
+                              ? "mt-0.5 shrink-0 rounded-sm bg-ok/15 px-1.5 text-[0.625rem] font-medium text-ok uppercase"
+                              : "mt-0.5 shrink-0 rounded-sm bg-sev-high/15 px-1.5 text-[0.625rem] font-medium text-sev-high uppercase"
                           }
                         >
                           {comment.stance === "support" ? "For" : "Against"}
