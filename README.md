@@ -151,7 +151,11 @@ run uses your API key, and a project run costs more than a run of one
 repository.
 
 The project page is its cockpit, a command center built from the latest
-finished run:
+finished run. A header panel holds the name, the key numbers (open,
+critical, fixed, spent this month), the schedule and the run buttons, and
+tabs split the page: **Overview** (the stage below), **Issues**,
+**Security** (OWASP and personal data), **Runs** (the open issues chart
+and the runs table) and **Setup** (workspaces and the 8090 link).
 
 - one stage of fixed height, so switching views never moves the page, with
   a switcher for four views: **Issue flow** (workspace →

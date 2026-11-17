@@ -194,8 +194,11 @@ export function Cockpit({
   delivered = null,
   tracked = {},
   fixed = [],
+  section = "overview",
 }: {
   cockpit: CockpitData;
+  /** Which tab of the project page: the stage, the issues, or security. */
+  section?: "overview" | "issues" | "security";
   /** The project's earlier finished runs, oldest first, for change and trend. */
   earlier?: RunPoint[];
   /** Work orders sent to 8090 for this run; null when the project is not linked. */
@@ -408,7 +411,7 @@ export function Cockpit({
   return (
     <div className="space-y-6" data-testid="cockpit">
       {/* The stage: one fixed frame for every view, with overlays. */}
-      {view ? (
+      {section === "overview" && view ? (
         <FadeIn>
           <Stage
             views={views.map(({ value, label }) => ({ value, label }))}
@@ -521,90 +524,94 @@ export function Cockpit({
         </FadeIn>
       ) : null}
 
-      <FadeIn delay={0.15} className="pt-4">
-        <SectionTitle
-          title={cockpit.fromRequirement ? "Risks" : "Issues"}
-          about={cockpit.fromRequirement ? "issuesListProbable" : "issuesList"}
-          note={
-            shown.length === cockpit.issues.length
-              ? `${cockpit.issues.length} ${termsFor(cockpit.fromRequirement).accepted}`
-              : `${shown.length} of ${cockpit.issues.length}`
-          }
-        />
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          {FINDING_TYPE_ORDER.filter(
-            (type) => cockpit.totals.byType[type] > 0,
-          ).map((type) => (
-            <Button
-              key={type}
-              type="button"
-              size="sm"
-              variant={filter.type === type ? "secondary" : "outline"}
-              aria-pressed={filter.type === type}
-              data-testid={`cockpit-type-${type}`}
-              onClick={() => toggle("type", type)}
-            >
-              {FINDING_TYPE_LABEL[type]}
-              <span className="font-mono text-xs text-muted-foreground">
-                {cockpit.totals.byType[type]}
-              </span>
-            </Button>
-          ))}
-          {chips
-            .filter((chip) => chip.key !== "type")
-            .map((chip) => (
+      {section === "issues" ? (
+        <FadeIn>
+          <SectionTitle
+            title={cockpit.fromRequirement ? "Risks" : "Issues"}
+            about={
+              cockpit.fromRequirement ? "issuesListProbable" : "issuesList"
+            }
+            note={
+              shown.length === cockpit.issues.length
+                ? `${cockpit.issues.length} ${termsFor(cockpit.fromRequirement).accepted}`
+                : `${shown.length} of ${cockpit.issues.length}`
+            }
+          />
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {FINDING_TYPE_ORDER.filter(
+              (type) => cockpit.totals.byType[type] > 0,
+            ).map((type) => (
               <Button
-                key={chip.key}
+                key={type}
                 type="button"
                 size="sm"
-                variant="secondary"
-                data-testid={`cockpit-filter-${chip.key}`}
-                aria-label={`Remove the filter ${chip.label}`}
-                onClick={() => setFilter({ ...filter, [chip.key]: null })}
+                variant={filter.type === type ? "secondary" : "outline"}
+                aria-pressed={filter.type === type}
+                data-testid={`cockpit-type-${type}`}
+                onClick={() => toggle("type", type)}
               >
-                {chip.label}
-                <X />
+                {FINDING_TYPE_LABEL[type]}
+                <span className="font-mono text-xs text-muted-foreground">
+                  {cockpit.totals.byType[type]}
+                </span>
               </Button>
             ))}
-          {chips.length > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="link"
-              data-testid="cockpit-filter-clear"
-              onClick={() => setFilter(NO_FILTER)}
-            >
-              Clear
-            </Button>
-          ) : null}
-        </div>
-        <Panel>
-          {shown.length > 0 ? (
-            <ul className="divide-y" data-testid="cockpit-issues">
-              <AnimatePresence initial={false}>
-                {shown.map((issue) => (
-                  <FadeInItem key={issue.id}>
-                    <Issue
-                      issue={issue}
-                      runId={cockpit.runId}
-                      tracked={tracked[issue.id]}
-                      probable={cockpit.fromRequirement}
-                    />
-                  </FadeInItem>
-                ))}
-              </AnimatePresence>
-            </ul>
-          ) : (
-            <p
-              className="px-4 py-10 text-center text-sm text-muted-foreground"
-              data-testid="cockpit-issues-empty"
-            >
-              No issue matches these filters.
-            </p>
-          )}
-        </Panel>
-      </FadeIn>
-      {fixed.length > 0 ? (
+            {chips
+              .filter((chip) => chip.key !== "type")
+              .map((chip) => (
+                <Button
+                  key={chip.key}
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  data-testid={`cockpit-filter-${chip.key}`}
+                  aria-label={`Remove the filter ${chip.label}`}
+                  onClick={() => setFilter({ ...filter, [chip.key]: null })}
+                >
+                  {chip.label}
+                  <X />
+                </Button>
+              ))}
+            {chips.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="link"
+                data-testid="cockpit-filter-clear"
+                onClick={() => setFilter(NO_FILTER)}
+              >
+                Clear
+              </Button>
+            ) : null}
+          </div>
+          <Panel>
+            {shown.length > 0 ? (
+              <ul className="divide-y" data-testid="cockpit-issues">
+                <AnimatePresence initial={false}>
+                  {shown.map((issue) => (
+                    <FadeInItem key={issue.id}>
+                      <Issue
+                        issue={issue}
+                        runId={cockpit.runId}
+                        tracked={tracked[issue.id]}
+                        probable={cockpit.fromRequirement}
+                      />
+                    </FadeInItem>
+                  ))}
+                </AnimatePresence>
+              </ul>
+            ) : (
+              <p
+                className="px-4 py-10 text-center text-sm text-muted-foreground"
+                data-testid="cockpit-issues-empty"
+              >
+                No issue matches these filters.
+              </p>
+            )}
+          </Panel>
+        </FadeIn>
+      ) : null}
+      {section === "issues" && fixed.length > 0 ? (
         <section data-testid="cockpit-fixed">
           <SectionTitle
             title="Fixed"
@@ -640,10 +647,12 @@ export function Cockpit({
         </section>
       ) : null}
       {/* Fixes, patches and readiness need code; an idea has none yet. */}
-      {cockpit.fromRequirement ? null : (
+      {section !== "security" || cockpit.fromRequirement ? null : (
         <SecurityView issues={cockpit.issues} />
       )}
-      {cockpit.privacy ? <PrivacyView privacy={cockpit.privacy} /> : null}
+      {section === "security" && cockpit.privacy ? (
+        <PrivacyView privacy={cockpit.privacy} />
+      ) : null}
       <CockpitDrawer
         drill={drill}
         cockpit={cockpit}

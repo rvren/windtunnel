@@ -441,7 +441,14 @@ month's spending plus the last audit's cost would pass the cap. The times
 are worked out in `src/server/schedule/plan.ts`; the dialog that sets them
 says that a schedule is the owner's standing permission for those runs.
 
-**Screens.** The project page starts each kind from
+**Screens.** Every page sits in the side navigation
+(`src/components/app/app-sidebar.tsx`), which lists the runs in progress
+and the projects from `src/lib/viz/sidebar.ts`, read in
+`src/app/app/layout.tsx` and kept current from `GET /api/runs`. A run page
+is one header panel (`src/components/run/run-header.tsx`) and tabs
+(`?tab=`); a project page is the same pattern, its tabs (`?tab=`) rendered
+on the server, with `Cockpit`'s `section` prop choosing the stage, the
+issues or security. The project page starts each kind from
 `src/components/project/kind-dialogs.tsx` (which also holds the schedule
 dialog); the run page shows each kind's report from
 `src/components/run/kinds/kind-report.tsx`, and a Crosswind run marks the

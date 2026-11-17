@@ -66,8 +66,23 @@ chrome in a nested layout.
 The owner's brief: **clean, minimal, calm and professional**, in the manner
 of Linear (the reference video: near-black, nearly monochrome, hairline
 borders, small type, a breadcrumb, a title, a row of metadata chips and
-tabs, quiet cards, an activity rail on detail pages). When in doubt, take
-something away.
+tabs, quiet cards). When in doubt, take something away.
+
+- **The frame of every detail page** (a run, a project), as in the
+  reference: one bordered header panel holding a breadcrumb with small icon
+  tools on its right, the title, one grey line of details, a mono row of
+  live parts (a run's agents), a bordered group of figures on the right, and
+  pill tabs (`TabsList variant="pill"`, or pill links on the server-rendered
+  project page) with the one or two main actions beside them. Each tab holds
+  one thing: never stack every widget down one long page. The top bar is
+  hidden on desktop for these pages. Start from
+  `src/components/run/run-header.tsx`.
+- **The side navigation** is an inset panel: New Run on top, the menu, then
+  "Now" (runs in progress) and "Projects" (worst open severity, open count),
+  from real data only (`src/lib/viz/sidebar.ts`).
+- **Nothing starts hidden.** Content never waits for an animation to become
+  visible (`FadeIn` mounts shown): a background tab or a paused frame must
+  not leave a page blank.
 
 - **Nearly monochrome, nothing glows.** Ground, panels, borders and text are
   neutral greys from the tokens in `src/app/globals.css`; panels sit one

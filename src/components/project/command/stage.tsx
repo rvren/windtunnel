@@ -288,7 +288,7 @@ export function Stage<V extends string>({
       className={cn(
         "overflow-hidden border bg-canvas",
         focus ? "fixed inset-0 z-50 overflow-y-auto" : "relative rounded-card",
-        !focus && !narrow && "h-[640px] xl:h-[700px]",
+        !focus && !narrow && "h-[max(560px,calc(100svh-16rem))]",
       )}
       data-testid="cockpit-stage"
       data-focus={focus ? "on" : undefined}
@@ -370,7 +370,7 @@ export function Stage<V extends string>({
     <>
       <div
         aria-hidden="true"
-        className="h-[640px] rounded-card bg-canvas/40 xl:h-[700px]"
+        className="h-[max(560px,calc(100svh-16rem))] rounded-card bg-canvas/40"
       />
       {createPortal(frame, document.body)}
     </>

@@ -4,14 +4,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   CalendarClock,
-  Clock,
   FolderGit2,
   GitBranch,
   GitMerge,
   History,
+  LayoutDashboard,
+  ListChecks,
   Play,
-  Plug,
   Plus,
+  Settings2,
+  ShieldCheck,
   RotateCcw,
   Siren,
   Swords,
@@ -19,11 +21,7 @@ import {
   Wind,
 } from "lucide-react";
 
-import {
-  MetaChip,
-  PageHeader,
-  PageLoading,
-} from "@/components/app/page-header";
+import { PageLoading } from "@/components/app/page-header";
 import { LocalTime } from "@/components/local-time";
 import { Panel } from "@/components/panel";
 import { Cockpit } from "@/components/project/cockpit";
@@ -33,6 +31,7 @@ import {
 } from "@/components/project/kind-dialogs";
 import type { RunCost } from "@/components/run/confirm-run";
 import { formatCost } from "@/lib/cost";
+import { cn } from "@/lib/utils";
 import { spentThisMonth } from "@/server/schedule/scheduler";
 import {
   AddWorkspaceDialog,
@@ -42,7 +41,7 @@ import {
 } from "@/components/project/project-dialogs";
 import { ProjectLink } from "@/components/connectors/project-link";
 import { ProjectLive } from "@/components/project/project-live";
-import { SampleBadge, StatusBadge } from "@/components/run/badges";
+import { StatusBadge } from "@/components/run/badges";
 import {
   RunCheck,
   RunCheckAll,
@@ -98,7 +97,9 @@ async function ProjectPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const picked = [(await searchParams).workspace ?? []].flat();
+  const query = await searchParams;
+  const picked = [query.workspace ?? []].flat();
+  const asked = typeof query.tab === "string" ? query.tab : "overview";
   if (!UUID.test(id)) notFound();
 
   let project: Project | null;
@@ -252,9 +253,11 @@ async function ProjectPage({
         size="sm"
         disabled={Boolean(running) || (needsCode && count === 0)}
         data-testid={`project-start-${kind}`}
+        title={label}
+        aria-label={label}
       >
         <Icon />
-        {label}
+        <span className="hidden xl:inline">{label}</span>
       </Button>
     </StartKindDialog>
   );
@@ -304,40 +307,48 @@ async function ProjectPage({
     </RunProjectDialog>
   );
 
+  const tabs: {
+    id: ProjectTab;
+    label: string;
+    icon: typeof Wind;
+    count?: number;
+  }[] = [
+    { id: "overview", label: "Overview", icon: LayoutDashboard },
+    ...(cockpit
+      ? [
+          {
+            id: "issues" as const,
+            label: cockpit.fromRequirement ? "Risks" : "Issues",
+            icon: ListChecks,
+            count: cockpit.totals.issues,
+          },
+        ]
+      : []),
+    ...(cockpit && !cockpit.fromRequirement
+      ? [{ id: "security" as const, label: "Security", icon: ShieldCheck }]
+      : []),
+    { id: "runs", label: "Runs", icon: History, count: runs.length },
+    { id: "setup", label: "Setup", icon: Settings2 },
+  ];
+  const tab: ProjectTab = tabs.some((item) => item.id === asked)
+    ? (asked as ProjectTab)
+    : "overview";
+
   return (
-    <div className="space-y-6" data-testid="project-page">
-      <PageHeader
-        title={project.name}
-        meta={
-          <>
-            {project.demo ? <SampleBadge /> : null}
-            <MetaChip icon={Clock}>
-              {cockpit ? (
-                <>
-                  {cockpit.fromRequirement
-                    ? "Last requirement run"
-                    : "Last run"}{" "}
-                  <LocalTime iso={cockpit.ranAt} />
-                </>
-              ) : (
-                "Not run yet"
-              )}
-            </MetaChip>
-            <a href="#setup" data-testid="project-setup-link">
-              <MetaChip icon={GitBranch} className="hover:text-foreground">
-                {count} {count === 1 ? "workspace" : "workspaces"}
-              </MetaChip>
-            </a>
-            <a href="#setup">
-              <MetaChip icon={Plug} className="hover:text-foreground">
-                {link ? "Sends work orders to 8090" : "Not linked to 8090"}
-              </MetaChip>
-            </a>
-            <a href="#runs">
-              <MetaChip icon={History} className="hover:text-foreground">
-                {runs.length} {runs.length === 1 ? "run" : "runs"}
-              </MetaChip>
-            </a>
+    <div className="space-y-5" data-testid="project-page">
+      <Panel className="p-4 sm:p-5" data-testid="project-header">
+        <div className="flex items-center justify-between gap-3">
+          <nav
+            aria-label="Breadcrumb"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          >
+            <Link href="/app/projects" className="hover:text-foreground">
+              Projects
+            </Link>
+            <span aria-hidden="true">/</span>
+            <span>{project.name}</span>
+          </nav>
+          <div className="-my-1 flex items-center gap-1">
             <ScheduleDialog
               projectId={project.id}
               schedule={schedule}
@@ -346,47 +357,158 @@ async function ProjectPage({
             >
               <button
                 type="button"
-                className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                 data-testid="project-schedule"
-                title={schedule.note ?? undefined}
+                title={schedule.note ?? "Scheduled runs"}
               >
-                <MetaChip
-                  icon={CalendarClock}
-                  className="hover:text-foreground"
-                  dot={schedule.note ? "var(--sev-high)" : undefined}
-                >
-                  {schedule.every === "off"
-                    ? "Not scheduled"
-                    : `${schedule.every === "daily" ? "Daily" : "Weekly"} at ${String(schedule.hour).padStart(2, "0")}:00`}
-                  {` · ${formatCost(spentUsd)}${schedule.monthlyCapUsd !== null ? ` of ${formatCost(schedule.monthlyCapUsd)}` : ""} this month`}
-                </MetaChip>
+                <CalendarClock className="size-3.5" aria-hidden="true" />
+                {schedule.note ? (
+                  <span
+                    className="size-1.5 rounded-full bg-sev-high"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {schedule.every === "off"
+                  ? "Not scheduled"
+                  : `${schedule.every === "daily" ? "Daily" : "Weekly"} at ${String(schedule.hour).padStart(2, "0")}:00`}
               </button>
             </ScheduleDialog>
-          </>
-        }
-      >
-        <DeleteProjectDialog
-          projectId={project.id}
-          name={project.name}
-          runs={runs.length}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Delete this project"
-            data-testid="project-delete"
-          >
-            <Trash2 />
-          </Button>
-        </DeleteProjectDialog>
-        {kindButton("crosswind", "Crosswind", Wind, true)}
-        {kindButton("flyoff", "Fly-Off", Swords, false)}
-        {kindButton("blackbox", "Black Box", Siren, true)}
-        {/* The one solid button on the page. */}
-        {runProject(count > 0)}
-      </PageHeader>
+            <DeleteProjectDialog
+              projectId={project.id}
+              name={project.name}
+              runs={runs.length}
+            >
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Delete this project"
+                title="Delete this project"
+                data-testid="project-delete"
+              >
+                <Trash2 />
+              </Button>
+            </DeleteProjectDialog>
+          </div>
+        </div>
 
-      {running ? (
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="min-w-0">
+            <h1 className="text-lg leading-snug font-semibold tracking-tight">
+              {project.name}
+            </h1>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              {project.demo ? (
+                <>
+                  <span>Sample project</span>
+                  <span aria-hidden="true">·</span>
+                </>
+              ) : null}
+              <span>
+                {count} {count === 1 ? "workspace" : "workspaces"}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>
+                {link ? "Sends work orders to 8090" : "Not linked to 8090"}
+              </span>
+              <span aria-hidden="true">·</span>
+              {cockpit ? (
+                <span>
+                  {cockpit.fromRequirement
+                    ? "Last requirement run"
+                    : "Last run"}{" "}
+                  <LocalTime iso={cockpit.ranAt} />
+                </span>
+              ) : (
+                <span>Not run yet</span>
+              )}
+            </p>
+          </div>
+          {/* The numbers that matter, as one quiet group. */}
+          <div
+            className="flex shrink-0 items-stretch overflow-hidden rounded-md border text-xs"
+            data-testid="project-figures"
+          >
+            {running ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 text-link">
+                <span className="size-1.5 animate-pulse rounded-full bg-brand" />
+                Running
+              </span>
+            ) : null}
+            <span className={cn("px-2.5 py-1", running && "border-l")}>
+              <span className="font-mono tabular-nums">
+                {cockpit?.totals.issues ?? 0}
+              </span>{" "}
+              <span className="text-muted-foreground">open</span>
+            </span>
+            {cockpit && cockpit.totals.bySeverity.critical > 0 ? (
+              <span className="flex items-center gap-1.5 border-l px-2.5 py-1">
+                <span className="size-1.5 rounded-full bg-sev-critical" />
+                <span className="font-mono tabular-nums">
+                  {cockpit.totals.bySeverity.critical}
+                </span>
+                <span className="text-muted-foreground">critical</span>
+              </span>
+            ) : null}
+            <span className="border-l px-2.5 py-1">
+              <span className="font-mono tabular-nums">{fixed.length}</span>{" "}
+              <span className="text-muted-foreground">fixed</span>
+            </span>
+            <span
+              className="border-l px-2.5 py-1 font-mono tabular-nums"
+              title="Spent on this project's runs this month"
+            >
+              {formatCost(spentUsd)}
+              {schedule.monthlyCapUsd !== null
+                ? ` / ${formatCost(schedule.monthlyCapUsd)}`
+                : ""}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <nav
+            aria-label="Project sections"
+            className="flex flex-wrap gap-1"
+            data-testid="project-tabs"
+          >
+            {tabs.map((item) => (
+              <Link
+                key={item.id}
+                href={
+                  item.id === "overview"
+                    ? `/app/projects/${project.id}`
+                    : `/app/projects/${project.id}?tab=${item.id}`
+                }
+                scroll={false}
+                aria-current={tab === item.id ? "page" : undefined}
+                data-testid={`project-tab-${item.id}`}
+                className={cn(
+                  "flex h-7 items-center gap-1.5 rounded-md border border-transparent px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground [&_svg]:size-3.5",
+                  tab === item.id &&
+                    "border-border bg-secondary text-foreground",
+                )}
+              >
+                <item.icon aria-hidden="true" />
+                {item.label}
+                {item.count !== undefined ? (
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    {item.count}
+                  </span>
+                ) : null}
+              </Link>
+            ))}
+          </nav>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {kindButton("crosswind", "Crosswind", Wind, true)}
+            {kindButton("flyoff", "Fly-Off", Swords, false)}
+            {kindButton("blackbox", "Black Box", Siren, true)}
+            {/* The one solid button on the page. */}
+            {runProject(count > 0)}
+          </div>
+        </div>
+      </Panel>
+
+      {running && tab === "overview" ? (
         <ProjectLive
           runId={running.id}
           expected={project.workspaces
@@ -400,7 +522,7 @@ async function ProjectPage({
       ) : null}
 
       <PullRequestRefresher projectId={project.id} />
-      {mergedCount > 0 && !running ? (
+      {mergedCount > 0 && !running && tab === "overview" ? (
         <div
           className="flex flex-wrap items-center gap-3 rounded-card border bg-card px-4 py-2.5 text-[13px]"
           data-testid="project-rescan"
@@ -434,15 +556,16 @@ async function ProjectPage({
         </div>
       ) : null}
 
-      {cockpit ? (
+      {cockpit && tab !== "runs" && tab !== "setup" ? (
         <Cockpit
           cockpit={cockpit}
           earlier={earlier}
           delivered={delivered}
           tracked={tracked}
           fixed={fixed}
+          section={tab}
         />
-      ) : count === 0 ? (
+      ) : cockpit || tab !== "overview" ? null : count === 0 ? (
         <div
           className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"
           data-testid="project-empty-workspaces"
@@ -474,11 +597,12 @@ async function ProjectPage({
         </div>
       )}
 
-      {cockpit ? <IssueTrend points={trend} fixed={fixed.length} /> : null}
+      {cockpit && tab === "runs" ? (
+        <IssueTrend points={trend} fixed={fixed.length} />
+      ) : null}
 
-      {runs.length > 0 ? (
+      {runs.length > 0 && tab === "runs" ? (
         <section id="runs" className="scroll-mt-16">
-          <h2 className="mb-3 text-[13px] font-medium">Runs</h2>
           <RunFilters
             workspaces={project.workspaces.map((item) => item.name)}
           />
@@ -573,60 +697,63 @@ async function ProjectPage({
       ) : null}
 
       {/* Setup: what the project reads, what it is, and where work goes. */}
-      <section
-        id="setup"
-        className="scroll-mt-6 space-y-4"
-        data-testid="project-setup"
-      >
-        <h2 className="text-[15px] font-medium">Setup</h2>
-        {project.description ? (
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            {project.description}
-          </p>
-        ) : null}
-        {/* The workspaces: the repositories that make up the application. */}
-        <div
-          className="flex flex-wrap items-center gap-2"
-          data-testid="project-workspaces"
+      {tab === "setup" ? (
+        <section
+          id="setup"
+          className="scroll-mt-6 space-y-4"
+          data-testid="project-setup"
         >
-          {project.workspaces.map((workspace) => {
-            const Icon =
-              workspace.origin.kind === "github" ? GitBranch : FolderGit2;
-            return (
-              <span
-                key={workspace.id}
-                className="flex h-8 items-center gap-2 rounded-card border bg-card pr-0.5 pl-2.5 text-sm"
-                data-testid="project-workspace"
-              >
-                <Icon
-                  className="size-3.5 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <span className="font-medium">{workspace.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {workspace.label}
+          {project.description ? (
+            <p className="max-w-3xl text-sm text-muted-foreground">
+              {project.description}
+            </p>
+          ) : null}
+          {/* The workspaces: the repositories that make up the application. */}
+          <div
+            className="flex flex-wrap items-center gap-2"
+            data-testid="project-workspaces"
+          >
+            {project.workspaces.map((workspace) => {
+              const Icon =
+                workspace.origin.kind === "github" ? GitBranch : FolderGit2;
+              return (
+                <span
+                  key={workspace.id}
+                  className="flex h-8 items-center gap-2 rounded-card border bg-card pr-0.5 pl-2.5 text-sm"
+                  data-testid="project-workspace"
+                >
+                  <Icon
+                    className="size-3.5 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <span className="font-medium">{workspace.name}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {workspace.label}
+                  </span>
+                  <RemoveWorkspaceButton
+                    projectId={project.id}
+                    workspaceId={workspace.id}
+                    name={workspace.name}
+                  />
                 </span>
-                <RemoveWorkspaceButton
-                  projectId={project.id}
-                  workspaceId={workspace.id}
-                  name={workspace.name}
-                />
-              </span>
-            );
-          })}
-          {count > 0 ? addWorkspace("Add workspace") : null}
-        </div>
+              );
+            })}
+            {count > 0 ? addWorkspace("Add workspace") : null}
+          </div>
 
-        {/* Where this project's work orders go. */}
-        <ProjectLink
-          projectId={project.id}
-          externalId={link}
-          connected={connected}
-        />
-      </section>
+          {/* Where this project's work orders go. */}
+          <ProjectLink
+            projectId={project.id}
+            externalId={link}
+            connected={connected}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
+
+type ProjectTab = "overview" | "issues" | "security" | "runs" | "setup";
 
 export default function Page({
   params,
