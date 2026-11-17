@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Type } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,47 +12,69 @@ import {
 import { cn } from "@/lib/utils";
 
 /*
- * The text size: small, default, large or extra large. It sets the root font
- * size (html[data-text-size], rules in globals.css), which every rem-based
- * size follows. Kept in this browser; TEXT_SIZE_SCRIPT applies it before the
- * first paint so a page never jumps.
+ * The app's text size: small (the default), medium, large or extra large.
+ * It sets the root font size (html[data-text-size], rules in globals.css),
+ * which every rem-based size follows. Kept in this browser. Only the app
+ * uses it: TEXT_SIZE_SCRIPT applies it before the first paint of an /app
+ * page, and AppTextSize while the app is open, removing it on the way out
+ * so the site keeps its own size.
  */
 
-export const TEXT_SIZES = ["small", "default", "large", "xl"] as const;
+export const TEXT_SIZES = ["small", "medium", "large", "xl"] as const;
 export type TextSize = (typeof TEXT_SIZES)[number];
+export const DEFAULT_TEXT_SIZE: TextSize = "small";
 
 const KEY = "windtunnel:text-size";
 
 const LABEL: Record<TextSize, string> = {
   small: "Small",
-  default: "Default",
+  medium: "Medium",
   large: "Large",
   xl: "Extra Large",
 };
 
 /** Runs in <head>, before anything is drawn. */
-export const TEXT_SIZE_SCRIPT = `try{var s=localStorage.getItem("${KEY}");if(s==="small"||s==="large"||s==="xl")document.documentElement.dataset.textSize=s}catch(e){}`;
+export const TEXT_SIZE_SCRIPT = `try{if(location.pathname.indexOf("/app")===0){var s=localStorage.getItem("${KEY}");document.documentElement.dataset.textSize=(s==="medium"||s==="large"||s==="xl")?s:"${"small"}"}}catch(e){}`;
+
+function stored(): TextSize {
+  try {
+    const value = localStorage.getItem(KEY) as TextSize | null;
+    return value && TEXT_SIZES.includes(value) ? value : DEFAULT_TEXT_SIZE;
+  } catch {
+    return DEFAULT_TEXT_SIZE;
+  }
+}
 
 export function applyTextSize(size: TextSize) {
-  const root = document.documentElement;
-  if (size === "default") delete root.dataset.textSize;
-  else root.dataset.textSize = size;
+  document.documentElement.dataset.textSize = size;
   try {
-    if (size === "default") localStorage.removeItem(KEY);
+    if (size === DEFAULT_TEXT_SIZE) localStorage.removeItem(KEY);
     else localStorage.setItem(KEY, size);
   } catch {
     // Storage blocked: the size holds until the page is reloaded.
   }
 }
 
+/** Holds the app's text size while the app is open. */
+export function AppTextSize() {
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.textSize = stored();
+    return () => {
+      delete root.dataset.textSize;
+    };
+  }, []);
+  return null;
+}
+
 export function TextSizeControl() {
-  const [size, setSize] = useState<TextSize>("default");
+  const [size, setSize] = useState<TextSize>(DEFAULT_TEXT_SIZE);
   // The size in force, read when the menu opens (the head script may have
   // set it before React started).
   const read = () => {
     const now = document.documentElement.dataset.textSize as
       TextSize | undefined;
-    setSize(now && TEXT_SIZES.includes(now) ? now : "default");
+    setSize(now && TEXT_SIZES.includes(now) ? now : DEFAULT_TEXT_SIZE);
   };
   const pick = (next: TextSize) => {
     setSize(next);

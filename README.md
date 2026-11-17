@@ -206,8 +206,8 @@ write access.
 ## Text size
 
 The "T" button at the bottom of the sidebar sets the text size for the
-whole app: Small, Default, Large or Extra Large. It is kept in this
-browser.
+whole app: Small (the default), Medium, Large or Extra Large. It is kept
+in this browser; the marketing site keeps its own size.
 
 ## Crosswind, Fly-off and Black box
 

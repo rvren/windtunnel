@@ -279,10 +279,14 @@
   }
 }
 
-/* Text size, picked in the sidebar (src/components/text-size.tsx) and kept
-   in this browser. Every text size is in rem, so the root sets them all. */
+/* The app's text size, picked in the sidebar (src/components/text-size.tsx)
+   and kept in this browser; small by default. Every text size is in rem, so
+   the root sets them all. The site has no attribute and keeps 16px. */
 html[data-text-size="small"] {
   font-size: 14px;
+}
+html[data-text-size="medium"] {
+  font-size: 16px;
 }
 html[data-text-size="large"] {
   font-size: 18px;

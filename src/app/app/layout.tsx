@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { AppSidebar, AppSidebarFor } from "@/components/app/app-sidebar";
 import { AppTopbar, AppTopbarFor } from "@/components/app/app-topbar";
+import { AppTextSize } from "@/components/text-size";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { homeNumbers } from "@/lib/viz/home";
 import { sidebarProjects, sidebarRuns } from "@/lib/viz/sidebar";
@@ -82,6 +83,7 @@ async function Topbar() {
 export default function AppLayout({ children }: LayoutProps<"/app">) {
   return (
     <SidebarProvider>
+      <AppTextSize />
       {/* The sidebar and top bar read the current path, which a page with an
           id in its address only knows at request time. Until then they are
           shown with nothing marked as current. */}
