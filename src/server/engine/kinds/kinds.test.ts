@@ -53,7 +53,15 @@ async function play(input: RunInput, script: Script) {
     .map((item: StoredEvent) => item.event)
     .filter((event) => event.type === "stage.started")
     .map((event) => (event as { stage: string }).stage);
-  return { done, stages };
+  // The workers of the newer kinds, as "id type", in order.
+  const actors = events
+    .map((item: StoredEvent) => item.event)
+    .filter(
+      (event) =>
+        event.type === "actor.started" || event.type === "actor.completed",
+    )
+    .map((event) => `${(event as { actorId: string }).actorId} ${event.type}`);
+  return { done, stages, actors };
 }
 
 const projectScript = () =>
@@ -111,7 +119,7 @@ describe("a Crosswind run, scripted", () => {
 
 describe("a fly-off, scripted", () => {
   it("has three designers propose, critique each other, and a judge pick one", async () => {
-    const { done, stages } = await play(
+    const { done, stages, actors } = await play(
       {
         requirement:
           "Build a multi-tenant dashboard where organization admins can invite users and manage permissions.",
@@ -135,13 +143,26 @@ describe("a fly-off, scripted", () => {
     ).toBe(true);
     expect(done.flyoff?.verdict?.winnerId).toBe("p1");
     expect(done.title.startsWith("Fly-off: ")).toBe(true);
+    // Each designer is seen designing, then critiquing; then the judge.
+    for (const id of ["p1", "p2", "p3"]) {
+      expect(actors.filter((item) => item.startsWith(`${id} `))).toEqual([
+        `${id} actor.started`,
+        `${id} actor.completed`,
+        `${id} actor.started`,
+        `${id} actor.completed`,
+      ]);
+    }
+    expect(actors.slice(-2)).toEqual([
+      "judge actor.started",
+      "judge actor.completed",
+    ]);
   });
 });
 
 describe("a black box run, scripted", () => {
   it("traces the feedback to lines that exist and makes them the one finding", async () => {
     const script = projectScript();
-    const { done, stages } = await play(
+    const { done, stages, actors } = await play(
       {
         requirement: "",
         documents: [],
@@ -167,6 +188,12 @@ describe("a black box run, scripted", () => {
     expect(done.groups[0].location?.path).toBe("catalog/search.py");
     // A remediation was attempted for the defect, whatever its kind.
     expect(Object.keys(done.remediations ?? {})).toEqual(["incident-1"]);
+    expect(actors).toEqual([
+      "triage actor.started",
+      "triage actor.completed",
+      "fixer actor.started",
+      "fixer actor.completed",
+    ]);
   });
 
   it("keeps only suspects whose lines exist", async () => {

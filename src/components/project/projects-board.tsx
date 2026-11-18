@@ -10,21 +10,23 @@ import {
   PencilLine,
   Play,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 
 import { InfoTip } from "@/components/info-tip";
 import { PullRequestRefresher } from "@/components/issues/pr-refresher";
 import { LocalTime } from "@/components/local-time";
 import { Panel } from "@/components/panel";
-import { StatusBadge } from "@/components/run/badges";
 import { SeverityBar } from "@/components/severity-bar";
-import { buttonVariants } from "@/components/ui/button";
+import { DeleteProjectDialog } from "@/components/project/project-dialogs";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { HomeNumbers } from "@/lib/viz/home";
 
 /*
- * The home overview: one quiet list of projects (how bad, how far along,
- * what to do next), then the latest runs and pull requests. The totals are
+ * The projects board: one quiet list of projects (how bad, how far along,
+ * what to do next, delete), then the latest pull requests. The totals are
  * chips in the page header.
  */
 
@@ -75,7 +77,14 @@ function Severity({ project }: { project: Project }) {
   );
 }
 
-function ProjectRow({ project }: { project: Project }) {
+/** What the board needs beyond the numbers: to tag and delete a project. */
+export interface BoardMeta {
+  demo: boolean;
+  /** How many runs it has, for the delete dialog. */
+  runs: number;
+}
+
+function ProjectRow({ project, meta }: { project: Project; meta?: BoardMeta }) {
   const Next = NEXT_ICON[project.next.kind];
   const urgent = project.next.kind !== "open" && project.next.kind !== "run";
   return (
@@ -86,9 +95,14 @@ function ProjectRow({ project }: { project: Project }) {
       <div className="min-w-0">
         <Link
           href={`/app/projects/${project.id}`}
-          className="block truncate text-sm font-medium hover:underline"
+          className="flex min-w-0 items-center gap-2 text-sm font-medium hover:underline"
         >
-          {project.name}
+          <span className="truncate">{project.name}</span>
+          {meta?.demo ? (
+            <Badge variant="secondary" className="shrink-0">
+              Sample
+            </Badge>
+          ) : null}
         </Link>
         <p className="text-xs text-muted-foreground">
           {Math.round(project.fixedShare * 100)}% fixed · {project.fixed} of{" "}
@@ -158,28 +172,39 @@ function ProjectRow({ project }: { project: Project }) {
         />
         {project.next.label}
       </Link>
+
+      <DeleteProjectDialog
+        projectId={project.id}
+        name={project.name}
+        runs={meta?.runs ?? 0}
+      >
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="justify-self-start text-muted-foreground md:justify-self-end"
+          aria-label={`Delete ${project.name}`}
+          data-testid="projects-row-delete"
+        >
+          <Trash2 />
+        </Button>
+      </DeleteProjectDialog>
     </li>
   );
 }
 
-export function Home({ numbers }: { numbers: HomeNumbers }) {
+export function ProjectsBoard({
+  numbers,
+  meta,
+}: {
+  numbers: HomeNumbers;
+  meta: Record<string, BoardMeta>;
+}) {
   return (
-    <div className="space-y-5" data-testid="home">
+    <div className="space-y-5" data-testid="projects-board">
       <PullRequestRefresher />
 
       <Panel>
-        <SectionTitle
-          about="projectsHealth"
-          label="Projects"
-          action={
-            <Link
-              href="/app/projects"
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Manage Projects
-            </Link>
-          }
-        >
+        <SectionTitle about="projectsHealth" label="Projects">
           Projects
         </SectionTitle>
         {numbers.projects.length === 0 ? (
@@ -193,7 +218,7 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
         ) : (
           // One grid for the whole list, each row on its subgrid, so every
           // column lines up from row to row.
-          <ul className="divide-y md:grid md:grid-cols-[minmax(8rem,1fr)_minmax(11rem,1.4fr)_auto_auto] md:gap-x-5 xl:grid-cols-[minmax(8rem,1fr)_minmax(12rem,1.4fr)_auto_auto_auto]">
+          <ul className="divide-y md:grid md:grid-cols-[minmax(8rem,1fr)_minmax(11rem,1.4fr)_auto_auto_auto] md:gap-x-5 xl:grid-cols-[minmax(8rem,1fr)_minmax(12rem,1.4fr)_auto_auto_auto_auto]">
             <li
               aria-hidden="true"
               className="hidden px-4 py-2 text-xs text-muted-foreground md:col-span-full md:grid md:grid-cols-subgrid"
@@ -203,81 +228,50 @@ export function Home({ numbers }: { numbers: HomeNumbers }) {
               <span>Pull requests</span>
               <span className="hidden xl:block">Last run</span>
               <span className="justify-self-end">Next</span>
+              <span />
             </li>
             {numbers.projects.map((project) => (
-              <ProjectRow key={project.id} project={project} />
+              <ProjectRow
+                key={project.id}
+                project={project}
+                meta={meta[project.id]}
+              />
             ))}
           </ul>
         )}
       </Panel>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Panel data-testid="home-runs">
-          <SectionTitle
-            about="recentRuns"
-            label="Recent runs"
-            action={
-              <Link
-                href="/app/runs"
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                All Runs
-              </Link>
-            }
-          >
-            Recent runs
-          </SectionTitle>
+      <Panel data-testid="home-prs">
+        <SectionTitle about="recentPrs" label="Recent pull requests">
+          Recent pull requests
+        </SectionTitle>
+        {numbers.recentPrs.length === 0 ? (
+          <p className="px-4 py-6 text-[0.8125rem] text-muted-foreground">
+            No fix pull requests yet. Open one from a security issue in a run.
+          </p>
+        ) : (
           <ul className="divide-y">
-            {numbers.recentRuns.map((run) => (
-              <li key={run.id}>
-                <Link
-                  href={`/app/runs/${run.id}`}
-                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-[0.8125rem] hover:bg-muted/40"
+            {numbers.recentPrs.map((item) => (
+              <li key={item.id}>
+                <a
+                  href={item.pr!.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-[0.8125rem] hover:bg-muted/40"
                 >
-                  <span className="truncate">{run.title}</span>
-                  <StatusBadge status={run.status} />
-                  <LocalTime
-                    iso={run.createdAt}
-                    className="font-mono text-[0.6875rem] text-muted-foreground"
-                  />
-                </Link>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    #{item.pr!.number}
+                  </span>
+                  <span className="truncate">{item.title}</span>
+                  <span className="text-[0.6875rem] text-muted-foreground">
+                    {item.projectName} · {item.pr!.state}
+                  </span>
+                </a>
               </li>
             ))}
           </ul>
-        </Panel>
-
-        <Panel data-testid="home-prs">
-          <SectionTitle about="recentPrs" label="Recent pull requests">
-            Recent pull requests
-          </SectionTitle>
-          {numbers.recentPrs.length === 0 ? (
-            <p className="px-4 py-6 text-[0.8125rem] text-muted-foreground">
-              No fix pull requests yet. Open one from a security issue in a run.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {numbers.recentPrs.map((item) => (
-                <li key={item.id}>
-                  <a
-                    href={item.pr!.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-[0.8125rem] hover:bg-muted/40"
-                  >
-                    <span className="font-mono text-xs text-muted-foreground">
-                      #{item.pr!.number}
-                    </span>
-                    <span className="truncate">{item.title}</span>
-                    <span className="text-[0.6875rem] text-muted-foreground">
-                      {item.projectName} · {item.pr!.state}
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </div>
+        )}
+      </Panel>
     </div>
   );
 }

@@ -340,9 +340,10 @@ Matching (`src/server/issues/match.ts`) pairs a run's issue with a tracked
 one by kind and cited file, then CWE, then title words; reconciling
 (`src/server/issues/reconcile.ts`) decides each state change. An issue's
 `origin` is the kind of run that found it (`code` or `requirement`), and a
-run only reconciles issues of its own origin. The home page
-(`src/app/app/page.tsx`) reads its numbers from `src/lib/viz/home.ts`: per
-project its share fixed, open issues by severity and next action.
+run only reconciles issues of its own origin. The Projects page
+(`src/app/app/projects/page.tsx`) reads its numbers from
+`src/lib/viz/home.ts`: per project its share fixed, open issues by severity
+and next action.
 
 ## Requirement versions
 
@@ -441,16 +442,28 @@ month's spending plus the last audit's cost would pass the cap. The times
 are worked out in `src/server/schedule/plan.ts`; the dialog that sets them
 says that a schedule is the owner's standing permission for those runs.
 
-**Screens.** Every page sits in the side navigation
+**Screens.** The home page (`src/app/app/page.tsx`,
+`src/components/home/launcher.tsx`) is a launcher: one card per kind of run,
+from `src/lib/features.ts`, which names each kind, its question, its input,
+its result and its workers. A card opens the one start page
+(`src/app/app/runs/new/page.tsx`, `src/components/run/start/start-form.tsx`);
+what it sends to `POST /api/runs` for each kind, and what is missing first,
+is `src/lib/start-run.ts`. Every page sits in the side navigation
 (`src/components/app/app-sidebar.tsx`), which lists the runs in progress
 and the projects from `src/lib/viz/sidebar.ts`, read in
 `src/app/app/layout.tsx` and kept current from `GET /api/runs`. A run page
-is one header panel (`src/components/run/run-header.tsx`) and tabs
-(`?tab=`); a project page is the same pattern, its tabs (`?tab=`) rendered
+is one header panel (`src/components/run/run-header.tsx`) and three
+sections: **Live** or **Result**, **Details** (the other tabs, `?tab=`) and
+**Activity**. The live view is the wind tunnel
+(`src/components/run/crew/wind-tunnel.tsx`), drawn from
+`crewOf` in `src/lib/viz/crew.ts`: the five agents from `agent.*` events,
+or a Fly-off's designers and judge and a Black Box's investigator and fixer
+from `actor.*` events (`src/server/engine/kinds/flyoff.ts`,
+`blackbox.ts`). The result card is `resultOf` in `src/lib/viz/result.ts`; a project page is the same pattern, its tabs (`?tab=`) rendered
 on the server, with `Cockpit`'s `section` prop choosing the stage, the
-issues or security. The project page starts each kind from
-`src/components/project/kind-dialogs.tsx` (which also holds the schedule
-dialog); the run page shows each kind's report from
+issues or security. The project page's kind buttons open the start page;
+`src/components/project/kind-dialogs.tsx` holds the schedule dialog. The
+run page shows each kind's report from
 `src/components/run/kinds/kind-report.tsx`, and a Crosswind run marks the
 parts it touches on the architecture diagram. Under the cockpit,
 `src/components/project/issue-trend.tsx` draws open issues by severity over

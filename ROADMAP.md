@@ -26,6 +26,9 @@ Done:
   them, the cost of every run, and scheduled runs with a monthly cap
 - A clean, minimal UI: near-black, hairline borders, small type, a chip
   row and tabs on each page, an activity rail on run pages
+- A simple product in three steps: a launcher of the four kinds, one start
+  page, and a live wind tunnel of the agents at work that turns into the
+  result
 
 ## Before production: evals for every agent
 

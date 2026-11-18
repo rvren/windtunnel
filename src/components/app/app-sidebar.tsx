@@ -614,8 +614,8 @@ export function AppSidebarFor({
       <SidebarHeader className="gap-0 px-3.5 pt-5 pb-2 group-data-[collapsible=icon]:px-1">
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
           <Link
-            href="/app/projects"
-            aria-label="Windtunnel, projects"
+            href="/app"
+            aria-label="Windtunnel, home"
             data-testid="app-sidebar-logo"
             className="flex h-9 min-w-0 flex-1 items-center rounded-md px-2 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:px-0"
           >
@@ -630,9 +630,9 @@ export function AppSidebarFor({
               render={
                 <Link
                   href={
-                    projectId
-                      ? `/app/runs/new?project=${projectId}`
-                      : "/app/runs/new"
+                    // From a project, start in it; anywhere else, choose
+                    // what to run on the home page first.
+                    projectId ? `/app/runs/new?project=${projectId}` : "/app"
                   }
                 />
               }

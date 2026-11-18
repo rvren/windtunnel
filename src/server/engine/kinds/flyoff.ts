@@ -66,7 +66,7 @@ export function checkVerdict(
 }
 
 export async function runFlyoff(ctx: KindContext): Promise<void> {
-  const { run, llm, stage, save, plural, declined } = ctx;
+  const { run, llm, stage, emit, save, plural, declined } = ctx;
   const flyoff: RunFlyoff = {
     blueprints: PROPOSERS.map((proposer) => ({
       id: proposer.id,
@@ -90,6 +90,11 @@ export async function runFlyoff(ctx: KindContext): Promise<void> {
           (item) => item.id === proposer.id,
         )!;
         entry.status = "running";
+        await emit({
+          type: "actor.started",
+          actorId: proposer.id,
+          doing: "Designing a blueprint",
+        });
         try {
           const result = await llm.call({
             stage: "proposals",
@@ -112,6 +117,19 @@ export async function runFlyoff(ctx: KindContext): Promise<void> {
           entry.error = error instanceof Error ? error.message : String(error);
         } finally {
           await save();
+          await emit(
+            entry.blueprint
+              ? {
+                  type: "actor.completed",
+                  actorId: proposer.id,
+                  note: `Proposed ${entry.blueprint.name}`,
+                }
+              : {
+                  type: "actor.failed",
+                  actorId: proposer.id,
+                  error: entry.error ?? "No blueprint",
+                },
+          );
         }
       }),
     );
@@ -135,6 +153,12 @@ export async function runFlyoff(ctx: KindContext): Promise<void> {
     await Promise.all(
       ready.map(async (entry) => {
         const proposer = PROPOSERS.find((item) => item.id === entry.id)!;
+        await emit({
+          type: "actor.started",
+          actorId: entry.id,
+          doing: "Critiquing the other designs",
+        });
+        let named = 0;
         try {
           const result = await llm.call({
             stage: "critique",
@@ -155,13 +179,18 @@ export async function runFlyoff(ctx: KindContext): Promise<void> {
           });
           usage = addUsage(usage, result.usage);
           if (result.kind === "ok") {
-            flyoff.critiques.push(
-              ...checkCritiques(entry.id, result.value, ids),
-            );
+            const kept = checkCritiques(entry.id, result.value, ids);
+            flyoff.critiques.push(...kept);
+            named = kept.reduce((sum, item) => sum + item.weaknesses.length, 0);
           }
         } catch {
           // This designer's critique is left out.
         }
+        await emit({
+          type: "actor.completed",
+          actorId: entry.id,
+          note: `Named ${plural(named, "weakness", "weaknesses")}`,
+        });
       }),
     );
     run.usage.critique = usage;
@@ -174,6 +203,11 @@ export async function runFlyoff(ctx: KindContext): Promise<void> {
 
   // 3. Judge: rank the blueprints and pick one.
   await stage("judge", async () => {
+    await emit({
+      type: "actor.started",
+      actorId: "judge",
+      doing: "Weighing the blueprints",
+    });
     const result = await llm.call({
       stage: "judge",
       model: run.models.reasoning,
@@ -196,6 +230,11 @@ export async function runFlyoff(ctx: KindContext): Promise<void> {
     }
     flyoff.verdict = checkVerdict(result.value, [...ids]);
     const winner = ready.find((item) => item.id === flyoff.verdict!.winnerId)!;
+    await emit({
+      type: "actor.completed",
+      actorId: "judge",
+      note: `${winner.proposer} wins`,
+    });
     return `${winner.proposer}'s ${winner.blueprint!.name} wins`;
   });
 }

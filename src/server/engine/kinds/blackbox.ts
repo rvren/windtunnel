@@ -73,6 +73,12 @@ export async function runBlackbox(
   const { run, llm, stage, emit, save, plural, declined } = ctx;
 
   await stage("triage", async () => {
+    await emit({
+      type: "actor.started",
+      actorId: "triage",
+      doing: "Tracing the error to the code",
+    });
+    let lastPath: string | null = null;
     const result = await llm.agent({
       stage: "triage",
       model: run.models.reasoning,
@@ -80,7 +86,13 @@ export async function runBlackbox(
       system: TRIAGE_SYSTEM,
       prompt: triagePrompt(run, code.outline),
       schema: TriageAnswer,
-      tools: readTools(code.reader.fork(), () => {}),
+      tools: readTools(code.reader.fork(), (path) => {
+        if (path === lastPath) return;
+        lastPath = path;
+        emit({ type: "actor.reading", actorId: "triage", path }).catch(
+          () => undefined,
+        );
+      }),
       maxTurns: TRIAGE_TURNS,
     });
     run.usage.triage = result.usage;
@@ -90,6 +102,14 @@ export async function runBlackbox(
     run.triage = await checkSuspects(result.value, code.reader);
     const group = incidentGroup(run.triage);
     run.groups = group ? [group] : [];
+    const first = run.triage.suspects[0];
+    await emit({
+      type: "actor.completed",
+      actorId: "triage",
+      note: first
+        ? `Found it in ${first.path}:${first.startLine}`
+        : "No lines in the code could be named",
+    });
     return run.triage.suspects.length
       ? `${run.triage.confidence} confidence, ${plural(run.triage.suspects.length, "place")} in the code`
       : "No lines in the code could be named";
@@ -97,6 +117,11 @@ export async function runBlackbox(
 
   await stage("remediation", async () => {
     if (run.groups.length === 0) return "Nothing to fix: no lines were found";
+    await emit({
+      type: "actor.started",
+      actorId: "fixer",
+      doing: "Writing the fix",
+    });
     run.remediations = {};
     const done = await remediate({
       llm,
@@ -112,6 +137,16 @@ export async function runBlackbox(
     });
     run.usage.remediation = done.usage;
     const record = Object.values(done.records)[0];
+    await emit({
+      type: "actor.completed",
+      actorId: "fixer",
+      note:
+        record?.status === "made"
+          ? record.edits.length
+            ? "Fix ready, checked against the code"
+            : "Fix ready, as steps"
+          : "No fix could be written",
+    });
     return record?.status === "made"
       ? record.edits.length
         ? "A fix with a checked patch"

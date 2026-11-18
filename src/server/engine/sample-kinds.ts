@@ -5,6 +5,7 @@ import type {
   ImpactAnswer,
   TriageAnswer,
 } from "./schema";
+import { EXAMPLE_INCIDENT } from "@/lib/features";
 
 /*
  * Scripted answers for the newer kinds of run, so each can be shown on a
@@ -225,5 +226,4 @@ export function sampleTriage(path: string): TriageAnswer {
 }
 
 /** The example incident text for the Storefront sample. */
-export const SAMPLE_INCIDENT =
-  '500 Internal Server Error on GET /catalog/search?q=men\'s shoes. Logs: sqlite3.OperationalError: near "s": syntax error, in search().';
+export const SAMPLE_INCIDENT = EXAMPLE_INCIDENT;

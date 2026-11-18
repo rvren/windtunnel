@@ -28,8 +28,15 @@ export interface Feed {
       note: string | null;
       /** In a repository run: the file the agent last opened. */
       reading: string | null;
+      /** How many files it has opened so far. */
+      reads: number;
     }
   >;
+  /**
+   * The workers of the newer kinds (a fly-off's designers and judge, a black
+   * box's investigator and fixer), by id, once they have started.
+   */
+  actors: Record<string, Actor>;
   /** In a project run: the workspaces whose code has arrived, in order. */
   workspaces: { name: string; label: string }[];
   /** How the application is put together, once the model stage has said. */
@@ -39,6 +46,28 @@ export interface Feed {
   /** True once the run has said its last word. */
   ended: boolean;
 }
+
+export interface Actor {
+  status: AgentStatus;
+  /** What it is on now, while it works. */
+  doing: string | null;
+  /** The file it last opened, while it works. */
+  reading: string | null;
+  reads: number;
+  /** What it came to, once done (or why it failed). */
+  note: string | null;
+  /** How many times it has finished a piece of work. */
+  done: number;
+}
+
+const NEW_ACTOR: Actor = {
+  status: "pending",
+  doing: null,
+  reading: null,
+  reads: 0,
+  note: null,
+  done: 0,
+};
 
 export function emptyFeed(): Feed {
   const stages = {} as Feed["stages"];
@@ -53,11 +82,13 @@ export function emptyFeed(): Feed {
       findings: 0,
       note: null,
       reading: null,
+      reads: 0,
     };
   }
   return {
     stages,
     agents,
+    actors: {},
     workspaces: [],
     architecture: null,
     live: [],
@@ -81,9 +112,43 @@ export function applyEvent(feed: Feed, event: RunEvent): Feed {
     agents: { ...feed.agents, [id]: { ...feed.agents[id], ...change } },
   });
 
+  const actor = (id: string, change: (now: Actor) => Partial<Actor>): Feed => {
+    const now = feed.actors[id] ?? NEW_ACTOR;
+    return {
+      ...feed,
+      actors: { ...feed.actors, [id]: { ...now, ...change(now) } },
+    };
+  };
+
   switch (event.type) {
     case "run.started":
       return feed;
+    case "actor.started":
+      return actor(event.actorId, () => ({
+        status: "running",
+        doing: event.doing,
+        reading: null,
+      }));
+    case "actor.reading":
+      return actor(event.actorId, (now) => ({
+        reading: event.path,
+        reads: now.reads + 1,
+      }));
+    case "actor.completed":
+      return actor(event.actorId, (now) => ({
+        status: "done",
+        doing: null,
+        reading: null,
+        note: event.note,
+        done: now.done + 1,
+      }));
+    case "actor.failed":
+      return actor(event.actorId, () => ({
+        status: "failed",
+        doing: null,
+        reading: null,
+        note: event.error,
+      }));
     case "stage.started":
       return stage(event.stage, { state: "running" });
     case "stage.completed":
@@ -109,7 +174,10 @@ export function applyEvent(feed: Feed, event: RunEvent): Feed {
         findings: event.findings,
       });
     case "agent.reading":
-      return agent(event.agentId, { reading: event.path });
+      return agent(event.agentId, {
+        reading: event.path,
+        reads: feed.agents[event.agentId].reads + 1,
+      });
     case "agent.finding": {
       if (feed.live.some((item) => item.uid === event.finding.uid)) return feed;
       const next = agent(event.agentId, {
@@ -158,7 +226,13 @@ export function applyEvent(feed: Feed, event: RunEvent): Feed {
           agents[id] = { ...agents[id], status: "failed" };
         }
       }
-      return { ...feed, stages, agents, ended: true };
+      const actors = { ...feed.actors };
+      for (const [id, item] of Object.entries(actors)) {
+        if (item.status === "running") {
+          actors[id] = { ...item, status: "failed", doing: null };
+        }
+      }
+      return { ...feed, stages, agents, actors, ended: true };
     }
   }
 }

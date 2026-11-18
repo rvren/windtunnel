@@ -93,20 +93,30 @@ export function FlowDash({
   stroke,
   duration,
   delay = 0,
+  width = 5,
+  dash = 46,
+  className,
 }: {
   d: string;
   stroke: string;
   duration: number;
   delay?: number;
+  width?: number;
+  /** The length of the bright dash, out of 1000 for the whole line. */
+  dash?: number;
+  className?: string;
 }) {
   if (useReducedMotion()) return null;
   return (
     <motion.path
       d={d}
+      fill="none"
+      strokeLinecap="round"
+      className={className}
       pathLength={1000}
       stroke={stroke}
-      strokeWidth={5}
-      strokeDasharray="46 954"
+      strokeWidth={width}
+      strokeDasharray={`${dash} ${1000 - dash}`}
       initial={{ strokeDashoffset: 0, opacity: 0 }}
       animate={{ strokeDashoffset: -1000, opacity: 1 }}
       transition={{
@@ -118,6 +128,73 @@ export function FlowDash({
         },
         opacity: { duration: 1.2, delay },
       }}
+    />
+  );
+}
+
+/*
+ * Live work. These move only while something is being worked on, which the
+ * design rules allow, and are not drawn at all under reduced motion: the
+ * still picture says the same.
+ */
+
+/**
+ * A light that travels once from one point to another and fades: a
+ * finding leaving the agent that filed it. Give it a new key for each.
+ */
+export function Spark({
+  from,
+  to,
+  fill,
+  r = 4,
+  duration = 1.2,
+}: {
+  from: [number, number];
+  to: [number, number];
+  fill: string;
+  r?: number;
+  duration?: number;
+}) {
+  if (useReducedMotion()) return null;
+  return (
+    <motion.circle
+      r={r}
+      fill={fill}
+      className="glow"
+      initial={{ cx: from[0], cy: from[1], opacity: 1 }}
+      animate={{ cx: to[0], cy: to[1], opacity: [1, 1, 0] }}
+      transition={{ duration, ease: EASE }}
+    />
+  );
+}
+
+/**
+ * A line that draws itself once, start to end: a run's outcome reaching
+ * the end of each line. Drawn whole at once under reduced motion. Laid over
+ * a plain line, so nothing is missing if the animation does not run.
+ */
+export function DrawLine({
+  d,
+  className,
+  delay = 0,
+  width = 1.75,
+}: {
+  d: string;
+  className?: string;
+  delay?: number;
+  width?: number;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.path
+      d={d}
+      fill="none"
+      strokeWidth={width}
+      strokeLinecap="round"
+      className={className}
+      initial={reduced ? false : { pathLength: 0 }}
+      animate={{ pathLength: 1 }}
+      transition={{ duration: 1.2, ease: EASE, delay }}
     />
   );
 }

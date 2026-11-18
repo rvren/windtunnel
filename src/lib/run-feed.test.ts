@@ -37,6 +37,7 @@ describe("applyEvent", () => {
       findings: 3,
       note: "1 dropped by the citation check",
       reading: null,
+      reads: 0,
     });
     expect(feed.ended).toBe(false);
   });
@@ -96,6 +97,7 @@ describe("applyEvent", () => {
     ]);
     expect(feed.agents.chaos).toMatchObject({
       reading: "api/mail.go",
+      reads: 1,
       findings: 1,
     });
     expect(feed.live).toEqual([{ ...finding, agentId: "chaos" }]);
@@ -103,5 +105,28 @@ describe("applyEvent", () => {
 
   it("ends on completion", () => {
     expect(play([{ type: "run.completed" }]).ended).toBe(true);
+  });
+
+  it("follows the workers of the newer kinds", () => {
+    const feed = play([
+      { type: "actor.started", actorId: "p1", doing: "Designing" },
+      { type: "actor.started", actorId: "triage", doing: "Tracing" },
+      { type: "actor.reading", actorId: "triage", path: "web/app.ts" },
+      { type: "actor.completed", actorId: "p1", note: "Row grants" },
+    ]);
+    expect(feed.actors.p1).toMatchObject({
+      status: "done",
+      note: "Row grants",
+      doing: null,
+      done: 1,
+    });
+    expect(feed.actors.triage).toMatchObject({
+      status: "running",
+      doing: "Tracing",
+      reading: "web/app.ts",
+      reads: 1,
+    });
+    const failed = applyEvent(feed, { type: "run.failed", error: "x" });
+    expect(failed.actors.triage.status).toBe("failed");
   });
 });

@@ -11,37 +11,48 @@ import {
   FileDown,
   FileText,
   FolderKanban,
+  Layers,
   LayoutList,
   ListChecks,
   LoaderCircle,
   Maximize2,
   Network,
   PencilLine,
+  Radio,
   RotateCcw,
   Trophy,
   Wind,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Panel } from "@/components/panel";
+import { pillClass } from "@/components/pill";
 import { ArchitectureDiagram } from "@/components/project/architecture-diagram";
 import { LocalTime } from "@/components/local-time";
 import { LiveMap } from "@/components/project/live-map";
 import { agentStates, applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
+import { crewOf } from "@/lib/viz/crew";
+import { resultOf } from "@/lib/viz/result";
 import { storyOf } from "@/lib/viz/story";
 import { applyTime, emptyTimes, type RunTimes } from "@/lib/viz/times";
 import type { VersionChanges } from "@/lib/viz/refine";
-import type {
-  RunRecord,
-  RunStatus,
-  RunSummary,
-  StoredEvent,
+import {
+  stagesOf,
+  type RunRecord,
+  type RunStatus,
+  type RunSummary,
+  type StoredEvent,
 } from "@/server/engine/schema";
 
 import { ConfirmRunDialog, type RunCost } from "./confirm-run";
-import { NowCard, RunHeader, StageChecklist, TopIssues } from "./run-header";
+import { CrewHeader } from "./crew/parts";
+import { WindTunnel } from "./crew/wind-tunnel";
+import { LiveFindings } from "./live-findings";
+import { ResultCard } from "./result-card";
+import { RunHeader, StageChecklist } from "./run-header";
 import { DeleteRunButton } from "./run-delete";
 import { ActivityRail } from "./activity-rail";
 import {
@@ -62,6 +73,7 @@ import { ModelTab, ScoreboardTab, WorkOrdersTab } from "./run-report";
 const REFRESH_ON = new Set([
   "stage.completed",
   "agent.completed",
+  "actor.completed",
   "agent.declined",
   "agent.failed",
   "run.completed",
@@ -322,70 +334,133 @@ export function RunView({
       ? agentStates(feed, run.agents)
       : null;
   const doneStages = chapters.filter((item) => item.state === "done").length;
-  const issueWord = run.source ? "issue" : "risk";
   const architecture = run.source?.architecture ?? null;
+  const crew = crewOf(feed, {
+    kind,
+    stages: stagesOf(run),
+    subject: context.projectName ?? run.title,
+    status: run.status,
+  });
+
+  // Three sections: the live view or the result, the details, the activity.
+  // The details are the run's other tabs, in a second row of pills.
+  const audits = kind === "audit" || kind === "crosswind";
+  const details: {
+    id: RunTab;
+    label: string;
+    icon: LucideIcon;
+    count?: number;
+  }[] = [];
+  if (reportReady && kind === "crosswind") {
+    details.push({ id: "impact", label: "Impact", icon: Wind });
+  }
+  if (reportReady && (kind === "flyoff" || kind === "blackbox")) {
+    details.push({
+      id: "report",
+      label: kind === "flyoff" ? "Blueprints" : "Incident",
+      icon: FileText,
+    });
+  }
+  if (reportReady && audits) {
+    details.push(
+      {
+        id: "findings",
+        label:
+          kind === "crosswind"
+            ? "What It Breaks"
+            : run.source
+              ? "Issues"
+              : "Risks",
+        icon: ListChecks,
+        count: run.groups.length,
+      },
+      {
+        id: "work-orders",
+        label: "Work Orders",
+        icon: ClipboardList,
+        count: run.workOrders.length,
+      },
+    );
+  }
+  if (canMap) details.push({ id: "map", label: "Map", icon: Network });
+  if (reportReady && audits) {
+    details.push(
+      { id: "model", label: "Model", icon: Boxes },
+      { id: "scoreboard", label: "Scoreboard", icon: Trophy },
+    );
+  }
+  const inDetails = details.some((item) => item.id === tab);
+  // A tab asked for in the address that this run does not have yet.
+  const shown: RunTab =
+    tab === "summary" || tab === "activity" || inDetails ? tab : "summary";
+  const section =
+    shown === "activity" ? "activity" : inDetails ? "details" : "summary";
 
   const tabs = (
-    <TabsList variant="pill">
-      <TabsTrigger value="summary" data-testid="run-tab-summary">
-        <LayoutList />
-        Summary
-      </TabsTrigger>
-      {reportReady && kind === "crosswind" ? (
-        <TabsTrigger value="impact" data-testid="run-tab-impact">
-          <Wind />
-          Impact
-        </TabsTrigger>
+    <div className="space-y-2">
+      <nav className="flex flex-wrap gap-1" aria-label="Run sections">
+        <button
+          type="button"
+          className={pillClass(section === "summary")}
+          aria-current={section === "summary" ? "page" : undefined}
+          onClick={() => setTab("summary")}
+          data-testid="run-tab-summary"
+        >
+          {running ? <Radio /> : <LayoutList />}
+          {running ? "Live" : "Result"}
+        </button>
+        {details.length > 0 ? (
+          <button
+            type="button"
+            className={pillClass(section === "details")}
+            aria-current={section === "details" ? "page" : undefined}
+            onClick={() => setTab(details[0].id)}
+            data-testid="run-tab-details"
+          >
+            <Layers />
+            Details
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={pillClass(section === "activity")}
+          aria-current={section === "activity" ? "page" : undefined}
+          onClick={() => setTab("activity")}
+          data-testid="run-tab-activity"
+        >
+          <Activity />
+          Activity
+        </button>
+      </nav>
+      {section === "details" ? (
+        <nav
+          className="flex flex-wrap gap-1 border-t pt-2"
+          aria-label="Details"
+        >
+          {details.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={pillClass(shown === item.id, true)}
+                aria-current={shown === item.id ? "page" : undefined}
+                onClick={() => setTab(item.id)}
+                data-testid={`run-tab-${item.id}`}
+              >
+                <Icon />
+                {item.label}
+                {item.count !== undefined ? (
+                  <span className="font-mono text-[0.6875rem] text-muted-foreground">
+                    {item.count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </nav>
       ) : null}
-      {reportReady && (kind === "flyoff" || kind === "blackbox") ? (
-        <TabsTrigger value="report" data-testid="run-tab-report">
-          <FileText />
-          {kind === "flyoff" ? "Blueprints" : "Incident"}
-        </TabsTrigger>
-      ) : null}
-      {canMap ? (
-        <TabsTrigger value="map" data-testid="run-tab-map">
-          <Network />
-          Map
-        </TabsTrigger>
-      ) : null}
-      {reportReady && (kind === "audit" || kind === "crosswind") ? (
-        <>
-          <TabsTrigger value="findings" data-testid="run-tab-findings">
-            <ListChecks />
-            {kind === "crosswind"
-              ? "What It Breaks"
-              : run.source
-                ? "Issues"
-                : "Risks"}
-            <span className="font-mono text-[0.6875rem] text-muted-foreground">
-              {run.groups.length}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="work-orders" data-testid="run-tab-work-orders">
-            <ClipboardList />
-            Work Orders
-            <span className="font-mono text-[0.6875rem] text-muted-foreground">
-              {run.workOrders.length}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="model" data-testid="run-tab-model">
-            <Boxes />
-            Model
-          </TabsTrigger>
-        </>
-      ) : null}
-      <TabsTrigger value="activity" data-testid="run-tab-activity">
-        <Activity />
-        Activity
-      </TabsTrigger>
-      {reportReady && (kind === "audit" || kind === "crosswind") ? (
-        <TabsTrigger value="scoreboard" data-testid="run-tab-scoreboard">
-          <Trophy />
-          Scoreboard
-        </TabsTrigger>
-      ) : null}
-    </TabsList>
+    </div>
   );
 
   const icon = buttonVariants({ variant: "ghost", size: "icon-sm" });
@@ -451,14 +526,18 @@ export function RunView({
     <>
       {run.sample ? <span>Sample run</span> : null}
       {run.sample ? dot : null}
-      {!run.source ? <span>Tests an idea: every risk is probable</span> : null}
-      {!run.source ? dot : null}
+      {kind === "audit" && !run.source ? (
+        <span>Tests an idea: every risk is probable</span>
+      ) : null}
+      {kind === "audit" && !run.source ? dot : null}
       <span data-testid="run-source">
         {run.source
           ? run.source.workspaces
             ? `${run.source.workspaces.length} workspaces`
             : `${run.workspaces?.[0] ? `${run.workspaces[0]} · ` : ""}${originText(run.source)}`
-          : "Requirement run"}
+          : kind === "flyoff"
+            ? "Designs for a requirement"
+            : "Requirement run"}
       </span>
       {run.source?.files != null ? (
         <>
@@ -481,7 +560,7 @@ export function RunView({
 
   return (
     <div className="space-y-5" data-testid="run-view" data-status={run.status}>
-      <Tabs value={tab} onValueChange={(next) => setTab(next as RunTab)}>
+      <Tabs value={shown} onValueChange={(next) => setTab(next as RunTab)}>
         <RunHeader
           run={run}
           times={times}
@@ -504,17 +583,23 @@ export function RunView({
 
         <div className="mt-5" id="run-report">
           <TabsContent value="summary">
-            <div className="mx-auto max-w-3xl space-y-4">
-              <NowCard
-                run={run}
-                chapters={chapters}
-                issueWord={issueWord}
-                onOpen={openTab}
-                canMap={canMap}
-              />
-              <StageChecklist title={run.title} chapters={chapters} />
-              {reportReady && (kind === "audit" || kind === "crosswind") ? (
-                <TopIssues run={run} onOpen={() => setTab("findings")} />
+            <div className="space-y-5">
+              {ended ? (
+                <ResultCard result={resultOf(run)} onOpen={openTab} />
+              ) : null}
+              <Panel className="space-y-4 p-5 md:p-6" data-testid="run-crew">
+                <CrewHeader crew={crew} />
+                <WindTunnel
+                  crew={crew}
+                  subject={context.projectName ?? run.title}
+                  workspaces={run.workspaces ?? []}
+                />
+              </Panel>
+              {running ? (
+                <div className="grid items-start gap-5 lg:grid-cols-2">
+                  <StageChecklist title="Stages" chapters={chapters} />
+                  <LiveFindings feed={feed} />
+                </div>
               ) : null}
               {(run.requirement &&
                 (run.requirement !== run.title || run.documents.length > 0)) ||

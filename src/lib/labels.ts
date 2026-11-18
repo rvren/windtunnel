@@ -21,12 +21,12 @@ export const STAGE_ORDER = [
   "work_orders",
 ] as const;
 
-/** What each kind of run is called. */
+/** What each kind of run is called (as in lib/features.ts). */
 export const KIND_LABEL = {
-  audit: "Audit",
+  audit: "Tunnel Run",
   crosswind: "Crosswind",
   flyoff: "Fly-off",
-  blackbox: "Black box",
+  blackbox: "Black Box",
 } as const;
 
 export const STAGE_LABEL = {

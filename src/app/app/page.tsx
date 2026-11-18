@@ -1,46 +1,35 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { FolderKanban, GitPullRequest, Lightbulb } from "lucide-react";
 
-import {
-  MetaChip,
-  PageHeader,
-  PageLoading,
-} from "@/components/app/page-header";
-import { Home } from "@/components/home/home";
+import { PageLoading } from "@/components/app/page-header";
+import { Launcher } from "@/components/home/launcher";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { homeNumbers } from "@/lib/viz/home";
 import { ensureDatabase } from "@/server/db/ready";
 import { runStore } from "@/server/engine/registry";
-import { ensureTracked, listIssues } from "@/server/issues/store";
-import { listProjects } from "@/server/projects/store";
+import type { RunSummary } from "@/server/engine/schema";
 
 export const metadata: Metadata = { title: "Home" };
 
-/** Everything the home page shows, or null when the database is down. */
-async function loadHome() {
+/** How many runs the home page lists to carry on with. */
+const RECENT = 5;
+
+/** The runs going now, then the newest, or null when the database is down. */
+async function recentRuns(): Promise<RunSummary[] | null> {
   try {
     await ensureDatabase();
-    const projects = await listProjects();
-    for (const project of projects) await ensureTracked(project.id);
-    const [issues, runs] = await Promise.all([listIssues(), runStore().list()]);
-    return {
-      count: projects.length,
-      numbers: homeNumbers({
-        projects: projects.map(({ id, name }) => ({ id, name })),
-        issues,
-        runs,
-      }),
-    };
+    const runs = await runStore().list();
+    const running = runs.filter((run) => run.status === "running");
+    const rest = runs.filter((run) => run.status !== "running");
+    return [...running, ...rest].slice(0, Math.max(RECENT, running.length));
   } catch {
     return null;
   }
 }
 
-/** The fix pipeline across every project. */
+/** What Windtunnel can do, and the runs to carry on with. */
 async function HomePage() {
-  const home = await loadHome();
-  if (!home) {
+  const runs = await recentRuns();
+  if (!runs) {
     return (
       <Alert variant="destructive">
         <AlertTitle>The database is not reachable</AlertTitle>
@@ -50,37 +39,12 @@ async function HomePage() {
       </Alert>
     );
   }
-  const all = home.numbers.projects;
-  const open = all.reduce((sum, item) => sum + item.open, 0);
-  const prs = all.reduce((sum, item) => sum + item.prs, 0);
-  const fixed = all.reduce((sum, item) => sum + item.fixed, 0);
-  const risks = all.reduce((sum, item) => sum + item.risks, 0);
-  return (
-    <>
-      <PageHeader
-        title="Home"
-        meta={
-          <>
-            <MetaChip icon={FolderKanban}>
-              {home.count} {home.count === 1 ? "project" : "projects"}
-            </MetaChip>
-            <MetaChip dot="var(--sev-high)">{open} open issues</MetaChip>
-            <MetaChip icon={GitPullRequest}>{prs} pull requests open</MetaChip>
-            <MetaChip dot="var(--ok)">{fixed} fixed</MetaChip>
-            {risks > 0 ? (
-              <MetaChip icon={Lightbulb}>{risks} probable risks</MetaChip>
-            ) : null}
-          </>
-        }
-      />
-      <Home numbers={home.numbers} />
-    </>
-  );
+  return <Launcher runs={runs} />;
 }
 
 export default function Page() {
   return (
-    <Suspense fallback={<PageLoading label="Reading your projects" />}>
+    <Suspense fallback={<PageLoading label="Reading your runs" />}>
       <HomePage />
     </Suspense>
   );

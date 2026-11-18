@@ -1,53 +1,40 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
-import { Plus, Trash2 } from "lucide-react";
+import { GitPullRequest, Lightbulb, Plus } from "lucide-react";
 
-import { PageHeader, PageLoading } from "@/components/app/page-header";
+import {
+  MetaChip,
+  PageHeader,
+  PageLoading,
+} from "@/components/app/page-header";
 import { Mark } from "@/components/brand/logo";
-import { LocalTime } from "@/components/local-time";
+import { NewProjectDialog } from "@/components/project/project-dialogs";
 import {
-  DeleteProjectDialog,
-  NewProjectDialog,
-} from "@/components/project/project-dialogs";
-import { StatusBadge } from "@/components/run/badges";
+  ProjectsBoard,
+  type BoardMeta,
+} from "@/components/project/projects-board";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { homeNumbers } from "@/lib/viz/home";
 import { ensureDatabase } from "@/server/db/ready";
 import { runStore } from "@/server/engine/registry";
 import type { RunSummary } from "@/server/engine/schema";
+import { ensureTracked, listIssues, type Issue } from "@/server/issues/store";
 import { listProjects, type Project } from "@/server/projects/store";
 
 export const metadata: Metadata = { title: "Projects" };
 
-async function ProjectsTable() {
+async function ProjectsList() {
   await connection();
   let projects: Project[];
-  let latest: Map<string, RunSummary>;
-  const runCount = new Map<string, number>();
+  let runs: RunSummary[];
+  let issues: Issue[];
   try {
     await ensureDatabase();
     projects = await listProjects();
-    // Runs come newest first, so the first one seen for a project is its latest.
-    latest = new Map();
-    for (const run of await runStore().list()) {
-      if (run.projectId) {
-        runCount.set(run.projectId, (runCount.get(run.projectId) ?? 0) + 1);
-      }
-      if (run.projectId && !latest.has(run.projectId)) {
-        latest.set(run.projectId, run);
-      }
-    }
+    for (const project of projects) await ensureTracked(project.id);
+    [issues, runs] = await Promise.all([listIssues(), runStore().list()]);
   } catch {
     return (
       <Alert variant="destructive" data-testid="projects-database-down">
@@ -81,91 +68,38 @@ async function ProjectsTable() {
     );
   }
 
+  const numbers = homeNumbers({
+    projects: projects.map(({ id, name }) => ({ id, name })),
+    issues,
+    runs,
+  });
+  const meta: Record<string, BoardMeta> = {};
+  for (const project of projects) {
+    meta[project.id] = {
+      demo: project.demo,
+      runs: runs.filter((run) => run.projectId === project.id).length,
+    };
+  }
+  const all = numbers.projects;
+  const open = all.reduce((sum, item) => sum + item.open, 0);
+  const prs = all.reduce((sum, item) => sum + item.prs, 0);
+  const fixed = all.reduce((sum, item) => sum + item.fixed, 0);
+  const risks = all.reduce((sum, item) => sum + item.risks, 0);
   return (
-    <div className="overflow-hidden rounded-card border bg-card">
-      <Table data-testid="projects-table">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Project</TableHead>
-            <TableHead>Workspaces</TableHead>
-            <TableHead>Last run</TableHead>
-            <TableHead className="text-right">Issues</TableHead>
-            <TableHead className="text-right">Work orders</TableHead>
-            <TableHead className="w-12">
-              <span className="sr-only">Actions</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {projects.map((project) => {
-            const run = latest.get(project.id);
-            return (
-              <TableRow key={project.id}>
-                <TableCell className="max-w-md whitespace-normal">
-                  <Link
-                    href={`/app/projects/${project.id}`}
-                    data-testid="projects-row-link"
-                    className="font-medium underline-offset-4 hover:underline"
-                  >
-                    {project.name}
-                  </Link>
-                  {project.demo ? (
-                    <Badge variant="secondary" className="ml-2">
-                      Sample
-                    </Badge>
-                  ) : null}
-                  {project.description ? (
-                    <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                      {project.description}
-                    </p>
-                  ) : null}
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
-                  {project.workspaces.length > 0
-                    ? project.workspaces.map((item) => item.name).join(", ")
-                    : "None yet"}
-                </TableCell>
-                <TableCell>
-                  {run ? (
-                    <span className="flex items-center gap-2">
-                      <StatusBadge status={run.status} />
-                      <LocalTime
-                        iso={run.createdAt}
-                        className="text-xs text-muted-foreground"
-                      />
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">Not run yet</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  {run?.status === "completed" ? run.findingCount : "—"}
-                </TableCell>
-                <TableCell className="text-right">
-                  {run?.status === "completed" ? run.workOrderCount : "—"}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DeleteProjectDialog
-                    projectId={project.id}
-                    name={project.name}
-                    runs={runCount.get(project.id) ?? 0}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Delete ${project.name}`}
-                      data-testid="projects-row-delete"
-                    >
-                      <Trash2 />
-                    </Button>
-                  </DeleteProjectDialog>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <>
+      <div
+        className="-mt-3 mb-6 flex flex-wrap items-center gap-1.5"
+        data-testid="page-meta"
+      >
+        <MetaChip dot="var(--sev-high)">{open} open issues</MetaChip>
+        <MetaChip icon={GitPullRequest}>{prs} pull requests open</MetaChip>
+        <MetaChip dot="var(--ok)">{fixed} fixed</MetaChip>
+        {risks > 0 ? (
+          <MetaChip icon={Lightbulb}>{risks} probable risks</MetaChip>
+        ) : null}
+      </div>
+      <ProjectsBoard numbers={numbers} meta={meta} />
+    </>
   );
 }
 
@@ -184,7 +118,7 @@ export default function ProjectsPage() {
         </NewProjectDialog>
       </PageHeader>
       <Suspense fallback={<PageLoading label="Reading the projects" />}>
-        <ProjectsTable />
+        <ProjectsList />
       </Suspense>
     </>
   );

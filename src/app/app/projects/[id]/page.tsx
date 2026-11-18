@@ -25,11 +25,7 @@ import { PageLoading } from "@/components/app/page-header";
 import { LocalTime } from "@/components/local-time";
 import { Panel } from "@/components/panel";
 import { Cockpit } from "@/components/project/cockpit";
-import {
-  ScheduleDialog,
-  StartKindDialog,
-} from "@/components/project/kind-dialogs";
-import type { RunCost } from "@/components/run/confirm-run";
+import { ScheduleDialog } from "@/components/project/kind-dialogs";
 import { formatCost } from "@/lib/cost";
 import { cn } from "@/lib/utils";
 import { spentThisMonth } from "@/server/schedule/scheduler";
@@ -222,16 +218,6 @@ async function ProjectPage({
   const githubToken = Boolean(process.env.GITHUB_TOKEN?.trim());
   const running = runs.find((run) => run.status === "running");
   const count = project.workspaces.length;
-  const cost: RunCost = project.demo
-    ? "sample-project"
-    : status.sampleMode
-      ? "sample-mode"
-      : "billed";
-  const kindWorkspaces = project.workspaces.map((item) => ({
-    name: item.name,
-    label: item.label,
-    github: item.origin.kind === "github",
-  }));
   const spentUsd = await spentThisMonth(project.id).catch(() => 0);
   const schedule = project.schedule;
   const kindButton = (
@@ -239,19 +225,12 @@ async function ProjectPage({
     label: string,
     Icon: typeof Wind,
     needsCode: boolean,
-  ) => (
-    <StartKindDialog
-      kind={kind}
-      projectId={project.id}
-      workspaces={kindWorkspaces}
-      cost={cost}
-      blocked={project.demo ? null : blocked}
-      requirement={project.description}
-    >
+  ) =>
+    Boolean(running) || (needsCode && count === 0) ? (
       <Button
         variant="outline"
         size="sm"
-        disabled={Boolean(running) || (needsCode && count === 0)}
+        disabled
         data-testid={`project-start-${kind}`}
         title={label}
         aria-label={label}
@@ -259,8 +238,18 @@ async function ProjectPage({
         <Icon />
         <span className="hidden xl:inline">{label}</span>
       </Button>
-    </StartKindDialog>
-  );
+    ) : (
+      <Link
+        href={`/app/runs/new?kind=${kind}&project=${project.id}`}
+        className={buttonVariants({ variant: "outline", size: "sm" })}
+        data-testid={`project-start-${kind}`}
+        title={label}
+        aria-label={label}
+      >
+        <Icon />
+        <span className="hidden xl:inline">{label}</span>
+      </Link>
+    );
 
   const addWorkspace = (label: string, primary = false) => (
     <AddWorkspaceDialog
@@ -571,7 +560,9 @@ async function ProjectPage({
           className="flex flex-col items-center rounded-card border border-dashed px-6 py-16 text-center"
           data-testid="project-empty-workspaces"
         >
-          <h2 className="text-[0.9375rem] font-medium">Add the first workspace</h2>
+          <h2 className="text-[0.9375rem] font-medium">
+            Add the first workspace
+          </h2>
           <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
             A workspace is one repository of this application: its frontend, a
             backend service, a shared library. Add one or several; the agents

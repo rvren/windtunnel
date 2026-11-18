@@ -113,7 +113,7 @@ and delivery to 8090.
 
 ## Run it against a repository
 
-On the New run page choose "A repository". The same five agents then read
+On the start page choose Tunnel Run, then "Its code". The same five agents then read
 real code, in any language, and file findings that point at the file and lines
 that show the flaw. Each finding appears on the run page the moment it is
 filed.
@@ -198,9 +198,9 @@ says first). Windtunnel never merges.
 The app checks open pull requests while it runs. A merged one waits for a
 rescan ("2 fixes merged · Rescan"); when the next run no longer finds the
 issue it is marked **fixed** and leaves the findings, and if it comes back
-it is **reopened**. The home page is a board of projects: one card per
+it is **reopened**. The Projects page is a board of projects: one row per
 project (share fixed, open issues by severity, pull requests, last run and
-the next thing to do), then recent runs and pull requests. Pull requests need `GITHUB_TOKEN` with Contents and Pull requests
+the next thing to do), then recent pull requests. Pull requests need `GITHUB_TOKEN` with Contents and Pull requests
 write access.
 
 ## Text size
@@ -209,11 +209,31 @@ The "T" button at the bottom of the sidebar sets the text size for the
 whole app: Small (the default), Medium, Large or Extra Large. It is kept
 in this browser; the marketing site keeps its own size.
 
-## Crosswind, Fly-off and Black box
+## Choose, watch, get the result
 
-Besides the audit, a project has three more kinds of run, started from
-buttons on its page. Each says what it costs before it starts, and each has
-a free scripted demo on the sample project.
+Opening the app shows what Windtunnel can do: four cards, each with the
+question it answers, what you give it and what you get back. Every run then
+takes the same three steps:
+
+1. **Choose.** A card opens the start page (`/app/runs/new?kind=…`): pick
+   the project, give the one input that kind needs (or **Use The Example**),
+   and start. It always asks first, and says whether the run is billed.
+2. **Watch.** The run page's **Live** tab is the wind tunnel: the
+   application in the middle as three layers (interface, services, data),
+   and each worker as a line of air that parts around it. A light runs along
+   the line while the worker works, the workspace it is reading lights up,
+   and each finding breaks off as a spark into its count.
+3. **Get the result.** When the run ends, each line draws through to a green
+   arrow (red where work failed or the run stopped), and the **Result** tab
+   says what the run came to in one line, three numbers and the top three
+   items, with one button into the detail. **Details** holds everything else
+   (issues, work orders, map, model, scoreboard); **Activity** holds the
+   step-by-step story.
+
+The four kinds:
+
+- **Tunnel Run** tests an idea in words or a project's code: five agents
+  attack it and report what fails.
 
 - **Crosswind** traces one change through every service: a pull request,
   two branches, or a change in plain words. It shows the parts the change
@@ -221,9 +241,13 @@ a free scripted demo on the sample project.
   before and after.
 - **Fly-off**: three designers each propose a blueprint for a requirement,
   critique each other, and a judge picks the strongest with its evidence.
-- **Black box**: paste an error or an incident note. An agent traces it to
-  cited lines, the defect is tracked as an issue, and a fix is written and
-  checked against the code. A pull request opens only when you ask.
+- **Black Box**: paste an error or an incident note. An investigator traces
+  it to cited lines, the defect is tracked as an issue, and a fixer writes a
+  fix checked against the code. A pull request opens only when you ask.
+
+Each kind has a free scripted demo on the sample project. In the wind
+tunnel a Fly-off shows its three designers and the judge, and a Black Box
+its investigator and fixer.
 
 Every run shows what it cost. A project can also run an audit **on a
 schedule** (daily or weekly, at an hour) inside a monthly cap in dollars:

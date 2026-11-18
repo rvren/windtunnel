@@ -396,9 +396,7 @@ export const Critique = z.object({
     z.object({
       blueprintId: z.string(),
       strengths: z.array(z.string()),
-      weaknesses: z.array(
-        z.object({ point: z.string(), severity: Severity }),
-      ),
+      weaknesses: z.array(z.object({ point: z.string(), severity: Severity })),
     }),
   ),
 });
@@ -408,7 +406,11 @@ export const FlyoffVerdict = z.object({
   winnerId: z.string(),
   summary: z.string(),
   ranking: z.array(
-    z.object({ blueprintId: z.string(), rank: z.number().int(), reason: z.string() }),
+    z.object({
+      blueprintId: z.string(),
+      rank: z.number().int(),
+      reason: z.string(),
+    }),
   ),
   nextSteps: z.array(z.string()),
 });
@@ -704,6 +706,15 @@ export type RunEvent =
   | { type: "agent.finding"; agentId: AgentId; finding: LiveFinding }
   | { type: "agent.declined"; agentId: AgentId; category: string | null }
   | { type: "agent.failed"; agentId: AgentId; error: string }
+  /**
+   * The workers of the newer kinds, by their id in lib/features.ts: a
+   * fly-off's designers and judge, a black box's investigator and fixer.
+   * `doing` says what it is on; `note` what it came to.
+   */
+  | { type: "actor.started"; actorId: string; doing: string }
+  | { type: "actor.reading"; actorId: string; path: string }
+  | { type: "actor.completed"; actorId: string; note: string }
+  | { type: "actor.failed"; actorId: string; error: string }
   /** A security finding's remediation is ready (or could not be made). */
   | { type: "remediation.ready"; groupId: string }
   | { type: "run.completed" }

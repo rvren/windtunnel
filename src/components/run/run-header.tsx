@@ -5,32 +5,21 @@ import Link from "next/link";
 import { Check, Circle, LoaderCircle, X } from "lucide-react";
 
 import { Panel } from "@/components/panel";
-import { Button } from "@/components/ui/button";
 import { AGENT_IDS, agentById, type AgentId } from "@/lib/agents";
 import { formatCost } from "@/lib/cost";
-import {
-  KIND_LABEL,
-  RUN_STATUS_LABEL,
-  SEVERITY_LABEL,
-  SEVERITY_ORDER,
-} from "@/lib/labels";
+import { KIND_LABEL, RUN_STATUS_LABEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { Chapter } from "@/lib/viz/story";
 import type { RunTimes } from "@/lib/viz/times";
-import type {
-  AgentStatus,
-  RunRecord,
-  RunStatus,
-  Severity,
-} from "@/server/engine/schema";
+import type { AgentStatus, RunRecord, RunStatus } from "@/server/engine/schema";
 
 import { seconds } from "./stage-time";
 
 /*
  * The run page's frame, after the reference layout: one bordered header
  * with the breadcrumb, the title, one grey line, the agents in a mono row,
- * the status figures on the right and the tabs; then a calm Summary tab of
- * a "now" card and a checklist of stages.
+ * the status figures on the right and the tabs. The checklist of stages
+ * sits under the live view while the run goes on.
  */
 
 const STATUS_DOT: Record<RunStatus, string> = {
@@ -38,13 +27,6 @@ const STATUS_DOT: Record<RunStatus, string> = {
   completed: "bg-ok",
   failed: "bg-sev-critical",
   interrupted: "bg-sev-high",
-};
-
-const SEV_DOT: Record<Severity, string> = {
-  critical: "bg-sev-critical",
-  high: "bg-sev-high",
-  medium: "bg-sev-medium",
-  low: "bg-sev-low",
 };
 
 const AGENT_WORD: Record<AgentStatus, string> = {
@@ -144,7 +126,9 @@ export function RunHeader({
             </>
           ) : null}
           <span aria-hidden="true">/</span>
-          <span>{run.source ? KIND_LABEL[kind] : "Requirement"}</span>
+          <span>
+            {kind === "audit" && !run.source ? "Requirement" : KIND_LABEL[kind]}
+          </span>
           {run.sample ? null : (
             <>
               <span aria-hidden="true">/</span>
@@ -315,159 +299,6 @@ export function StageChecklist({
           <Step key={chapter.stage} chapter={chapter} />
         ))}
       </ol>
-    </Panel>
-  );
-}
-
-/**
- * What is happening now, in one sentence; once the run has ended, what it
- * found, with the ways into the report.
- */
-export function NowCard({
-  run,
-  chapters,
-  issueWord,
-  onOpen,
-  canMap,
-}: {
-  run: RunRecord;
-  chapters: Chapter[];
-  /** "issue" for code, "risk" for an idea. */
-  issueWord: string;
-  onOpen: (tab: string) => void;
-  canMap: boolean;
-}) {
-  const current = chapters.find((chapter) => chapter.state === "running");
-  const counts = Object.fromEntries(
-    SEVERITY_ORDER.map((severity) => [
-      severity,
-      run.groups.filter((group) => group.severity === severity).length,
-    ]),
-  ) as Record<Severity, number>;
-  let headline: string;
-  let detail: string | null = null;
-  if (run.status === "running") {
-    headline = current
-      ? `${current.label}: ${current.line || "working"}`
-      : "Starting the run";
-    detail = "The checklist below follows it live.";
-  } else if (run.status === "completed") {
-    const n = run.groups.length;
-    headline =
-      n === 0
-        ? `No ${issueWord}s found.`
-        : `${n} ${n === 1 ? issueWord : `${issueWord}s`} found${counts.critical > 0 ? `, ${counts.critical} critical` : ""}.`;
-    detail =
-      run.workOrders.length > 0
-        ? `${run.workOrders.length} work ${run.workOrders.length === 1 ? "order" : "orders"} written with acceptance criteria.`
-        : null;
-  } else {
-    headline =
-      run.status === "interrupted"
-        ? "This run was interrupted."
-        : "This run failed.";
-    detail = run.error;
-  }
-  return (
-    <Panel className="p-6" data-testid="run-now">
-      <p className="text-xl leading-snug font-semibold tracking-[-0.02em]">
-        {headline}
-      </p>
-      {detail ? (
-        <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
-      ) : null}
-      {run.status === "completed" && run.groups.length > 0 ? (
-        <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {SEVERITY_ORDER.filter((severity) => counts[severity] > 0).map(
-            (severity) => (
-              <li key={severity} className="flex items-center gap-1.5">
-                <span
-                  className={cn("size-1.5 rounded-full", SEV_DOT[severity])}
-                  aria-hidden="true"
-                />
-                <span className="font-mono text-foreground tabular-nums">
-                  {counts[severity]}
-                </span>
-                {SEVERITY_LABEL[severity]}
-              </li>
-            ),
-          )}
-        </ul>
-      ) : null}
-      {run.status !== "running" && (run.groups.length > 0 || canMap) ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {run.groups.length > 0 ? (
-            <Button
-              size="sm"
-              onClick={() => onOpen("findings")}
-              data-testid="run-now-issues"
-            >
-              See The {issueWord === "risk" ? "Risks" : "Issues"}
-            </Button>
-          ) : null}
-          {canMap ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onOpen("map")}
-              data-testid="run-now-map"
-            >
-              See The Map
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    </Panel>
-  );
-}
-
-/** The most severe few, as compact rows into the full list. */
-export function TopIssues({
-  run,
-  onOpen,
-}: {
-  run: RunRecord;
-  onOpen: () => void;
-}) {
-  const rank = (severity: Severity) => SEVERITY_ORDER.indexOf(severity);
-  const top = [...run.groups]
-    .sort((a, b) => rank(a.severity) - rank(b.severity))
-    .slice(0, 4);
-  if (top.length === 0) return null;
-  return (
-    <Panel className="overflow-hidden" data-testid="run-top-issues">
-      <header className="flex items-center justify-between border-b px-4 py-2.5">
-        <h2 className="text-[0.8125rem] font-medium">Most severe</h2>
-        <button
-          type="button"
-          onClick={onOpen}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          All {run.groups.length}
-        </button>
-      </header>
-      <ul className="divide-y divide-border/60">
-        {top.map((group) => (
-          <li key={group.id} className="flex items-start gap-3 px-4 py-2.5">
-            <span
-              className={cn(
-                "mt-1.5 size-1.5 shrink-0 rounded-full",
-                SEV_DOT[group.severity],
-              )}
-              aria-hidden="true"
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[0.8125rem]">{group.title}</span>
-              <span className="line-clamp-1 text-xs text-muted-foreground">
-                {group.summary}
-              </span>
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {SEVERITY_LABEL[group.severity]}
-            </span>
-          </li>
-        ))}
-      </ul>
     </Panel>
   );
 }

@@ -68,6 +68,29 @@ a dark operations dashboard: near-black ground, flat panels, white
 blocks, grey text, and colour only where it means something. When in doubt,
 take something away.
 
+- **The product is three steps: Choose → Watch → Result.** The home page
+  (`/app`, `components/home/launcher.tsx`) is a launcher: one card per kind
+  of run, and the three steps. Every word about a kind (its name, question,
+  input, result, workers, example) lives in `src/lib/features.ts`; never
+  write a kind's description anywhere else. Every run starts from the one
+  start page (`/app/runs/new?kind=…`, `components/run/start/`), whose
+  request body and checks are `src/lib/start-run.ts`. The kind is called
+  **Tunnel Run** in the UI (`audit` in the code).
+- **The run page's Live/Result tab is the wind tunnel**
+  (`components/run/crew/wind-tunnel.tsx`, data from `crewOf` in
+  `src/lib/viz/crew.ts`): the app as three 3D layers (interface, services
+  with the real workspaces, data), each worker a line of air parting round
+  it, one light on the line while it works, a spark per finding, and when
+  the run ends a green arrow per line (red where work failed or the run
+  stopped). The owner chose it over lanes and a radar, then asked for it
+  cleaner: no status dots, no halo, no dashed wakes, no labels beyond the
+  name, one line of what it is on, and the count. Under it once the run has
+  ended, the result card (`resultOf` in `src/lib/viz/result.ts`): one
+  headline, three numbers, the top three items, one button. The other tabs
+  sit under **Details** as a second row of pills; the story is in
+  **Activity**. A Fly-off's and a Black Box's workers report through the
+  `actor.*` events; a new kind adds its workers to `features.ts` and emits
+  those events.
 - **The frame of every detail page** (a run, a project), after the reference layout
   (the look stays this one): one bordered header panel holding a breadcrumb with small icon
   tools on its right, the title, one grey line of details, a mono row of
@@ -113,8 +136,8 @@ take something away.
   (`src/server/issues/fix.ts`) is the remediation stage for one issue on
   fresh code; outside demo projects it spends the owner's key, so the
   dialog says so before it runs. A merged fix waits for a rescan, which the
-  owner starts (it asks first). The home page (`/app`) is a projects board: one card per project with its next action;
-  runs are at `/app/runs`.
+  owner starts (it asks first). The projects board (one row per project with its next action) is
+  `/app/projects`; runs are at `/app/runs`.
 - **Requirement runs are probable.** A requirement run tests an idea, so
   its results are probable risks: the UI says "Risks" with a **Probable**
   tag, "High risk", "Suggested change" and "Proposed work orders", from one
@@ -140,7 +163,7 @@ take something away.
   and a "Since version N" widget (gaps closed and new, assumptions now
   stated, issues gone and new). Answers are a draft in the browser until the
   run starts.
-- **The run page** tells a live run as a story (`components/run/story/`:
+- **The Activity tab** tells a live run as a story (`components/run/story/`:
   stepper, a card per stage that turns into its result, agents as parallel
   lanes on one clock from the events' times, focus mode `?focus=1`). A
   finished run's Issues tab is an insights page (`components/run/insights/`:
@@ -237,7 +260,7 @@ font-medium`; body is 14px; secondary text is `text-muted-foreground`.
   `Reveal` for sections that scroll into view, `FadeInItem` for rows that are
   added, `Smooth` for size changes. One soft ease-out, about half a second,
   a rise of 10px at most. The tuffui widgets keep their own motion
-  (`tuff/motion-tokens.ts`) and honour reduced motion. Nothing bounces, spins for show or loops, except
+  (`tuff/motion-tokens.ts`) and honour reduced motion. Nothing bounces, spins for show or loops, except the wind tunnel's lights while a worker works,
   the hero art and a spinner while work is going on. Do not add CSS
   keyframes or new `transition-*` classes; add a helper instead. Reduced
   motion is honoured in `MotionRoot`.
