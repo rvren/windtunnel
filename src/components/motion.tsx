@@ -178,11 +178,20 @@ export function DrawLine({
   className,
   delay = 0,
   width = 1.75,
+  stroke,
+  opacity,
+  transform,
+  filter,
 }: {
   d: string;
   className?: string;
   delay?: number;
   width?: number;
+  stroke?: string;
+  opacity?: number;
+  /** An SVG transform, such as a small offset for a shadow or a sheen. */
+  transform?: string;
+  filter?: string;
 }) {
   const reduced = useReducedMotion();
   return (
@@ -192,9 +201,38 @@ export function DrawLine({
       strokeWidth={width}
       strokeLinecap="round"
       className={className}
+      stroke={stroke}
+      opacity={opacity}
+      transform={transform}
+      filter={filter}
       initial={reduced ? false : { pathLength: 0 }}
       animate={{ pathLength: 1 }}
       transition={{ duration: 1.2, ease: EASE, delay }}
     />
+  );
+}
+
+/**
+ * Something that grows into place once, from part size: the head of an
+ * arrow arriving. Starts visible (at part size), so a paused frame still
+ * shows it; under reduced motion it is simply there.
+ */
+export function GrowIn({
+  delay = 0,
+  children,
+}: {
+  delay?: number;
+  children: React.ReactNode;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.g
+      style={{ transformBox: "fill-box", transformOrigin: "center" }}
+      initial={reduced ? false : { scale: 0.55 }}
+      animate={{ scale: 1 }}
+      transition={{ duration: 0.5, ease: EASE, delay }}
+    >
+      {children}
+    </motion.g>
   );
 }

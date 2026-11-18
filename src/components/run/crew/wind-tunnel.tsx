@@ -2,7 +2,9 @@
 
 import { motion } from "motion/react";
 
-import { DrawLine, FlowDash, Spark } from "@/components/motion";
+import { useId } from "react";
+
+import { DrawLine, FlowDash, GrowIn, Spark } from "@/components/motion";
 import { cn } from "@/lib/utils";
 import type { Crew, CrewMember } from "@/lib/viz/crew";
 
@@ -94,9 +96,9 @@ function AppStack({
                       ? "bg-card/85"
                       : "bg-card",
                   outcome === "completed"
-                    ? "border-ok/60"
+                    ? "border-ok/40"
                     : outcome === "failed"
-                      ? "border-sev-critical/60"
+                      ? "border-sev-critical/40"
                       : live
                         ? "border-brand/50"
                         : "border-foreground/20",
@@ -189,24 +191,68 @@ function verdictOf(
   return member.status === "done" ? "good" : "bad";
 }
 
+/**
+ * A run's outcome on one line, kept quiet: the line's colour fades in from
+ * left to right (green for work done, red for work that failed), and it
+ * ends in a fine open arrowhead with a faint glow.
+ */
+function OutcomeLine({
+  d,
+  y,
+  verdict,
+  delay,
+  ids,
+}: {
+  d: string;
+  y: number;
+  verdict: "good" | "bad";
+  delay: number;
+  /** The ids of the two fades, defined once in the drawing. */
+  ids: { good: string; bad: string };
+}) {
+  const base = verdict === "good" ? "var(--ok)" : "var(--sev-critical)";
+  return (
+    <g>
+      <DrawLine
+        d={d}
+        stroke={`url(#${ids[verdict]})`}
+        width={1.5}
+        delay={delay}
+      />
+      <GrowIn delay={delay + 0.9}>
+        <path
+          d={`M${TO - 7} ${y - 6} L${TO} ${y} L${TO - 7} ${y + 6}`}
+          fill="none"
+          stroke={base}
+          strokeWidth={1.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="glow-soft"
+        />
+      </GrowIn>
+    </g>
+  );
+}
+
 function Stream({
   member,
   offset,
   outcome,
   delay,
+  ids,
 }: {
   member: CrewMember;
   offset: number;
   outcome: Crew["outcome"];
   /** When its outcome starts to draw, in seconds: one line after another. */
   delay: number;
+  ids: { good: string; bad: string };
 }) {
   const y = MID + offset * GAP;
   const d = streamOf(offset);
   const live = member.status === "running";
   const pending = member.status === "pending";
   const verdict = verdictOf(member, outcome);
-  const mark = verdict === "good" ? "stroke-ok" : "stroke-sev-critical";
   return (
     <g>
       <text
@@ -247,18 +293,8 @@ function Stream({
         }
       />
       {verdict ? (
-        <>
-          {/* The outcome runs down the line and ends in an arrow. */}
-          <DrawLine d={d} className={cn(mark, "opacity-70")} delay={delay} />
-          <path
-            d={`M${TO - 10} ${y - 6} L${TO} ${y} L${TO - 10} ${y + 6}`}
-            fill="none"
-            strokeWidth={1.75}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={mark}
-          />
-        </>
+        // The outcome runs down the line and ends in an arrow.
+        <OutcomeLine d={d} y={y} verdict={verdict} delay={delay} ids={ids} />
       ) : null}
       {live ? (
         <FlowDash
@@ -333,6 +369,8 @@ export function WindTunnel({
       .map((member) => member.doing!.split("/")[0]),
   );
   const live = !crew.ended && crew.members.some((m) => m.status === "running");
+  const id = useId().replace(/:/g, "");
+  const ids = { good: `wt-good-${id}`, bad: `wt-bad-${id}` };
   return (
     <div className="@container">
       <div
@@ -345,6 +383,41 @@ export function WindTunnel({
           role="img"
           aria-label={crew.sentence}
         >
+          <defs>
+            {(["good", "bad"] as const).map((verdict) => (
+              <linearGradient
+                key={verdict}
+                id={ids[verdict]}
+                gradientUnits="userSpaceOnUse"
+                x1={FROM}
+                y1={0}
+                x2={TO}
+                y2={0}
+              >
+                <stop
+                  offset="0"
+                  stopColor={
+                    verdict === "good" ? "var(--ok)" : "var(--sev-critical)"
+                  }
+                  stopOpacity={0.05}
+                />
+                <stop
+                  offset="0.6"
+                  stopColor={
+                    verdict === "good" ? "var(--ok)" : "var(--sev-critical)"
+                  }
+                  stopOpacity={0.35}
+                />
+                <stop
+                  offset="1"
+                  stopColor={
+                    verdict === "good" ? "var(--ok)" : "var(--sev-critical)"
+                  }
+                  stopOpacity={0.85}
+                />
+              </linearGradient>
+            ))}
+          </defs>
           {crew.members.map((member, index) => (
             <Stream
               key={member.id}
@@ -352,6 +425,7 @@ export function WindTunnel({
               offset={offsetOf(index, crew.members.length)}
               outcome={crew.outcome}
               delay={index * 0.12}
+              ids={ids}
             />
           ))}
         </svg>
