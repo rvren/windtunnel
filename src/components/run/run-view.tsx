@@ -593,8 +593,9 @@ export function RunView({
               {ended ? (
                 <ResultCard result={resultOf(run)} onOpen={openTab} />
               ) : null}
-              {/* One panel: what is happening, the wind tunnel, the newest
-                  finding, and the stages as a rail along its foot. */}
+              {/* One panel, with no lines across it: what is happening, the
+                  wind tunnel, the newest finding, and the stages as a rail
+                  along its foot. */}
               <Panel className="overflow-hidden" data-testid="run-crew">
                 <div className="relative z-10 px-5 pt-5 pb-3 md:px-6 md:pt-6">
                   <CrewHeader crew={crew} />
@@ -605,7 +606,7 @@ export function RunView({
                   workspaces={run.workspaces ?? []}
                 />
                 {running ? <LatestFinding feed={feed} /> : null}
-                <div className="hidden border-t lg:block">
+                <div className="hidden lg:block">
                   <Stepper
                     variant="rail"
                     chapters={chapters}

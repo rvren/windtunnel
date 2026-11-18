@@ -457,9 +457,9 @@ sections: **Live** or **Result**, **Details** (the other tabs, `?tab=`) and
 **Activity**. The live view is the wind tunnel
 (`src/components/run/crew/wind-tunnel.tsx`), with the newest finding and
 the stages as a rail under it (`LatestFinding`, `Stepper variant="rail"`).
-Where its parts stand and the path of each stream round the application
-are `src/lib/viz/tunnel.ts`, whose test holds that no stream touches the
-application or crosses another. It is drawn from
+Where its parts stand is `src/lib/viz/tunnel.ts`: each worker's row, and
+the application's outline, which the drawing uses as a soft mask so that a
+stream fades where it touches the application. It is drawn from
 `crewOf` in `src/lib/viz/crew.ts`: the five agents from `agent.*` events,
 or a Fly-off's designers and judge and a Black Box's investigator and fixer
 from `actor.*` events (`src/server/engine/kinds/flyoff.ts`,

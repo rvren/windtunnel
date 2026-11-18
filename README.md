@@ -219,14 +219,15 @@ takes the same three steps:
    the project, give the one input that kind needs (or **Use The Example**),
    and start. It always asks first, and says whether the run is billed.
 2. **Watch.** The run page's **Live** tab is the wind tunnel, on one
-   screen: a turbine turning on the left, a rake letting out one ribbon of
-   air per worker, and the application in the middle as three layers
-   (interface, services, data) that the ribbons part around, over and
-   under, without touching it. A pulse of light runs along a ribbon while
-   its worker works, the workspace it is reading lights up, and each
-   finding breaks off as a spark into its count. Under the tunnel are the
-   newest finding and the run's stages as a progress rail.
-3. **Get the result.** When the run ends the turbine stops, each ribbon and
+   screen: a turbine turning on the left, a rake letting out one glowing
+   line per worker, and the application in the middle as three layers
+   (interface, services, data). The lines run straight into it, fade
+   where they touch it, and come out the other side. A light runs along a
+   line while its worker works, the workspace it is reading lights up, and
+   each finding leaves the application as a spark into that worker's
+   count. Under the tunnel are the newest finding and the run's stages as
+   a progress rail.
+3. **Get the result.** When the run ends the turbine stops, each line and
    the dot at its end turn green (red where work failed or the run
    stopped), and the **Result** tab
    says what the run came to in one line, three numbers and the top three

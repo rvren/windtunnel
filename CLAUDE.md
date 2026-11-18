@@ -78,22 +78,21 @@ take something away.
   **Tunnel Run** in the UI (`audit` in the code).
 - **The run page's Live/Result tab is the wind tunnel**
   (`components/run/crew/wind-tunnel.tsx`, data from `crewOf` in
-  `src/lib/viz/crew.ts`, geometry in `src/lib/viz/tunnel.ts`), drawn as a
-  real one at the owner's request, in one panel that fits a screen:
+  `src/lib/viz/crew.ts`, where things stand in `src/lib/viz/tunnel.ts`),
+  drawn as a real one at the owner's request, in one panel that fits a
+  screen:
   - A **turbofan** coming out of the left wall, turning while the run goes
     on: a bright metal lip, the fan set back in the duct, wide overlapping
-    blades, and a rounded nose cone (built from its cross-sections, so its
-    outline and shading are right for the angle).
-  - A rake with one **stream** per worker. Each is a smooth ribbon: a wide
-    faint band, a narrower one and a fine bright spine on one path. A
-    pulse of light flows along it while its worker works; a finding breaks
-    off as a spark.
+    blades, a rounded nose cone (built from its cross-sections, so its
+    outline and shading are right for the angle), and the seams of its
+    body drawn only on the side that faces us.
+  - A rake with one **stream** per worker: a simple line with a soft
+    glow. A light travels along it while its worker works; a finding
+    leaves the application as a spark.
   - The **application** as three 3D layers (interface, services with the
-    real workspaces, data), floating in the middle. The streams part round
-    it, the upper half over and the rest under, as one smooth curve each
-    (`streamPoints`), and **never touch it or cross**: `tunnel.test.ts`
-    holds that, so change the app's size or place there, not in the
-    component.
+    real workspaces, data), floating in the middle. The streams run level,
+    straight into it, **fade where they touch it** (a soft mask in the
+    shape of `appOutline`), and come out the other side.
   - Each stream ends in a small **dot** beside its worker's name and count.
     When the run ends the turbine stops, and each stream and its dot turn
     green (red where work failed or the run stopped).
@@ -101,14 +100,17 @@ take something away.
     then the **stages as a rail** (`Stepper variant="rail"`), so nothing
     about a live run is below the fold at 1440×900. The header's mono row
     of agents is left out on this tab; a long title is cut to one line.
+  - The panel has no lines across it: no rule between the tunnel and the
+    rail.
   - The owner chose it over lanes and a radar, and rejected, in order: a
     backlit fan with a grille and a marked floor, a fan on a stand ("a
     table fan"), thick wobbling smoke ("ropes"), heavy and then fine
     arrowheads, the swirl mark on the spinner, a flat kite-shaped cone,
-    hairlines and dotted particles for the streams, and angular bends.
-    Keep it elegant: fine, smooth, soft. It must look as good in the light
-    theme (pale metal, violet ribbons) as in the dark; its colours are the
-    `--wt-*` variables set on the drawing, one value per theme.
+    full rings for the body's seams (a wireframe), dotted particles,
+    ribbons, and streams bent round the application. Keep it elegant:
+    simple, fine, soft. It must look as good in the light theme (pale
+    metal, violet lines) as in the dark; its colours are the `--wt-*`
+    variables set on the drawing, one value per theme.
 
   Under it once the run has
   ended, the result card (`resultOf` in `src/lib/viz/result.ts`): one

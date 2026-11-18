@@ -6,14 +6,7 @@ import { motion } from "motion/react";
 import { DrawLine, FlowDash, GrowIn, Spark, Spin } from "@/components/motion";
 import { cn } from "@/lib/utils";
 import type { Crew, CrewMember } from "@/lib/viz/crew";
-import {
-  APP,
-  TUNNEL,
-  pathOf,
-  pointAt,
-  rowOf,
-  streamPoints,
-} from "@/lib/viz/tunnel";
+import { APP, TUNNEL, appOutline, crossing, rowOf } from "@/lib/viz/tunnel";
 
 import { clip } from "./parts";
 
@@ -21,14 +14,15 @@ import { clip } from "./parts";
  * The wind tunnel: a run's crew at work (the five agents, a fly-off's
  * designers and judge, a black box's investigator and fixer). A turbine
  * comes out of the left wall and turns while the run goes on; a rake lets
- * out one fine stream per worker; the streams part round the application
- * (a stack of layers in 3D, floating in the middle), over it and under it
- * without touching, and end in a small dot beside each worker's name and
- * count. Each stream is a smooth ribbon of air; a pulse of light flows
- * along it while its worker works, and a finding breaks off as a spark. When the run ends the turbine stops, and
- * each stream and its dot turn green (red where work failed).
+ * out one stream per worker: a simple line with a soft glow. The streams
+ * run level, straight into the application (a stack of layers in 3D,
+ * floating in the middle), fade where they touch it, and come out the
+ * other side to a small dot beside each worker's name and count. A light
+ * travels a stream while its worker works, and a finding leaves the
+ * application as a spark. When the run ends the turbine stops, and each
+ * stream and its dot turn green (red where work failed).
  *
- * Where everything stands, and each stream's path, is src/lib/viz/tunnel.ts.
+ * Where everything stands is src/lib/viz/tunnel.ts.
  */
 
 const { W, H, MID, RAKE, FROM, TO } = TUNNEL;
@@ -77,6 +71,8 @@ interface SceneIds {
   spinner: string;
   mouth: string;
   haze: string;
+  feather: string;
+  clear: string;
   fade: string;
   good: string;
   bad: string;
@@ -259,7 +255,8 @@ const LAYERS = ["Interface", "Services", "Data"] as const;
  * lit while an agent reads its code) and its data. The layers spread apart
  * while the agents take the app apart, and settle when they are done.
  * Sized in container units, so it scales with the drawing; its angles and
- * sizes are APP in src/lib/viz/tunnel.ts, which the streams steer round.
+ * sizes are APP in src/lib/viz/tunnel.ts, which also gives the outline the
+ * streams fade into.
  */
 function AppStack({
   subject,
@@ -410,84 +407,65 @@ interface StreamOf {
   member: CrewMember;
   row: number;
   d: string;
-  /** Where a finding leaves the stream: just behind the application. */
+  /** Where a finding leaves the application, on this stream. */
   wake: [number, number];
   verdict: "good" | "bad" | null;
   delay: number;
 }
 
 /**
- * The haze round one stream: a wide, faint mist, drawn inside the group
- * that blurs it. None until its worker starts.
+ * The glow round one stream: the same line, wider and faint, drawn inside
+ * the group that blurs it. None until its worker starts.
  */
-function Haze({ stream }: { stream: StreamOf }) {
+function Glow({ stream, ids }: { stream: StreamOf; ids: SceneIds }) {
   const { member, d, verdict } = stream;
   if (member.status === "pending") return null;
   return (
     <path
       d={d}
       fill="none"
-      strokeWidth={13}
+      strokeWidth={5}
       strokeLinecap="round"
-      stroke="var(--wt-smoke)"
-      opacity={verdict ? 0.04 : member.status === "running" ? 0.11 : 0.06}
+      stroke={verdict ? `url(#${ids[verdict]})` : `url(#${ids.fade})`}
+      opacity={verdict ? 0.45 : member.status === "running" ? 0.5 : 0.28}
     />
   );
 }
 
 /**
- * The stream itself: a smooth ribbon of air, the same width all along its
- * curve. It is three strokes on one path, each narrower and brighter than
- * the one under it, so the ribbon is soft at its edges and has a fine
- * bright spine. Faint until its worker starts. While the worker works a
- * pulse of light flows along it; once the run is over the outcome's colour
- * runs down it.
+ * The stream itself: one simple line. Faint until its worker starts.
+ * While the worker works a light travels along it; once the run is over
+ * the outcome's colour runs down it.
  */
-function Flow({ stream, ids }: { stream: StreamOf; ids: SceneIds }) {
+function Line({ stream, ids }: { stream: StreamOf; ids: SceneIds }) {
   const { member, d, verdict, delay } = stream;
   const pending = member.status === "pending";
   const live = member.status === "running";
-  const fade = `url(#${ids.fade})`;
-  const dim = pending || verdict ? 0.3 : live ? 1 : 0.75;
   return (
     <g fill="none" strokeLinecap="round">
-      <path d={d} strokeWidth={8} stroke={fade} opacity={0.13 * dim} />
-      <path d={d} strokeWidth={3.6} stroke={fade} opacity={0.2 * dim} />
-      <path d={d} strokeWidth={1} stroke={fade} opacity={0.9 * dim} />
+      <path
+        d={d}
+        strokeWidth={1.25}
+        stroke={`url(#${ids.fade})`}
+        opacity={pending ? 0.3 : verdict ? 0.25 : live ? 1 : 0.7}
+      />
       {verdict ? (
-        <>
-          <path
-            d={d}
-            strokeWidth={8}
-            stroke={`url(#${ids[verdict]})`}
-            opacity={0.16}
-          />
-          <DrawLine
-            d={d}
-            stroke={`url(#${ids[verdict]})`}
-            width={1.5}
-            delay={delay}
-          />
-        </>
+        <DrawLine
+          d={d}
+          stroke={`url(#${ids[verdict]})`}
+          width={1.4}
+          delay={delay}
+        />
       ) : null}
       {live ? (
-        <>
-          <FlowDash
-            d={d}
-            stroke="var(--wt-pulse-soft)"
-            width={8}
-            dash={120}
-            duration={2.8}
-          />
-          <FlowDash
-            d={d}
-            stroke="var(--wt-pulse)"
-            width={1.6}
-            dash={120}
-            duration={2.8}
-            className="glow"
-          />
-        </>
+        <FlowDash
+          d={d}
+          stroke="var(--wt-pulse)"
+          width={1.8}
+          dash={90}
+          duration={2.4}
+          className="glow"
+        />
       ) : null}
     </g>
   );
@@ -642,31 +620,32 @@ export function WindTunnel({
     spinner: `wt-spinner-${id}`,
     mouth: `wt-mouth-${id}`,
     haze: `wt-haze-${id}`,
+    feather: `wt-feather-${id}`,
+    clear: `wt-clear-${id}`,
     fade: `wt-fade-${id}`,
     good: `wt-good-${id}`,
     bad: `wt-bad-${id}`,
   };
   const count = crew.members.length;
+  // The application's outline now: wider while its layers are spread.
+  const gap = live ? APP.spread : APP.rest;
+  const outline = appOutline(gap);
   const streams: StreamOf[] = crew.members.map((member, index) => {
-    const points = streamPoints(index, count);
+    const row = rowOf(index, count);
     return {
       member,
-      row: rowOf(index, count),
-      d: pathOf(points),
-      wake: pointAt(points, APP.x + APP.w / 2 + 30),
+      row,
+      // Level, from the rake to its end: straight through the application.
+      d: `M${FROM} ${row} H${TO}`,
+      wake: [(crossing(row, gap)?.[1] ?? APP.x) + 6, row],
       verdict: verdictOf(member, crew.outcome),
       delay: index * 0.12,
     };
   });
   // Filters are sized in the drawing's own units: a level stream has no
   // height of its own to size a filter by.
-  const whole = {
-    filterUnits: "userSpaceOnUse" as const,
-    x: 0,
-    y: -40,
-    width: W,
-    height: H + 40,
-  };
+  const frame = { x: 0, y: -40, width: W, height: H + 40 };
+  const whole = { filterUnits: "userSpaceOnUse" as const, ...frame };
   return (
     <div
       className={cn(
@@ -690,7 +669,6 @@ export function WindTunnel({
         "[--wt-blade-edge:rgb(70_70_100/0.32)] dark:[--wt-blade-edge:rgb(0_0_0/0.6)]",
         "[--wt-smoke:color-mix(in_oklab,var(--brand)_70%,transparent)] dark:[--wt-smoke:rgb(255_255_255/0.85)]",
         "[--wt-pulse:var(--brand)] dark:[--wt-pulse:color-mix(in_oklab,var(--brand)_35%,white)]",
-        "[--wt-pulse-soft:color-mix(in_oklab,var(--brand)_28%,transparent)] dark:[--wt-pulse-soft:color-mix(in_oklab,var(--brand)_45%,transparent)]",
       )}
     >
       <div
@@ -747,8 +725,25 @@ export function WindTunnel({
             {/* Blurs are sized in the drawing's own units: a level stream
                 has no height of its own to size a filter by. */}
             <filter id={ids.haze} {...whole}>
-              <feGaussianBlur stdDeviation="5" />
+              <feGaussianBlur stdDeviation="3.5" />
             </filter>
+            {/* What hides the streams where they touch the application:
+                its own outline, soft at the edge, so a stream fades as it
+                goes in and comes back as it leaves. */}
+            <filter id={ids.feather} {...whole}>
+              <feGaussianBlur stdDeviation="9" />
+            </filter>
+            <mask id={ids.clear} maskUnits="userSpaceOnUse" {...frame}>
+              <rect {...frame} fill="white" />
+              <polygon
+                points={outline.map((point) => point.join(",")).join(" ")}
+                fill="black"
+                stroke="black"
+                strokeWidth={10}
+                strokeLinejoin="round"
+                filter={`url(#${ids.feather})`}
+              />
+            </mask>
             {/* A stream fades in from its nozzle. */}
             <linearGradient
               id={ids.fade}
@@ -795,22 +790,24 @@ export function WindTunnel({
             })}
           </defs>
           <Turbine turning={!crew.ended} fast={live} ids={ids} />
-          {/* The haze of every stream as one soft layer, then the streams
-              themselves, a little soft at the edge. */}
-          <g filter={`url(#${ids.haze})`}>
+          {/* The streams, hidden where they touch the application: their
+              glow as one soft layer, then the lines themselves. */}
+          <g mask={`url(#${ids.clear})`}>
+            <g filter={`url(#${ids.haze})`}>
+              {streams.map((stream) => (
+                <Glow key={stream.member.id} stream={stream} ids={ids} />
+              ))}
+            </g>
             {streams.map((stream) => (
-              <Haze key={stream.member.id} stream={stream} />
+              <Line key={stream.member.id} stream={stream} ids={ids} />
             ))}
           </g>
-          {streams.map((stream) => (
-            <Flow key={stream.member.id} stream={stream} ids={ids} />
-          ))}
           <SmokeRake rows={streams.map((stream) => stream.row)} />
           {streams.map((stream) => (
             <Marks key={stream.member.id} stream={stream} />
           ))}
         </svg>
-        {/* The application, standing clear of every stream. */}
+        {/* The application, which the streams run into. */}
         <AppStack
           subject={subject}
           workspaces={workspaces}
