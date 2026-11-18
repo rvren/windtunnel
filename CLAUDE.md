@@ -96,10 +96,16 @@ take something away.
   - Each stream ends in a small **dot** beside its worker's name and count.
     When the run ends the turbine stops, and each stream and its dot turn
     green (red where work failed or the run stopped).
-  - Under the drawing: the **newest finding** as one line (`LatestFinding`),
-    then the **stages as a rail** (`Stepper variant="rail"`), so nothing
-    about a live run is below the fold at 1440×900. The header's mono row
-    of agents is left out on this tab; a long title is cut to one line.
+  - **While the run goes on the page is as little as it can be** (the
+    owner asked for something very simple that still has impact): the
+    header is one line, the title and the figures (`RunHeader minimal`);
+    there are no tabs; one large sentence says what is happening; the
+    workers have their names only; under the drawing are the newest
+    finding as one line (`LatestFinding`) and the stages as one progress
+    line with the stage's name (`StageProgress`). Do not add to it.
+  - **When the run ends** the header and tabs come back, the result card
+    sits above the tunnel, each worker's note shows under its name, and
+    the stages show as a rail with their times (`Stepper variant="rail"`).
   - The panel has no lines across it: no rule between the tunnel and the
     rail.
   - The owner chose it over lanes and a radar, and rejected, in order: a

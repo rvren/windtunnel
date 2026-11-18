@@ -225,13 +225,15 @@ takes the same three steps:
    where they touch it, and come out the other side. A light runs along a
    line while its worker works, the workspace it is reading lights up, and
    each finding leaves the application as a spark into that worker's
-   count. Under the tunnel are the newest finding and the run's stages as
-   a progress rail.
+   count. Nothing else is on the page while the run goes on: one large
+   sentence saying what is happening, the newest finding, and one
+   progress line with the stage's name.
 3. **Get the result.** When the run ends the turbine stops, each line and
    the dot at its end turn green (red where work failed or the run
    stopped), and the **Result** tab
    says what the run came to in one line, three numbers and the top three
-   items, with one button into the detail. **Details** holds everything else
+   items, with one button into the detail. The stages then show as a rail
+   with the time each took. **Details** holds everything else
    (issues, work orders, map, model, scoreboard); **Activity** holds the
    step-by-step story.
 

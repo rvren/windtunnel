@@ -52,7 +52,7 @@ import { CrewHeader } from "./crew/parts";
 import { WindTunnel } from "./crew/wind-tunnel";
 import { LatestFinding, LiveFindings } from "./live-findings";
 import { ResultCard } from "./result-card";
-import { RunHeader, StageChecklist } from "./run-header";
+import { RunHeader } from "./run-header";
 import { DeleteRunButton } from "./run-delete";
 import { ActivityRail } from "./activity-rail";
 import {
@@ -65,6 +65,7 @@ import { RequirementDiff, VersionSwitcher } from "./refine/versions";
 
 import { Story } from "./story/story";
 import { RunFocus } from "./story/focus";
+import { StageProgress } from "./story/stage-progress";
 import { Stepper } from "./story/stepper";
 import type { TrackedState } from "@/components/issues/state-chip";
 import { Insights } from "./insights/insights";
@@ -392,8 +393,10 @@ export function RunView({
   }
   const inDetails = details.some((item) => item.id === tab);
   // A tab asked for in the address that this run does not have yet.
+  // While the run goes on there is one view, the live one; the tabs come
+  // with its end.
   const shown: RunTab =
-    tab === "summary" || tab === "activity" || inDetails ? tab : "summary";
+    !running && (tab === "activity" || inDetails) ? tab : "summary";
   const section =
     shown === "activity" ? "activity" : inDetails ? "details" : "summary";
 
@@ -577,6 +580,7 @@ export function RunView({
           tools={tools}
           actions={actions}
           tabs={tabs}
+          minimal={running}
         />
 
         {running && !connected ? (
@@ -597,32 +601,43 @@ export function RunView({
                   wind tunnel, the newest finding, and the stages as a rail
                   along its foot. */}
               <Panel className="overflow-hidden" data-testid="run-crew">
-                <div className="relative z-10 px-5 pt-5 pb-3 md:px-6 md:pt-6">
-                  <CrewHeader crew={crew} />
-                </div>
+                {running ? (
+                  // While the run goes on: one large sentence, and nothing
+                  // else to read above the tunnel.
+                  <p
+                    className="relative z-10 px-6 pt-9 text-center text-2xl leading-snug font-semibold tracking-[-0.02em] text-balance md:text-3xl"
+                    aria-live="polite"
+                    data-testid="run-now"
+                  >
+                    {crew.sentence}
+                  </p>
+                ) : (
+                  <div className="relative z-10 px-5 pt-5 pb-3 md:px-6 md:pt-6">
+                    <CrewHeader crew={crew} />
+                  </div>
+                )}
                 <WindTunnel
                   crew={crew}
                   subject={context.projectName ?? run.title}
                   workspaces={run.workspaces ?? []}
                 />
-                {running ? <LatestFinding feed={feed} /> : null}
-                <div className="hidden lg:block">
-                  <Stepper
-                    variant="rail"
-                    chapters={chapters}
-                    onSelect={() => setTab("activity")}
-                  />
-                </div>
-              </Panel>
-              {running ? (
-                <>
-                  {/* A rail of every stage does not fit a narrow screen. */}
-                  <div className="lg:hidden">
-                    <StageChecklist title="Stages" chapters={chapters} />
+                {running ? (
+                  <>
+                    <LatestFinding feed={feed} />
+                    <StageProgress chapters={chapters} />
+                  </>
+                ) : (
+                  // Once it has ended: every stage, with its time.
+                  <div className="hidden lg:block">
+                    <Stepper
+                      variant="rail"
+                      chapters={chapters}
+                      onSelect={() => setTab("activity")}
+                    />
                   </div>
-                  <LiveFindings feed={feed} />
-                </>
-              ) : null}
+                )}
+              </Panel>
+              {running ? <LiveFindings feed={feed} /> : null}
               {(run.requirement &&
                 (run.requirement !== run.title || run.documents.length > 0)) ||
               context.parent ? (

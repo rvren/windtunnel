@@ -411,6 +411,8 @@ interface StreamOf {
   wake: [number, number];
   verdict: "good" | "bad" | null;
   delay: number;
+  /** The run is going on: names only, nothing under them. */
+  quiet: boolean;
 }
 
 /**
@@ -513,11 +515,13 @@ function EndNode({
 
 /** What is written at the end of a stream: the worker, its dot, its count. */
 function Marks({ stream }: { stream: StreamOf }) {
-  const { member, row: y, verdict, delay, wake } = stream;
+  const { member, row: y, verdict, delay, wake, quiet } = stream;
   const live = member.status === "running";
   const pending = member.status === "pending";
   // A worker with no count beside it has the whole width for its words.
-  const room = member.findings === null ? 32 : live ? 20 : 24;
+  const room = member.findings === null ? 32 : 24;
+  // What it came to, under its name, once the run is over.
+  const note = quiet ? null : member.note;
   return (
     <g>
       {member.latest ? (
@@ -536,7 +540,7 @@ function Marks({ stream }: { stream: StreamOf }) {
       />
       <text
         x={LABEL}
-        y={live || member.note ? y - 2 : y + 5}
+        y={note ? y - 2 : y + 5}
         className={cn(
           "text-[15px] @max-lg:hidden",
           pending ? "fill-muted-foreground" : "fill-foreground",
@@ -544,18 +548,16 @@ function Marks({ stream }: { stream: StreamOf }) {
       >
         {member.name}
       </text>
-      {live || member.note ? (
+      {note ? (
         <text
           x={LABEL}
           y={y + 15}
           className={cn(
             "fill-muted-foreground text-[11px] @max-lg:hidden",
-            // A file in mono; a step in words in the body face.
-            live && !member.doing?.includes(" ") && "font-mono",
             member.status === "failed" && "fill-sev-critical",
           )}
         >
-          {clip(live ? (member.doing ?? "starting") : member.note, room)}
+          {clip(note, room)}
         </text>
       ) : null}
       {member.findings !== null ? (
@@ -640,6 +642,7 @@ export function WindTunnel({
       wake: [(crossing(row, gap)?.[1] ?? APP.x) + 6, row],
       verdict: verdictOf(member, crew.outcome),
       delay: index * 0.12,
+      quiet: !crew.ended,
     };
   });
   // Filters are sized in the drawing's own units: a level stream has no

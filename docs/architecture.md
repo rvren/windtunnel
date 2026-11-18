@@ -455,8 +455,11 @@ and the projects from `src/lib/viz/sidebar.ts`, read in
 is one header panel (`src/components/run/run-header.tsx`) and three
 sections: **Live** or **Result**, **Details** (the other tabs, `?tab=`) and
 **Activity**. The live view is the wind tunnel
-(`src/components/run/crew/wind-tunnel.tsx`), with the newest finding and
-the stages as a rail under it (`LatestFinding`, `Stepper variant="rail"`).
+(`src/components/run/crew/wind-tunnel.tsx`). While the run goes on the
+page holds little else: a one-line header (`RunHeader minimal`), the
+newest finding (`LatestFinding`) and one progress line (`StageProgress`);
+when it ends the tabs return and the stages show as a rail
+(`Stepper variant="rail"`).
 Where its parts stand is `src/lib/viz/tunnel.ts`: each worker's row, and
 the application's outline, which the drawing uses as a soft mask so that a
 stream fades where it touches the application. It is drawn from

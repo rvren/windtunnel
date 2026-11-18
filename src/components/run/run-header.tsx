@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Circle, LoaderCircle, X } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 
 import { Panel } from "@/components/panel";
 import { AGENT_IDS, agentById, type AgentId } from "@/lib/agents";
@@ -10,7 +10,6 @@ import { formatCost } from "@/lib/cost";
 import { plainTitle } from "@/lib/features";
 import { KIND_LABEL, RUN_STATUS_LABEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import type { Chapter } from "@/lib/viz/story";
 import type { RunTimes } from "@/lib/viz/times";
 import type { AgentStatus, RunRecord, RunStatus } from "@/server/engine/schema";
 
@@ -19,8 +18,8 @@ import { seconds } from "./stage-time";
 /*
  * The run page's frame, after the reference layout: one bordered header
  * with the breadcrumb, the title, one grey line, the agents in a mono row,
- * the status figures on the right and the tabs. The checklist of stages
- * sits under the live view while the run goes on.
+ * the status figures on the right and the tabs. While a run goes on it is
+ * one line (`minimal`): the title and the figures.
  */
 
 const STATUS_DOT: Record<RunStatus, string> = {
@@ -86,6 +85,7 @@ export function RunHeader({
   tools,
   actions,
   tabs,
+  minimal = false,
 }: {
   run: RunRecord;
   times: RunTimes;
@@ -101,62 +101,83 @@ export function RunHeader({
   tools: React.ReactNode;
   actions: React.ReactNode;
   tabs: React.ReactNode;
+  /**
+   * One line only: the title and the figures. For a run in progress, so
+   * nothing takes the eye from what is happening.
+   */
+  minimal?: boolean;
 }) {
   const running = run.status === "running";
   const elapsed = useElapsed(times, running);
   const tokens = tokensOf(run);
   const kind = run.kind ?? "audit";
-  return (
-    <Panel className="p-5 sm:p-6" data-testid="run-header">
-      <div className="flex items-center justify-between gap-3">
-        <nav
-          aria-label="Breadcrumb"
-          className="flex flex-wrap items-center gap-1.5 text-[0.8125rem] text-muted-foreground"
-        >
-          <Link href="/app/runs" className="hover:text-foreground">
-            Runs
-          </Link>
-          {run.projectId && projectName ? (
-            <>
-              <span aria-hidden="true">/</span>
-              <Link
-                href={`/app/projects/${run.projectId}`}
-                className="hover:text-foreground"
-              >
-                {projectName}
-              </Link>
-            </>
-          ) : null}
-          <span aria-hidden="true">/</span>
-          <span>
-            {kind === "audit" && !run.source ? "Requirement" : KIND_LABEL[kind]}
-          </span>
-          {run.sample ? null : (
-            <>
-              <span aria-hidden="true">/</span>
-              <span className="font-mono">{run.models.reasoning}</span>
-            </>
-          )}
-        </nav>
-        <div className="-my-1 flex items-center gap-0.5 text-muted-foreground">
-          {tools}
+  const body = (
+    <>
+      {minimal ? null : (
+        <div className="flex items-center justify-between gap-3">
+          <nav
+            aria-label="Breadcrumb"
+            className="flex flex-wrap items-center gap-1.5 text-[0.8125rem] text-muted-foreground"
+          >
+            <Link href="/app/runs" className="hover:text-foreground">
+              Runs
+            </Link>
+            {run.projectId && projectName ? (
+              <>
+                <span aria-hidden="true">/</span>
+                <Link
+                  href={`/app/projects/${run.projectId}`}
+                  className="hover:text-foreground"
+                >
+                  {projectName}
+                </Link>
+              </>
+            ) : null}
+            <span aria-hidden="true">/</span>
+            <span>
+              {kind === "audit" && !run.source
+                ? "Requirement"
+                : KIND_LABEL[kind]}
+            </span>
+            {run.sample ? null : (
+              <>
+                <span aria-hidden="true">/</span>
+                <span className="font-mono">{run.models.reasoning}</span>
+              </>
+            )}
+          </nav>
+          <div className="-my-1 flex items-center gap-0.5 text-muted-foreground">
+            {tools}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="mt-2 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div
+        className={cn(
+          "flex flex-wrap justify-between gap-x-6 gap-y-3",
+          minimal ? "items-center" : "mt-2 items-start",
+        )}
+      >
         <div className="min-w-0 flex-1 basis-64">
           {/* The kind is in the breadcrumb, so not said again here. A long
               title (a whole requirement) is cut to a line; the full text
               is in the tooltip and under Requirement. */}
           <h1
-            className="line-clamp-2 text-3xl leading-tight font-semibold tracking-[-0.03em] lg:line-clamp-1"
+            className={cn(
+              "leading-tight font-semibold tracking-[-0.03em]",
+              minimal
+                ? "truncate text-xl"
+                : "line-clamp-2 text-3xl lg:line-clamp-1",
+            )}
             title={run.title}
           >
             {plainTitle(run.title)}
           </h1>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-            {subtitle}
-          </p>
+          {minimal ? null : (
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              {subtitle}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {/* The figures, as one quiet group. */}
@@ -237,79 +258,18 @@ export function RunHeader({
         </p>
       )}
 
-      <div className="mt-5 min-w-0 overflow-x-auto">{tabs}</div>
-    </Panel>
+      {minimal ? null : (
+        <div className="mt-5 min-w-0 overflow-x-auto">{tabs}</div>
+      )}
+    </>
   );
-}
-
-/** One stage of the checklist: its mark, name, what it said, its time. */
-function Step({ chapter }: { chapter: Chapter }) {
-  const pending = chapter.state === "pending";
-  return (
-    <li
-      className="flex items-start gap-3 px-4 py-2.5"
-      data-testid="run-step"
-      data-state={chapter.state}
-    >
-      <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
-        {chapter.state === "running" ? (
-          <LoaderCircle className="size-3.5 animate-spin text-link" />
-        ) : chapter.state === "done" ? (
-          <Check className="size-3.5 text-ok" />
-        ) : chapter.state === "failed" ? (
-          <X className="size-3.5 text-sev-critical" />
-        ) : (
-          <Circle className="size-3 text-muted-foreground/40" />
-        )}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span
-          className={cn(
-            "block text-[0.8125rem]",
-            pending ? "text-muted-foreground/60" : "text-foreground",
-          )}
-        >
-          {chapter.label}
-        </span>
-        {chapter.line && !pending ? (
-          <span className="block text-xs text-muted-foreground">
-            {chapter.line}
-          </span>
-        ) : null}
-      </span>
-      {chapter.state === "running" ? (
-        <span className="text-xs text-link">Running</span>
-      ) : chapter.seconds !== null ? (
-        <span className="font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
-          {seconds(chapter.seconds)}
-        </span>
-      ) : null}
-    </li>
-  );
-}
-
-/** The run's stages as a checklist, in a card. */
-export function StageChecklist({
-  title,
-  chapters,
-}: {
-  title: string;
-  chapters: Chapter[];
-}) {
-  const done = chapters.filter((chapter) => chapter.state === "done").length;
-  return (
-    <Panel className="overflow-hidden" data-testid="run-checklist">
-      <header className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
-        <h2 className="truncate text-[0.8125rem] font-medium">{title}</h2>
-        <span className="font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
-          {done}/{chapters.length}
-        </span>
-      </header>
-      <ol className="divide-y divide-border/60">
-        {chapters.map((chapter) => (
-          <Step key={chapter.stage} chapter={chapter} />
-        ))}
-      </ol>
+  return minimal ? (
+    <div className="px-1" data-testid="run-header">
+      {body}
+    </div>
+  ) : (
+    <Panel className="p-5 sm:p-6" data-testid="run-header">
+      {body}
     </Panel>
   );
 }
