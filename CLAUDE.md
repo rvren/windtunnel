@@ -78,19 +78,46 @@ take something away.
   **Tunnel Run** in the UI (`audit` in the code).
 - **The run page's Live/Result tab is the wind tunnel**
   (`components/run/crew/wind-tunnel.tsx`, data from `crewOf` in
-  `src/lib/viz/crew.ts`): the app as three 3D layers (interface, services
-  with the real workspaces, data), each worker a line of air parting round
-  it, one light on the line while it works, a spark per finding, and when
-  the run ends a green arrow per line (red where work failed or the run
-  stopped). The owner chose it over lanes and a radar, then asked for it
-  cleaner: no status dots, no halo, no dashed wakes, no labels beyond the
-  name, one line of what it is on, and the count. Under it once the run has
+  `src/lib/viz/crew.ts`, geometry in `src/lib/viz/tunnel.ts`), drawn as a
+  real one at the owner's request, in one panel that fits a screen:
+  - A **turbofan** coming out of the left wall, turning while the run goes
+    on: a bright metal lip, the fan set back in the duct, wide overlapping
+    blades, and a rounded nose cone (built from its cross-sections, so its
+    outline and shading are right for the angle).
+  - A rake with one **stream** per worker. Each is a smooth ribbon: a wide
+    faint band, a narrower one and a fine bright spine on one path. A
+    pulse of light flows along it while its worker works; a finding breaks
+    off as a spark.
+  - The **application** as three 3D layers (interface, services with the
+    real workspaces, data), floating in the middle. The streams part round
+    it, the upper half over and the rest under, as one smooth curve each
+    (`streamPoints`), and **never touch it or cross**: `tunnel.test.ts`
+    holds that, so change the app's size or place there, not in the
+    component.
+  - Each stream ends in a small **dot** beside its worker's name and count.
+    When the run ends the turbine stops, and each stream and its dot turn
+    green (red where work failed or the run stopped).
+  - Under the drawing: the **newest finding** as one line (`LatestFinding`),
+    then the **stages as a rail** (`Stepper variant="rail"`), so nothing
+    about a live run is below the fold at 1440×900. The header's mono row
+    of agents is left out on this tab; a long title is cut to one line.
+  - The owner chose it over lanes and a radar, and rejected, in order: a
+    backlit fan with a grille and a marked floor, a fan on a stand ("a
+    table fan"), thick wobbling smoke ("ropes"), heavy and then fine
+    arrowheads, the swirl mark on the spinner, a flat kite-shaped cone,
+    hairlines and dotted particles for the streams, and angular bends.
+    Keep it elegant: fine, smooth, soft. It must look as good in the light
+    theme (pale metal, violet ribbons) as in the dark; its colours are the
+    `--wt-*` variables set on the drawing, one value per theme.
+
+  Under it once the run has
   ended, the result card (`resultOf` in `src/lib/viz/result.ts`): one
   headline, three numbers, the top three items, one button. The other tabs
   sit under **Details** as a second row of pills; the story is in
   **Activity**. A Fly-off's and a Black Box's workers report through the
   `actor.*` events; a new kind adds its workers to `features.ts` and emits
   those events.
+
 - **The frame of every detail page** (a run, a project), after the reference layout
   (the look stays this one): one bordered header panel holding a breadcrumb with small icon
   tools on its right, the title, one grey line of details, a mono row of

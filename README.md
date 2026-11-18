@@ -218,13 +218,17 @@ takes the same three steps:
 1. **Choose.** A card opens the start page (`/app/runs/new?kind=…`): pick
    the project, give the one input that kind needs (or **Use The Example**),
    and start. It always asks first, and says whether the run is billed.
-2. **Watch.** The run page's **Live** tab is the wind tunnel: the
-   application in the middle as three layers (interface, services, data),
-   and each worker as a line of air that parts around it. A light runs along
-   the line while the worker works, the workspace it is reading lights up,
-   and each finding breaks off as a spark into its count.
-3. **Get the result.** When the run ends, each line draws through to a green
-   arrow (red where work failed or the run stopped), and the **Result** tab
+2. **Watch.** The run page's **Live** tab is the wind tunnel, on one
+   screen: a turbine turning on the left, a rake letting out one ribbon of
+   air per worker, and the application in the middle as three layers
+   (interface, services, data) that the ribbons part around, over and
+   under, without touching it. A pulse of light runs along a ribbon while
+   its worker works, the workspace it is reading lights up, and each
+   finding breaks off as a spark into its count. Under the tunnel are the
+   newest finding and the run's stages as a progress rail.
+3. **Get the result.** When the run ends the turbine stops, each ribbon and
+   the dot at its end turn green (red where work failed or the run
+   stopped), and the **Result** tab
    says what the run came to in one line, three numbers and the top three
    items, with one button into the detail. **Details** holds everything else
    (issues, work orders, map, model, scoreboard); **Activity** holds the

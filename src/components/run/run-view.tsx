@@ -50,7 +50,7 @@ import {
 import { ConfirmRunDialog, type RunCost } from "./confirm-run";
 import { CrewHeader } from "./crew/parts";
 import { WindTunnel } from "./crew/wind-tunnel";
-import { LiveFindings } from "./live-findings";
+import { LatestFinding, LiveFindings } from "./live-findings";
 import { ResultCard } from "./result-card";
 import { RunHeader, StageChecklist } from "./run-header";
 import { DeleteRunButton } from "./run-delete";
@@ -65,6 +65,7 @@ import { RequirementDiff, VersionSwitcher } from "./refine/versions";
 
 import { Story } from "./story/story";
 import { RunFocus } from "./story/focus";
+import { Stepper } from "./story/stepper";
 import type { TrackedState } from "@/components/issues/state-chip";
 import { Insights } from "./insights/insights";
 import { ModelTab, ScoreboardTab, WorkOrdersTab } from "./run-report";
@@ -567,7 +568,12 @@ export function RunView({
           projectName={context.projectName ?? null}
           subtitle={subtitle}
           agents={agents}
-          stageAt={`Stage ${Math.min(doneStages + (running ? 1 : 0), chapters.length)}/${chapters.length}`}
+          stageAt={
+            // The wind tunnel and its rail say this, where they are shown.
+            section === "summary"
+              ? null
+              : `Stage ${Math.min(doneStages + (running ? 1 : 0), chapters.length)}/${chapters.length}`
+          }
           tools={tools}
           actions={actions}
           tabs={tabs}
@@ -587,19 +593,34 @@ export function RunView({
               {ended ? (
                 <ResultCard result={resultOf(run)} onOpen={openTab} />
               ) : null}
-              <Panel className="space-y-4 p-5 md:p-6" data-testid="run-crew">
-                <CrewHeader crew={crew} />
+              {/* One panel: what is happening, the wind tunnel, the newest
+                  finding, and the stages as a rail along its foot. */}
+              <Panel className="overflow-hidden" data-testid="run-crew">
+                <div className="relative z-10 px-5 pt-5 pb-3 md:px-6 md:pt-6">
+                  <CrewHeader crew={crew} />
+                </div>
                 <WindTunnel
                   crew={crew}
                   subject={context.projectName ?? run.title}
                   workspaces={run.workspaces ?? []}
                 />
+                {running ? <LatestFinding feed={feed} /> : null}
+                <div className="hidden border-t lg:block">
+                  <Stepper
+                    variant="rail"
+                    chapters={chapters}
+                    onSelect={() => setTab("activity")}
+                  />
+                </div>
               </Panel>
               {running ? (
-                <div className="grid items-start gap-5 lg:grid-cols-2">
-                  <StageChecklist title="Stages" chapters={chapters} />
+                <>
+                  {/* A rail of every stage does not fit a narrow screen. */}
+                  <div className="lg:hidden">
+                    <StageChecklist title="Stages" chapters={chapters} />
+                  </div>
                   <LiveFindings feed={feed} />
-                </div>
+                </>
               ) : null}
               {(run.requirement &&
                 (run.requirement !== run.title || run.documents.length > 0)) ||

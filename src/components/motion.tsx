@@ -236,3 +236,30 @@ export function GrowIn({
     </motion.g>
   );
 }
+
+/**
+ * Turns an SVG group round its centre without end: the tunnel's fan while
+ * a run goes on. The group must be drawn round its own centre. Still when
+ * `on` is false and under reduced motion.
+ */
+export function Spin({
+  on,
+  duration = 1.6,
+  children,
+}: {
+  on: boolean;
+  duration?: number;
+  children: React.ReactNode;
+}) {
+  const reduced = useReducedMotion();
+  if (!on || reduced) return <g>{children}</g>;
+  return (
+    <motion.g
+      initial={{ rotate: 0 }}
+      animate={{ rotate: 360 }}
+      transition={{ duration, ease: "linear", repeat: Infinity }}
+    >
+      {children}
+    </motion.g>
+  );
+}

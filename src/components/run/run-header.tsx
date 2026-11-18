@@ -7,6 +7,7 @@ import { Check, Circle, LoaderCircle, X } from "lucide-react";
 import { Panel } from "@/components/panel";
 import { AGENT_IDS, agentById, type AgentId } from "@/lib/agents";
 import { formatCost } from "@/lib/cost";
+import { plainTitle } from "@/lib/features";
 import { KIND_LABEL, RUN_STATUS_LABEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import type { Chapter } from "@/lib/viz/story";
@@ -94,7 +95,8 @@ export function RunHeader({
   /** The agents' states, or null for a kind they take no part in. */
   agents: Record<AgentId, { status: AgentStatus; findings: number }> | null;
   /** "Stage 5/8". */
-  stageAt: string;
+  /** "Stage 4/8"; null leaves the whole mono row out. */
+  stageAt: string | null;
   /** Small icon buttons at the top right, beside the breadcrumb. */
   tools: React.ReactNode;
   actions: React.ReactNode;
@@ -142,9 +144,15 @@ export function RunHeader({
       </div>
 
       <div className="mt-2 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="min-w-0">
-          <h1 className="text-3xl leading-tight font-semibold tracking-[-0.03em]">
-            {run.title}
+        <div className="min-w-0 flex-1 basis-64">
+          {/* The kind is in the breadcrumb, so not said again here. A long
+              title (a whole requirement) is cut to a line; the full text
+              is in the tooltip and under Requirement. */}
+          <h1
+            className="line-clamp-2 text-3xl leading-tight font-semibold tracking-[-0.03em] lg:line-clamp-1"
+            title={run.title}
+          >
+            {plainTitle(run.title)}
           </h1>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
             {subtitle}
@@ -196,35 +204,38 @@ export function RunHeader({
         </div>
       </div>
 
-      {/* The agents, in one mono line: who is doing what. */}
-      <p
-        className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground"
-        data-testid="run-agents-row"
-      >
-        {agents
-          ? AGENT_IDS.map((id) => {
-              const agent = agents[id];
-              return (
-                <span key={id}>
-                  <span className="text-foreground/80">
-                    {agentById(id)?.name ?? id}
-                  </span>{" "}
-                  <span
-                    className={cn(
-                      agent.status === "running" && "text-link",
-                      agent.status === "failed" && "text-sev-critical",
-                    )}
-                  >
-                    {agent.findings > 0
-                      ? `${agent.findings} found`
-                      : AGENT_WORD[agent.status]}
+      {/* The agents, in one mono line: who is doing what. Left out where
+          the page shows the same just below (the wind tunnel). */}
+      {stageAt === null ? null : (
+        <p
+          className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground"
+          data-testid="run-agents-row"
+        >
+          {agents
+            ? AGENT_IDS.map((id) => {
+                const agent = agents[id];
+                return (
+                  <span key={id}>
+                    <span className="text-foreground/80">
+                      {agentById(id)?.name ?? id}
+                    </span>{" "}
+                    <span
+                      className={cn(
+                        agent.status === "running" && "text-link",
+                        agent.status === "failed" && "text-sev-critical",
+                      )}
+                    >
+                      {agent.findings > 0
+                        ? `${agent.findings} found`
+                        : AGENT_WORD[agent.status]}
+                    </span>
                   </span>
-                </span>
-              );
-            })
-          : null}
-        <span>{stageAt}</span>
-      </p>
+                );
+              })
+            : null}
+          <span>{stageAt}</span>
+        </p>
+      )}
 
       <div className="mt-5 min-w-0 overflow-x-auto">{tabs}</div>
     </Panel>

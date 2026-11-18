@@ -1,39 +1,254 @@
 "use client";
 
+import { useId } from "react";
 import { motion } from "motion/react";
 
-import { useId } from "react";
-
-import { DrawLine, FlowDash, GrowIn, Spark } from "@/components/motion";
+import { DrawLine, FlowDash, GrowIn, Spark, Spin } from "@/components/motion";
 import { cn } from "@/lib/utils";
 import type { Crew, CrewMember } from "@/lib/viz/crew";
+import {
+  APP,
+  TUNNEL,
+  pathOf,
+  pointAt,
+  rowOf,
+  streamPoints,
+} from "@/lib/viz/tunnel";
 
 import { clip } from "./parts";
 
 /*
  * The wind tunnel: a run's crew at work (the five agents, a fly-off's
- * designers and judge, a black box's investigator and fixer). The
- * application sits in the middle, as a stack of layers in 3D. Each worker
- * is a line of air that parts around it; a single light travels along the
- * line while it works. A finding (or a finished piece of work) breaks off
- * as a spark and lands at the end of its line. When the run ends each line
- * draws through to an arrow, green for work done and red for work that
- * failed, and the app's edge takes the run's colour.
+ * designers and judge, a black box's investigator and fixer). A turbine
+ * comes out of the left wall and turns while the run goes on; a rake lets
+ * out one fine stream per worker; the streams part round the application
+ * (a stack of layers in 3D, floating in the middle), over it and under it
+ * without touching, and end in a small dot beside each worker's name and
+ * count. Each stream is a smooth ribbon of air; a pulse of light flows
+ * along it while its worker works, and a finding breaks off as a spark. When the run ends the turbine stops, and
+ * each stream and its dot turn green (red where work failed).
+ *
+ * Where everything stands, and each stream's path, is src/lib/viz/tunnel.ts.
  */
 
-const W = 1000;
-const H = 430;
-const MID = H / 2;
-const GAP = 58;
-const BOX = { x: 455, y: MID - 150, w: 210, h: 300 };
-const FROM = 250;
-const TO = 850;
+const { W, H, MID, RAKE, FROM, TO } = TUNNEL;
+const BOX = { x: APP.x - APP.w / 2, y: APP.y - APP.h / 2, w: APP.w, h: APP.h };
+const LABEL = TO + 24;
+/** The right edge of the counts: the drawing runs to the panel's edge. */
+const RIGHT = W - 30;
 /**
- * How far a line is pushed at the app: a base, and more for each step
- * further from the middle. The middle line (in an odd crew) meets it.
+ * The turbine: the centre and radius of its mouth, seen at an angle
+ * (squeezed sideways), the width of its lip, and how far back in the duct
+ * the fan sits. Its body runs back into the left wall.
  */
-const PUSH_BASE = 78;
-const PUSH_STEP = 50;
+const TURBINE = { x: 126, y: MID, r: 80, squeeze: 0.46, lip: 15, deep: 0.24 };
+/** The nose cone's cross-sections, from its base (0) to its tip (1). */
+const NOSE = Array.from({ length: 30 }, (_, index) => index / 29);
+/** Its blades: wide, swept, and overlapping, as on a turbofan. */
+const BLADES = Array.from({ length: 22 }, (_, index) => (index * 360) / 22);
+
+/**
+ * One wide, swept blade, pointing right from the spinner: its leading
+ * edge sweeps forward to the tip, its tip follows the duct, and its
+ * trailing edge comes back to the spinner. Wider than the space between
+ * two blades, so each overlaps the next.
+ */
+function bladePath(r: number): string {
+  const hub = r * 0.3;
+  const point = (radius: number, degrees: number) => {
+    const angle = (degrees * Math.PI) / 180;
+    return `${radius * Math.cos(angle)} ${radius * Math.sin(angle)}`;
+  };
+  return [
+    `M${point(hub, -14)}`,
+    `C${r * 0.5} ${-r * 0.2} ${r * 0.74} ${-r * 0.36} ${point(r, -21)}`,
+    `A${r} ${r} 0 0 1 ${point(r, 2)}`,
+    `C${r * 0.76} ${r * 0.0} ${r * 0.52} ${r * 0.07} ${point(hub, 17)}`,
+    "Z",
+  ].join(" ");
+}
+
+interface SceneIds {
+  halo: string;
+  body: string;
+  lip: string;
+  duct: string;
+  blade: string;
+  spinner: string;
+  mouth: string;
+  haze: string;
+  fade: string;
+  good: string;
+  bad: string;
+}
+
+/**
+ * The turbine: a turbofan coming out of the left wall. A shaded nacelle
+ * with its panel lines; a bright metal lip; inside it the duct, with the
+ * fan set back in it (so the duct's far wall shows beside the fan); wide
+ * metal blades that overlap round the spinner's cone, turning while the
+ * run goes on. The duct glows while it turns. Colours come from the
+ * --wt-* variables, one set per theme.
+ */
+function Turbine({
+  turning,
+  fast,
+  ids,
+}: {
+  turning: boolean;
+  /** Workers are at work: it turns at full speed. */
+  fast: boolean;
+  ids: SceneIds;
+}) {
+  const { x, y, r, squeeze, lip, deep } = TURBINE;
+  const outer = r + lip;
+  const fan = r * 0.95;
+  const blade = bladePath(fan);
+  // The spinner's base, and where its tip lands seen from this angle.
+  const hub = fan * 0.3;
+  const reach = hub * 1.75;
+  return (
+    <g aria-hidden="true">
+      {/* Its light, spilling into the room. */}
+      <ellipse
+        cx={x + 40}
+        cy={y}
+        rx={290}
+        ry={205}
+        fill={`url(#${ids.halo})`}
+        opacity={turning ? 1 : 0.4}
+      />
+
+      {/* The nacelle, running back into the wall: shaded from a light top
+          to a dark underside. */}
+      <path
+        d={`M${x} ${y - outer} C${x - 50} ${y - outer} ${x - 100} ${y - outer + 5} -30 ${y - outer + 13} L-30 ${y + outer - 13} C${x - 100} ${y + outer - 5} ${x - 50} ${y + outer} ${x} ${y + outer} Z`}
+        fill={`url(#${ids.body})`}
+        strokeWidth={1}
+        className="stroke-foreground/15"
+      />
+      {/* Panel seams round the body. Only the half of each ring that
+          faces us is drawn (the left of its ellipse, from this angle), as
+          a groove: a dark line with a faint light edge beside it. */}
+      {[46, 92].map((back) => {
+        const rx = outer * squeeze * 0.97;
+        const ry = outer - 1 - back * 0.085;
+        const seam = (dx: number) =>
+          `M${x - back + dx} ${y - ry} A${rx} ${ry} 0 0 0 ${x - back + dx} ${y + ry}`;
+        return (
+          <g key={back} fill="none" strokeLinecap="round">
+            <path d={seam(0)} strokeWidth={1.1} stroke="var(--wt-seam)" />
+            <path
+              d={seam(1.4)}
+              strokeWidth={0.8}
+              stroke="var(--wt-metal-hi)"
+              opacity={0.28}
+            />
+          </g>
+        );
+      })}
+
+      {/* Its mouth, seen at an angle. */}
+      <g transform={`translate(${x} ${y}) scale(${squeeze} 1)`}>
+        <clipPath id={ids.mouth}>
+          <circle r={r} />
+        </clipPath>
+        {/* The duct, darker the deeper it goes; lit while it turns. */}
+        <circle r={r} fill="var(--wt-duct-deep)" />
+        <circle r={r} fill={`url(#${ids.duct})`} opacity={turning ? 1 : 0.35} />
+        {/* The fan, set back in the duct. */}
+        <g clipPath={`url(#${ids.mouth})`}>
+          <g transform={`translate(${-r * deep} 0)`}>
+            <Spin on={turning} duration={fast ? 0.8 : 2.8}>
+              {/* Keeps the group's centre on the spinner, so it turns true. */}
+              <circle r={fan} fill="none" />
+              {BLADES.map((angle) => (
+                <path
+                  key={angle}
+                  transform={`rotate(${angle})`}
+                  d={blade}
+                  fill={`url(#${ids.blade})`}
+                  stroke="var(--wt-blade-edge)"
+                  strokeWidth={0.8}
+                  strokeLinejoin="round"
+                />
+              ))}
+            </Spin>
+            {/* At full speed the blades blur into a disc. */}
+            {fast ? (
+              <circle
+                r={fan}
+                fill="var(--wt-blade-mid)"
+                opacity={0.28}
+                className="pointer-events-none"
+              />
+            ) : null}
+            {/* The spinner: a nose cone pointing out of the fan. It is
+                drawn as its own cross-sections, base first and tip last,
+                each a little smaller and further along the axis: together
+                they give the outline and the shading of a rounded cone
+                seen from this angle. */}
+            <circle r={hub + 1.2} fill="var(--wt-blade-edge)" />
+            {NOSE.map((t) => (
+              <circle
+                key={t}
+                cx={reach * t}
+                r={Math.max(0.5, hub * (1 - t ** 1.6))}
+                fill={`url(#${ids.spinner})`}
+              />
+            ))}
+          </g>
+        </g>
+        {/* The lip: bright metal, with a fine line on each side. */}
+        <circle
+          r={r + lip / 2}
+          fill="none"
+          strokeWidth={lip}
+          stroke={`url(#${ids.lip})`}
+        />
+        <circle
+          r={r}
+          fill="none"
+          strokeWidth={1}
+          className="stroke-foreground/30"
+        />
+        <circle
+          r={outer}
+          fill="none"
+          strokeWidth={1}
+          className="stroke-foreground/20"
+        />
+      </g>
+    </g>
+  );
+}
+
+/** The rake: a fine pole with one nozzle per stream. */
+function SmokeRake({ rows }: { rows: number[] }) {
+  return (
+    <g aria-hidden="true">
+      <line
+        x1={RAKE}
+        y1={Math.min(...rows) - 18}
+        x2={RAKE}
+        y2={Math.max(...rows) + 18}
+        strokeWidth={1.25}
+        strokeLinecap="round"
+        className="stroke-foreground/20"
+      />
+      {rows.map((y) => (
+        <circle
+          key={y}
+          cx={RAKE}
+          cy={y}
+          r={3}
+          strokeWidth={1.25}
+          className="fill-card stroke-foreground/40"
+        />
+      ))}
+    </g>
+  );
+}
 
 /** The three layers of the application, from the top down. */
 const LAYERS = ["Interface", "Services", "Data"] as const;
@@ -43,7 +258,8 @@ const LAYERS = ["Interface", "Services", "Data"] as const;
  * an angle: its interface, its services (the project's workspaces, each
  * lit while an agent reads its code) and its data. The layers spread apart
  * while the agents take the app apart, and settle when they are done.
- * Sized in container units, so it scales with the drawing.
+ * Sized in container units, so it scales with the drawing; its angles and
+ * sizes are APP in src/lib/viz/tunnel.ts, which the streams steer round.
  */
 function AppStack({
   subject,
@@ -60,8 +276,10 @@ function AppStack({
   outcome: Crew["outcome"];
 }) {
   const pct = (value: number, of: number) => `${(value / of) * 100}%`;
-  const gap = live ? 9 : 6.5;
+  const gap = live ? APP.spread : APP.rest;
   const shown = workspaces.slice(0, 8);
+  const side = pct((1 - APP.plate.w) / 2, 1);
+  const end = pct((1 - APP.plate.h) / 2, 1);
   return (
     <div
       aria-hidden="true"
@@ -73,14 +291,20 @@ function AppStack({
         height: pct(BOX.h, H),
       }}
     >
-      <div className="absolute inset-0 [transform:rotateX(60deg)_rotateZ(-40deg)] [transform-style:preserve-3d]">
+      <div
+        className="absolute inset-0 [transform-style:preserve-3d]"
+        style={{
+          transform: `rotateX(${APP.tilt}deg) rotateZ(-${APP.turn}deg)`,
+        }}
+      >
         {LAYERS.map((layer, index) => {
           // The middle layer stays put; the others move up and down from it.
           const z = ((LAYERS.length - 1) / 2 - index) * gap;
           return (
             <motion.div
               key={layer}
-              className="absolute inset-x-[12%] inset-y-[22%] [transform-style:preserve-3d]"
+              className="absolute [transform-style:preserve-3d]"
+              style={{ left: side, right: side, top: end, bottom: end }}
               initial={false}
               animate={{ z: `${z}cqw` }}
               transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
@@ -163,20 +387,10 @@ function AppStack({
   );
 }
 
-/** A line's distance from the middle, in rows: -2 … 2, or -1.5 … 1.5. */
-const offsetOf = (index: number, count: number) => index - (count - 1) / 2;
-
-function streamOf(offset: number): string {
-  const y = MID + offset * GAP;
-  if (offset === 0) return `M${FROM} ${y} H${TO}`;
-  const at =
-    MID + Math.sign(offset) * (PUSH_BASE + Math.abs(offset) * PUSH_STEP);
-  return `M${FROM} ${y} H390 C450 ${y} 465 ${at} 560 ${at} S670 ${y} 730 ${y} H${TO}`;
-}
-
 /**
- * How a worker's line ends once the run is over: green for work done, red
- * for work that failed or never finished; none for a worker never started.
+ * How a worker's stream ends once the run is over: green for work done,
+ * red for work that failed or never finished; none for a worker never
+ * started.
  */
 function verdictOf(
   member: CrewMember,
@@ -191,72 +405,159 @@ function verdictOf(
   return member.status === "done" ? "good" : "bad";
 }
 
-/**
- * A run's outcome on one line, kept quiet: the line's colour fades in from
- * left to right (green for work done, red for work that failed), and it
- * ends in a fine open arrowhead with a faint glow.
- */
-function OutcomeLine({
-  d,
-  y,
-  verdict,
-  delay,
-  ids,
-}: {
+/** One worker's stream, worked out once for every layer that draws it. */
+interface StreamOf {
+  member: CrewMember;
+  row: number;
   d: string;
-  y: number;
-  verdict: "good" | "bad";
+  /** Where a finding leaves the stream: just behind the application. */
+  wake: [number, number];
+  verdict: "good" | "bad" | null;
   delay: number;
-  /** The ids of the two fades, defined once in the drawing. */
-  ids: { good: string; bad: string };
-}) {
-  const base = verdict === "good" ? "var(--ok)" : "var(--sev-critical)";
+}
+
+/**
+ * The haze round one stream: a wide, faint mist, drawn inside the group
+ * that blurs it. None until its worker starts.
+ */
+function Haze({ stream }: { stream: StreamOf }) {
+  const { member, d, verdict } = stream;
+  if (member.status === "pending") return null;
   return (
-    <g>
-      <DrawLine
-        d={d}
-        stroke={`url(#${ids[verdict]})`}
-        width={1.5}
-        delay={delay}
-      />
-      <GrowIn delay={delay + 0.9}>
-        <path
-          d={`M${TO - 7} ${y - 6} L${TO} ${y} L${TO - 7} ${y + 6}`}
-          fill="none"
-          stroke={base}
-          strokeWidth={1.6}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="glow-soft"
-        />
-      </GrowIn>
+    <path
+      d={d}
+      fill="none"
+      strokeWidth={13}
+      strokeLinecap="round"
+      stroke="var(--wt-smoke)"
+      opacity={verdict ? 0.04 : member.status === "running" ? 0.11 : 0.06}
+    />
+  );
+}
+
+/**
+ * The stream itself: a smooth ribbon of air, the same width all along its
+ * curve. It is three strokes on one path, each narrower and brighter than
+ * the one under it, so the ribbon is soft at its edges and has a fine
+ * bright spine. Faint until its worker starts. While the worker works a
+ * pulse of light flows along it; once the run is over the outcome's colour
+ * runs down it.
+ */
+function Flow({ stream, ids }: { stream: StreamOf; ids: SceneIds }) {
+  const { member, d, verdict, delay } = stream;
+  const pending = member.status === "pending";
+  const live = member.status === "running";
+  const fade = `url(#${ids.fade})`;
+  const dim = pending || verdict ? 0.3 : live ? 1 : 0.75;
+  return (
+    <g fill="none" strokeLinecap="round">
+      <path d={d} strokeWidth={8} stroke={fade} opacity={0.13 * dim} />
+      <path d={d} strokeWidth={3.6} stroke={fade} opacity={0.2 * dim} />
+      <path d={d} strokeWidth={1} stroke={fade} opacity={0.9 * dim} />
+      {verdict ? (
+        <>
+          <path
+            d={d}
+            strokeWidth={8}
+            stroke={`url(#${ids[verdict]})`}
+            opacity={0.16}
+          />
+          <DrawLine
+            d={d}
+            stroke={`url(#${ids[verdict]})`}
+            width={1.5}
+            delay={delay}
+          />
+        </>
+      ) : null}
+      {live ? (
+        <>
+          <FlowDash
+            d={d}
+            stroke="var(--wt-pulse-soft)"
+            width={8}
+            dash={120}
+            duration={2.8}
+          />
+          <FlowDash
+            d={d}
+            stroke="var(--wt-pulse)"
+            width={1.6}
+            dash={120}
+            duration={2.8}
+            className="glow"
+          />
+        </>
+      ) : null}
     </g>
   );
 }
 
-function Stream({
-  member,
-  offset,
-  outcome,
+/**
+ * Where a stream ends, beside its worker's name: a small dot that says
+ * the worker's state. A ring while it waits, violet while it works, and
+ * once the run is over green for work done or red for work that failed.
+ */
+function EndNode({
+  y,
+  state,
   delay,
-  ids,
 }: {
-  member: CrewMember;
-  offset: number;
-  outcome: Crew["outcome"];
-  /** When its outcome starts to draw, in seconds: one line after another. */
+  y: number;
+  state: "idle" | "live" | "done" | "good" | "bad";
   delay: number;
-  ids: { good: string; bad: string };
 }) {
-  const y = MID + offset * GAP;
-  const d = streamOf(offset);
+  if (state === "good" || state === "bad") {
+    const color = state === "good" ? "var(--ok)" : "var(--sev-critical)";
+    return (
+      <GrowIn delay={delay + 0.9}>
+        <circle cx={TO} cy={y} r={9} fill={color} opacity={0.16} />
+        <circle cx={TO} cy={y} r={4} fill={color} />
+      </GrowIn>
+    );
+  }
+  return (
+    <circle
+      cx={TO}
+      cy={y}
+      r={3.5}
+      strokeWidth={1.5}
+      className={cn(
+        state === "live"
+          ? "glow-soft fill-card stroke-brand"
+          : state === "done"
+            ? "fill-foreground/40 stroke-transparent"
+            : "fill-card stroke-foreground/20",
+      )}
+    />
+  );
+}
+
+/** What is written at the end of a stream: the worker, its dot, its count. */
+function Marks({ stream }: { stream: StreamOf }) {
+  const { member, row: y, verdict, delay, wake } = stream;
   const live = member.status === "running";
   const pending = member.status === "pending";
-  const verdict = verdictOf(member, outcome);
+  // A worker with no count beside it has the whole width for its words.
+  const room = member.findings === null ? 32 : live ? 20 : 24;
   return (
     <g>
+      {member.latest ? (
+        <Spark
+          key={member.latest.uid}
+          from={wake}
+          to={[TO, y]}
+          fill={member.latest.color}
+          r={3.5}
+        />
+      ) : null}
+      <EndNode
+        y={y}
+        state={verdict ?? (live ? "live" : pending ? "idle" : "done")}
+        delay={delay}
+      />
       <text
-        x={0}
+        x={LABEL}
         y={live || member.note ? y - 2 : y + 5}
         className={cn(
           "text-[15px] @max-lg:hidden",
@@ -267,7 +568,7 @@ function Stream({
       </text>
       {live || member.note ? (
         <text
-          x={0}
+          x={LABEL}
           y={y + 15}
           className={cn(
             "fill-muted-foreground text-[11px] @max-lg:hidden",
@@ -276,50 +577,12 @@ function Stream({
             member.status === "failed" && "fill-sev-critical",
           )}
         >
-          {live ? clip(member.doing ?? "starting", 34) : clip(member.note, 34)}
+          {clip(live ? (member.doing ?? "starting") : member.note, room)}
         </text>
       ) : null}
-
-      <path
-        d={d}
-        fill="none"
-        strokeWidth={1.25}
-        className={
-          live
-            ? "stroke-brand/45"
-            : pending || verdict
-              ? "stroke-foreground/10"
-              : "stroke-foreground/20"
-        }
-      />
-      {verdict ? (
-        // The outcome runs down the line and ends in an arrow.
-        <OutcomeLine d={d} y={y} verdict={verdict} delay={delay} ids={ids} />
-      ) : null}
-      {live ? (
-        <FlowDash
-          d={d}
-          stroke="var(--brand)"
-          width={2}
-          dash={90}
-          duration={2.6}
-          className="glow"
-        />
-      ) : null}
-
-      {member.latest ? (
-        <Spark
-          key={member.latest.uid}
-          from={[BOX.x + BOX.w / 2, y]}
-          to={[TO + 40, y]}
-          fill={member.latest.color}
-          r={3.5}
-        />
-      ) : null}
-
       {member.findings !== null ? (
         <text
-          x={W}
+          x={RIGHT}
           y={y + 8}
           textAnchor="end"
           className={cn(
@@ -333,7 +596,7 @@ function Stream({
         </text>
       ) : member.status === "done" ? (
         <path
-          d={`M${W - 16} ${y} l5 5 l10 -11`}
+          d={`M${RIGHT - 16} ${y} l5 5 l10 -11`}
           fill="none"
           strokeWidth={1.75}
           strokeLinecap="round"
@@ -342,7 +605,7 @@ function Stream({
         />
       ) : member.status === "failed" || member.status === "declined" ? (
         <path
-          d={`M${W - 14} ${y - 6} l12 12 M${W - 2} ${y - 6} l-12 12`}
+          d={`M${RIGHT - 14} ${y - 6} l12 12 M${RIGHT - 2} ${y - 6} l-12 12`}
           fill="none"
           strokeWidth={1.75}
           strokeLinecap="round"
@@ -370,9 +633,66 @@ export function WindTunnel({
   );
   const live = !crew.ended && crew.members.some((m) => m.status === "running");
   const id = useId().replace(/:/g, "");
-  const ids = { good: `wt-good-${id}`, bad: `wt-bad-${id}` };
+  const ids: SceneIds = {
+    halo: `wt-halo-${id}`,
+    body: `wt-body-${id}`,
+    lip: `wt-lip-${id}`,
+    duct: `wt-duct-${id}`,
+    blade: `wt-blade-${id}`,
+    spinner: `wt-spinner-${id}`,
+    mouth: `wt-mouth-${id}`,
+    haze: `wt-haze-${id}`,
+    fade: `wt-fade-${id}`,
+    good: `wt-good-${id}`,
+    bad: `wt-bad-${id}`,
+  };
+  const count = crew.members.length;
+  const streams: StreamOf[] = crew.members.map((member, index) => {
+    const points = streamPoints(index, count);
+    return {
+      member,
+      row: rowOf(index, count),
+      d: pathOf(points),
+      wake: pointAt(points, APP.x + APP.w / 2 + 30),
+      verdict: verdictOf(member, crew.outcome),
+      delay: index * 0.12,
+    };
+  });
+  // Filters are sized in the drawing's own units: a level stream has no
+  // height of its own to size a filter by.
+  const whole = {
+    filterUnits: "userSpaceOnUse" as const,
+    x: 0,
+    y: -40,
+    width: W,
+    height: H + 40,
+  };
   return (
-    <div className="@container">
+    <div
+      className={cn(
+        "@container",
+        // The tunnel's light, metal and smoke: quiet in the light theme,
+        // bright against the dark one.
+        "[--wt-glow:color-mix(in_oklab,var(--brand)_14%,transparent)] dark:[--wt-glow:color-mix(in_oklab,var(--brand)_50%,transparent)]",
+        "[--wt-room:color-mix(in_oklab,var(--brand)_5%,transparent)] dark:[--wt-room:color-mix(in_oklab,var(--brand)_18%,transparent)]",
+        "[--wt-metal-hi:rgb(255_255_255)] dark:[--wt-metal-hi:rgb(96_96_110)]",
+        "[--wt-metal-mid:rgb(243_243_248)] dark:[--wt-metal-mid:rgb(42_42_50)]",
+        "[--wt-metal-low:rgb(214_214_226)] dark:[--wt-metal-low:rgb(13_13_16)]",
+        "[--wt-seam:rgb(60_60_90/0.2)] dark:[--wt-seam:rgb(0_0_0/0.55)]",
+        "[--wt-lip-hi:rgb(255_255_255)] dark:[--wt-lip-hi:rgb(236_236_246)]",
+        "[--wt-lip-mid:rgb(228_228_238)] dark:[--wt-lip-mid:rgb(120_120_136)]",
+        "[--wt-lip-low:rgb(190_190_206)] dark:[--wt-lip-low:rgb(44_44_54)]",
+        "[--wt-duct-deep:rgb(202_202_218)] dark:[--wt-duct-deep:rgb(6_6_8)]",
+        "[--wt-duct-lit:color-mix(in_oklab,var(--brand)_38%,white)] dark:[--wt-duct-lit:color-mix(in_oklab,var(--brand)_75%,black)]",
+        "[--wt-blade-hi:rgb(255_255_255)] dark:[--wt-blade-hi:rgb(140_140_156)]",
+        "[--wt-blade-mid:rgb(226_226_236)] dark:[--wt-blade-mid:rgb(50_50_60)]",
+        "[--wt-blade-low:rgb(172_172_190)] dark:[--wt-blade-low:rgb(14_14_18)]",
+        "[--wt-blade-edge:rgb(70_70_100/0.32)] dark:[--wt-blade-edge:rgb(0_0_0/0.6)]",
+        "[--wt-smoke:color-mix(in_oklab,var(--brand)_70%,transparent)] dark:[--wt-smoke:rgb(255_255_255/0.85)]",
+        "[--wt-pulse:var(--brand)] dark:[--wt-pulse:color-mix(in_oklab,var(--brand)_35%,white)]",
+        "[--wt-pulse-soft:color-mix(in_oklab,var(--brand)_28%,transparent)] dark:[--wt-pulse-soft:color-mix(in_oklab,var(--brand)_45%,transparent)]",
+      )}
+    >
       <div
         className="@container relative w-full"
         style={{ aspectRatio: `${W} / ${H}` }}
@@ -384,52 +704,113 @@ export function WindTunnel({
           aria-label={crew.sentence}
         >
           <defs>
-            {(["good", "bad"] as const).map((verdict) => (
-              <linearGradient
-                key={verdict}
-                id={ids[verdict]}
-                gradientUnits="userSpaceOnUse"
-                x1={FROM}
-                y1={0}
-                x2={TO}
-                y2={0}
-              >
-                <stop
-                  offset="0"
-                  stopColor={
-                    verdict === "good" ? "var(--ok)" : "var(--sev-critical)"
-                  }
-                  stopOpacity={0.05}
-                />
-                <stop
-                  offset="0.6"
-                  stopColor={
-                    verdict === "good" ? "var(--ok)" : "var(--sev-critical)"
-                  }
-                  stopOpacity={0.35}
-                />
-                <stop
-                  offset="1"
-                  stopColor={
-                    verdict === "good" ? "var(--ok)" : "var(--sev-critical)"
-                  }
-                  stopOpacity={0.85}
-                />
-              </linearGradient>
-            ))}
+            <radialGradient id={ids.halo}>
+              <stop offset="0" style={{ stopColor: "var(--wt-glow)" }} />
+              <stop offset="0.45" style={{ stopColor: "var(--wt-room)" }} />
+              <stop offset="1" stopColor="transparent" stopOpacity={0} />
+            </radialGradient>
+            {/* The nacelle: lit along the top, dark underneath. */}
+            <linearGradient id={ids.body} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" style={{ stopColor: "var(--wt-metal-mid)" }} />
+              <stop offset="0.16" style={{ stopColor: "var(--wt-metal-hi)" }} />
+              <stop offset="0.5" style={{ stopColor: "var(--wt-metal-mid)" }} />
+              <stop offset="1" style={{ stopColor: "var(--wt-metal-low)" }} />
+            </linearGradient>
+            {/* The lip: polished, brightest up and to the left. */}
+            <linearGradient id={ids.lip} x1="0.1" y1="0" x2="0.9" y2="1">
+              <stop offset="0" style={{ stopColor: "var(--wt-lip-hi)" }} />
+              <stop offset="0.4" style={{ stopColor: "var(--wt-lip-mid)" }} />
+              <stop offset="0.75" style={{ stopColor: "var(--wt-lip-low)" }} />
+              <stop offset="1" style={{ stopColor: "var(--wt-lip-mid)" }} />
+            </linearGradient>
+            {/* The duct's far wall, lit from the fan while it turns. */}
+            <linearGradient id={ids.duct} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0.45" stopColor="transparent" stopOpacity={0} />
+              <stop offset="1" style={{ stopColor: "var(--wt-duct-lit)" }} />
+            </linearGradient>
+            {/* A blade: bright at its leading edge, dark at its trailing
+                one. It turns with the blade. */}
+            <linearGradient id={ids.blade} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" style={{ stopColor: "var(--wt-blade-hi)" }} />
+              <stop offset="0.3" style={{ stopColor: "var(--wt-blade-mid)" }} />
+              <stop offset="1" style={{ stopColor: "var(--wt-blade-low)" }} />
+            </linearGradient>
+            {/* The spinner's cone: lit from above. */}
+            <linearGradient id={ids.spinner} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0.05" style={{ stopColor: "var(--wt-blade-hi)" }} />
+              <stop
+                offset="0.45"
+                style={{ stopColor: "var(--wt-blade-mid)" }}
+              />
+              <stop offset="1" style={{ stopColor: "var(--wt-blade-low)" }} />
+            </linearGradient>
+            {/* Blurs are sized in the drawing's own units: a level stream
+                has no height of its own to size a filter by. */}
+            <filter id={ids.haze} {...whole}>
+              <feGaussianBlur stdDeviation="5" />
+            </filter>
+            {/* A stream fades in from its nozzle. */}
+            <linearGradient
+              id={ids.fade}
+              gradientUnits="userSpaceOnUse"
+              x1={FROM}
+              y1={0}
+              x2={TO}
+              y2={0}
+            >
+              <stop
+                offset="0"
+                style={{ stopColor: "var(--wt-smoke)" }}
+                stopOpacity={0.2}
+              />
+              <stop
+                offset="0.35"
+                style={{ stopColor: "var(--wt-smoke)" }}
+                stopOpacity={0.85}
+              />
+              <stop
+                offset="1"
+                style={{ stopColor: "var(--wt-smoke)" }}
+                stopOpacity={0.7}
+              />
+            </linearGradient>
+            {(["good", "bad"] as const).map((verdict) => {
+              const color =
+                verdict === "good" ? "var(--ok)" : "var(--sev-critical)";
+              return (
+                <linearGradient
+                  key={verdict}
+                  id={ids[verdict]}
+                  gradientUnits="userSpaceOnUse"
+                  x1={FROM}
+                  y1={0}
+                  x2={TO}
+                  y2={0}
+                >
+                  <stop offset="0" stopColor={color} stopOpacity={0.1} />
+                  <stop offset="0.6" stopColor={color} stopOpacity={0.5} />
+                  <stop offset="1" stopColor={color} stopOpacity={0.95} />
+                </linearGradient>
+              );
+            })}
           </defs>
-          {crew.members.map((member, index) => (
-            <Stream
-              key={member.id}
-              member={member}
-              offset={offsetOf(index, crew.members.length)}
-              outcome={crew.outcome}
-              delay={index * 0.12}
-              ids={ids}
-            />
+          <Turbine turning={!crew.ended} fast={live} ids={ids} />
+          {/* The haze of every stream as one soft layer, then the streams
+              themselves, a little soft at the edge. */}
+          <g filter={`url(#${ids.haze})`}>
+            {streams.map((stream) => (
+              <Haze key={stream.member.id} stream={stream} />
+            ))}
+          </g>
+          {streams.map((stream) => (
+            <Flow key={stream.member.id} stream={stream} ids={ids} />
+          ))}
+          <SmokeRake rows={streams.map((stream) => stream.row)} />
+          {streams.map((stream) => (
+            <Marks key={stream.member.id} stream={stream} />
           ))}
         </svg>
-        {/* The application, over the line that meets it head on. */}
+        {/* The application, standing clear of every stream. */}
         <AppStack
           subject={subject}
           workspaces={workspaces}
@@ -440,7 +821,7 @@ export function WindTunnel({
       </div>
       {/* On a narrow screen the drawing is too small to read: the same facts
         as a list under it. */}
-      <ul className="hidden divide-y divide-border/60 @max-lg:block">
+      <ul className="hidden divide-y divide-border/60 px-5 pb-2 @max-lg:block">
         {crew.members.map((member) => (
           <li
             key={member.id}

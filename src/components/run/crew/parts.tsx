@@ -29,11 +29,6 @@ export function CrewHeader({ crew }: { crew: Crew }) {
         {crew.sentence}
       </p>
       <p className="ml-auto flex gap-3 font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
-        {crew.stage ? (
-          <span>
-            Stage {crew.stage.index} of {crew.stage.count} · {crew.stage.label}
-          </span>
-        ) : null}
         {crew.members.some((member) => member.findings !== null) ? (
           <span className={cn(crew.findings > 0 && "text-foreground")}>
             {crew.findings} found

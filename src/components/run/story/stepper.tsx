@@ -15,6 +15,11 @@ import { seconds } from "../stage-time";
  * finish. A finished stage shows a check and its time; the running one a
  * slowly turning ring of ticks (work is going on); later ones are dim; a
  * failed one is red. Selecting a stage that has a chapter scrolls to it.
+ *
+ * As a card it stands on its own (focus mode). As a rail it sits at the
+ * foot of the run's wind tunnel: no heading, no surface of its own,
+ * smaller and quieter, with one line under it for what the running stage
+ * is doing.
  */
 
 const TICKS = 24;
@@ -53,13 +58,17 @@ export function Stepper({
   onSelect,
   action,
   className,
+  variant = "card",
 }: {
   chapters: Chapter[];
   onSelect: (chapter: Chapter) => void;
   /** A control at the end of the heading row, such as Focus. */
   action?: React.ReactNode;
   className?: string;
+  variant?: "card" | "rail";
 }) {
+  const rail = variant === "rail";
+  const current = chapters.find((chapter) => chapter.state === "running");
   const done = chapters.filter((chapter) => chapter.state === "done").length;
   const running = chapters.some((chapter) => chapter.state === "running");
   // The line fills up to the running stage, or to the last finished one.
@@ -73,17 +82,22 @@ export function Stepper({
   return (
     <section
       aria-label="Stages"
-      className={cn("rounded-card bg-card px-5 pt-4 pb-3", className)}
+      className={cn(
+        rail ? "px-5 pt-3 pb-3 md:px-6" : "rounded-card bg-card px-5 pt-4 pb-3",
+        className,
+      )}
       data-testid="run-stages"
     >
-      <p className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
-        Stages
-        <InfoTip about="stages" label="Stages" />
-        <span className="ml-auto font-mono tabular-nums">
-          {done} of {chapters.length}
-        </span>
-        {action}
-      </p>
+      {rail ? null : (
+        <p className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
+          Stages
+          <InfoTip about="stages" label="Stages" />
+          <span className="ml-auto font-mono tabular-nums">
+            {done} of {chapters.length}
+          </span>
+          {action}
+        </p>
+      )}
       {/* Scrolls sideways on a phone; the padding keeps the rings and their
           glow inside the scroll box, which clips both ways. */}
       <div className="-mx-2 overflow-x-auto px-2 py-2">
@@ -94,7 +108,7 @@ export function Stepper({
           {/* The line behind the stages, and how far it has filled */}
           <span
             aria-hidden="true"
-            className="absolute top-4 h-px bg-border"
+            className={cn("absolute h-px bg-border", rail ? "top-3" : "top-4")}
             style={{
               left: `${50 / chapters.length}%`,
               right: `${50 / chapters.length}%`,
@@ -102,7 +116,10 @@ export function Stepper({
           />
           <motion.span
             aria-hidden="true"
-            className="absolute top-4 h-px origin-left bg-brand glow"
+            className={cn(
+              "absolute h-px origin-left",
+              rail ? "top-3 bg-brand/70" : "top-4 bg-brand glow",
+            )}
             style={{
               left: `${50 / chapters.length}%`,
               width: `${100 - 100 / chapters.length}%`,
@@ -121,13 +138,19 @@ export function Stepper({
                   onClick={() => onSelect(chapter)}
                   data-testid={`stage-${chapter.stage}`}
                   data-state={chapter.state}
-                  className="group flex flex-col items-center gap-2 text-center outline-none disabled:cursor-default"
+                  className={cn(
+                    "group flex flex-col items-center text-center outline-none disabled:cursor-default",
+                    rail ? "gap-1.5" : "gap-2",
+                  )}
                 >
                   <span
                     className={cn(
-                      "relative flex size-8 items-center justify-center rounded-full bg-card ring-1 transition-colors duration-300",
+                      "relative flex items-center justify-center rounded-full bg-card ring-1 transition-colors duration-300",
+                      rail ? "size-6" : "size-8",
                       chapter.state === "done" &&
-                        "bg-brand text-brand-foreground ring-brand",
+                        (rail
+                          ? "text-foreground ring-foreground/30"
+                          : "bg-brand text-brand-foreground ring-brand"),
                       chapter.state === "running" && "ring-brand/40",
                       chapter.state === "failed" &&
                         "bg-sev-critical text-white ring-sev-critical",
@@ -142,7 +165,10 @@ export function Stepper({
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.35, ease: EASE }}
                       >
-                        <Check className="size-4" aria-hidden="true" />
+                        <Check
+                          className={rail ? "size-3" : "size-4"}
+                          aria-hidden="true"
+                        />
                       </motion.span>
                     ) : chapter.state === "failed" ? (
                       <X className="size-4" aria-hidden="true" />
@@ -178,6 +204,15 @@ export function Stepper({
           })}
         </ol>
       </div>
+      {rail && current ? (
+        <p
+          className="mt-1 truncate text-center text-xs text-muted-foreground"
+          aria-live="polite"
+          data-testid="run-stage-now"
+        >
+          {current.line}
+        </p>
+      ) : null}
     </section>
   );
 }
