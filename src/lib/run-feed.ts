@@ -163,6 +163,8 @@ export function applyEvent(feed: Feed, event: RunEvent): Feed {
         ],
       };
     case "remediation.ready":
+    // Only a cue to fetch the saved run again; nothing to show from it.
+    case "run.progress":
       return feed;
     case "architecture.ready":
       return { ...feed, architecture: event.architecture };

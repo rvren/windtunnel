@@ -93,3 +93,121 @@ export function crossing(
   });
   return xs.length < 2 ? null : [Math.min(...xs), Math.max(...xs)];
 }
+
+// ── The 3D tunnel ─────────────────────────────────────────────────────────
+//
+// The test section seen from downstream, looking back at the fan: x runs
+// with the air (from the fan to the viewer's right), y is up, z comes out
+// of the back wall towards the viewer. The open side of the frames faces
+// the camera. Everything the drawing places (the camera, the rows, where
+// each part sits on its plate) is here, so the labels over the drawing can
+// be placed by plain math, before three.js has loaded.
+
+export type Vec3 = [number, number, number];
+
+export const TUNNEL_3D = {
+  /** The drawing's width over its height. */
+  aspect: 2.2,
+  camera: {
+    position: [6.3, 1.75, 6.6] as Vec3,
+    target: [-0.5, -0.3, -0.45] as Vec3,
+    /** The vertical field of view, in degrees. */
+    fov: 33,
+  },
+  /** Where the fan turns, the rake stands, the model sits, streams end. */
+  fan: -5.7,
+  rake: -4.1,
+  model: 0.2,
+  end: 3.2,
+  floor: -1.5,
+  ceiling: 1.5,
+  back: -2,
+  near: 2,
+  /** The frames along the test section, clear of the model. */
+  frames: [-3.3, -2.05, 2.3, 3.5],
+  /** Each plate's height, from the top. */
+  plateY: { interface: 0.5, services: 0, data: -0.5 },
+  plate: { w: 2.1, d: 1.5 },
+  /** A part's tile on its plate, and the space between tiles. */
+  tile: { w: 0.42, d: 0.3, gapX: 0.48, gapZ: 0.66 },
+  /** Fly-off's three designs: how far apart, and how big. */
+  designs: { offset: 2.15, scale: 0.52 },
+  /** Dogfight's shield, in front of the model. */
+  shield: -1.35,
+  /**
+   * Preflight's board, high on the back wall past the model, where the
+   * camera sees it clear of the plates and the names: from the model's x.
+   */
+  board: { x: 1.35, y: 0.78 },
+} as const;
+
+/** The height of each worker's stream, top first, for 1 to 5 workers. */
+export function rows3d(count: number): number[] {
+  const gap = count <= 2 ? 0.62 : count <= 3 ? 0.58 : count <= 4 ? 0.5 : 0.44;
+  return Array.from(
+    { length: count },
+    (_, index) => ((count - 1) / 2 - index) * gap,
+  );
+}
+
+/**
+ * Where each of `count` parts sits on its plate, from the plate's centre:
+ * [x, z], four to a row, centred.
+ */
+export function partSpots(count: number): [number, number][] {
+  const { gapX, gapZ } = TUNNEL_3D.tile;
+  const lines = Math.ceil(count / 4);
+  return Array.from({ length: count }, (_, index) => {
+    const line = Math.floor(index / 4);
+    const inLine = Math.min(4, count - line * 4);
+    const column = index % 4;
+    return [
+      (column - (inLine - 1) / 2) * gapX,
+      (line - (lines - 1) / 2) * gapZ,
+    ];
+  });
+}
+
+/** Where the model stands: one, or Fly-off's three designs in a row. */
+export function modelSpots(designs: number): number[] {
+  const { model } = TUNNEL_3D;
+  if (designs <= 1) return [model];
+  const { offset } = TUNNEL_3D.designs;
+  return Array.from(
+    { length: designs },
+    (_, index) => model + (index - (designs - 1) / 2) * offset,
+  );
+}
+
+const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a: Vec3, b: Vec3): Vec3 => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
+const unit = (a: Vec3): Vec3 => {
+  const length = Math.hypot(...a);
+  return [a[0] / length, a[1] / length, a[2] / length];
+};
+
+/**
+ * Where a point of the scene lands in the drawing, as fractions of its
+ * width (x, from the left) and height (y, from the top): the same
+ * projection as the 3D camera, so a label sits on what it names.
+ */
+export function project(
+  point: Vec3,
+  aspect: number = TUNNEL_3D.aspect,
+): { x: number; y: number } {
+  const { position, target, fov } = TUNNEL_3D.camera;
+  const forward = unit(sub(target, position));
+  const right = unit(cross(forward, [0, 1, 0]));
+  const up = cross(right, forward);
+  const d = sub(point, position);
+  const depth = dot(d, forward);
+  const half = Math.tan((fov * Math.PI) / 360);
+  const nx = dot(d, right) / depth / (half * aspect);
+  const ny = dot(d, up) / depth / half;
+  return { x: (nx + 1) / 2, y: (1 - ny) / 2 };
+}

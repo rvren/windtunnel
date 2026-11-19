@@ -465,7 +465,15 @@ export async function runEngineOut(
                 architecture: map,
                 cut: outage.part.id,
                 filed,
-                onHop: () => undefined,
+                // Each hop shows in the wind tunnel as it is filed: the
+                // cascade so far, merged and ordered as the judge will see
+                // it, saved and announced.
+                onHop: () => {
+                  outage.hops = orderCascade(filed, null, map, outage.part.id);
+                  save()
+                    .then(() => emit({ type: "run.progress" }))
+                    .catch(() => undefined);
+                },
               }),
             ],
             maxTurns: CUT_TURNS,

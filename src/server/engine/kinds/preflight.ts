@@ -302,8 +302,11 @@ export async function runPreflight(
                 agentId: agent.id,
                 reader,
                 lines: preflight.lines,
+                // Each line shows in the wind tunnel as it is reported.
                 onLine: () => {
-                  save().catch(() => undefined);
+                  save()
+                    .then(() => emit({ type: "run.progress" }))
+                    .catch(() => undefined);
                 },
               }),
             ],

@@ -38,3 +38,47 @@ export function CrewHeader({ crew }: { crew: Crew }) {
     </div>
   );
 }
+
+/**
+ * On a narrow screen the drawing is too small to read: the same facts as a
+ * list under it.
+ */
+export function CrewList({ crew }: { crew: Crew }) {
+  return (
+    <ul className="hidden divide-y divide-border/60 px-5 pb-2 @max-lg:block">
+      {crew.members.map((member) => (
+        <li
+          key={member.id}
+          className="flex items-center gap-3 py-2 text-[0.8125rem]"
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-1.5 shrink-0 rounded-full",
+              member.status === "running"
+                ? "bg-brand"
+                : member.status === "done"
+                  ? "bg-ok"
+                  : member.status === "pending"
+                    ? "bg-muted-foreground/40"
+                    : "bg-sev-critical",
+            )}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block">{member.name}</span>
+            {member.doing || member.note ? (
+              <span className="block truncate text-xs text-muted-foreground">
+                {member.status === "running" ? member.doing : member.note}
+              </span>
+            ) : null}
+          </span>
+          {member.findings !== null ? (
+            <span className="font-mono text-sm tabular-nums">
+              {member.findings}
+            </span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}

@@ -496,19 +496,25 @@ and the projects from `src/lib/viz/sidebar.ts`, read in
 `src/app/app/layout.tsx` and kept current from `GET /api/runs`. A run page
 is one header panel (`src/components/run/run-header.tsx`) and three
 sections: **Live** or **Result**, **Details** (the other tabs, `?tab=`) and
-**Activity**. The live view is the wind tunnel
-(`src/components/run/crew/wind-tunnel.tsx`). While the run goes on the
-page holds little else: a one-line header (`RunHeader minimal`), the
-newest finding (`LatestFinding`) and one progress line (`StageProgress`);
-when it ends the tabs return and the stages show as a rail
-(`Stepper variant="rail"`).
-Where its parts stand is `src/lib/viz/tunnel.ts`: each worker's row, and
-the application's outline, which the drawing uses as a soft mask so that a
-stream fades where it touches the application. It is drawn from
-`crewOf` in `src/lib/viz/crew.ts`: the five agents from `agent.*` events,
-or a Fly-off's designers and judge and a Black Box's investigator and fixer
-from `actor.*` events (`src/server/engine/kinds/flyoff.ts`,
-`blackbox.ts`). The result card is `resultOf` in `src/lib/viz/result.ts`; a project page is the same pattern, its tabs (`?tab=`) rendered
+**Activity**. The live view is the wind tunnel, in 3D
+(`src/components/run/crew/tunnel-3d/`: three.js, loaded only on the run
+page, with the 2D `WindTunnelFlat` where WebGL cannot draw). While the run
+goes on the page holds little else: a one-line header (`RunHeader
+minimal`), the newest finding (`LatestFinding`) and one progress line
+(`StageProgress`); when it ends the tabs return and the stages show as a
+rail (`Stepper variant="rail"`).
+Where its parts stand is `TUNNEL_3D` in `src/lib/viz/tunnel.ts`: the
+camera, each worker's stream, each part's tile, and `project`, the
+camera's projection, which places the names over the drawing. What it
+shows comes from `crewOf` in `src/lib/viz/crew.ts` (the five agents from
+`agent.*` events, or a newer kind's workers from `actor.*` events,
+`src/server/engine/kinds/`) and from `tunnelScene` in
+`src/lib/viz/tunnel-scene.ts`: the application's parts on three plates,
+and what the run's kind adds (findings as pins, chains, a ripple, three
+designs, a failing route, a cut and its hops, duel rounds, the spec's
+lines). Engine Out's hops and Preflight's lines are saved mid-stage and
+announced with a `run.progress` event, so the page fetches the run again
+(at most once every 750ms) and the tunnel shows them as they come. `blackbox.ts`). The result card is `resultOf` in `src/lib/viz/result.ts`; a project page is the same pattern, its tabs (`?tab=`) rendered
 on the server, with `Cockpit`'s `section` prop choosing the stage, the
 issues or security. The project page's kind buttons open the start page;
 `src/components/project/kind-dialogs.tsx` holds the schedule dialog. The

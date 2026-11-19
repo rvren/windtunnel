@@ -218,17 +218,21 @@ takes the same three steps:
 1. **Choose.** A card opens the start page (`/app/runs/new?kind=…`): pick
    the project, give the one input that kind needs (or **Use The Example**),
    and start. It always asks first, and says whether the run is billed.
-2. **Watch.** The run page's **Live** tab is the wind tunnel, on one
-   screen: a turbine turning on the left, a rake letting out one glowing
-   line per worker, and the application in the middle as three layers
-   (interface, services, data). The lines run straight into it, fade
-   where they touch it, and come out the other side. A light runs along a
-   line while its worker works, the workspace it is reading lights up, and
-   each finding leaves the application as a spark into that worker's
-   count. Nothing else is on the page while the run goes on: one large
-   sentence saying what is happening, the newest finding, and one
-   progress line with the stage's name.
-3. **Get the result.** When the run ends the turbine stops, each line and
+2. **Watch.** The run page's **Live** tab is the wind tunnel, in 3D, on
+   one screen: a test section seen from downstream, its fan turning at the
+   far end, and the application on a turntable in the middle as three
+   plates (interface, services, data), each part a tile. A rake lets out
+   one glowing line per worker; a light runs along a line while its worker
+   works, and each finding leaves the application as a spark into that
+   worker's count. Each kind adds its own detail: a Tunnel Run pins its
+   findings where they are and draws its attack chains, Engine Out cuts a
+   part and the failure hops out from it, Dogfight raises a shield the
+   attacker tries to break, Preflight lights the spec line by line, Fly-off
+   stands its three designs side by side, and so on. Nothing else is on the
+   page while the run goes on: one large sentence saying what is
+   happening, the newest finding, and one progress line with the stage's
+   name.
+3. **Get the result.** When the run ends the fan stops, each line and
    the dot at its end turn green (red where work failed or the run
    stopped), and the **Result** tab
    says what the run came to in one line, three numbers and the top three

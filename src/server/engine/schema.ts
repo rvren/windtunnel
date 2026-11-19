@@ -988,6 +988,12 @@ export type RunEvent =
   | { type: "actor.failed"; actorId: string; error: string }
   /** A security finding's remediation is ready (or could not be made). */
   | { type: "remediation.ready"; groupId: string }
+  /**
+   * A piece of a kind's result was saved in the middle of a stage (an
+   * Engine Out hop, a Preflight line): the page fetches the run again, so
+   * the wind tunnel shows it as it comes.
+   */
+  | { type: "run.progress" }
   | { type: "run.completed" }
   | { type: "run.failed"; error: string };
 

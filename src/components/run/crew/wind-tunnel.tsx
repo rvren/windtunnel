@@ -1,14 +1,24 @@
 "use client";
 
-import { useId } from "react";
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { motion } from "motion/react";
 
 import { DrawLine, FlowDash, GrowIn, Spark, Spin } from "@/components/motion";
 import { cn } from "@/lib/utils";
+import type { Feed } from "@/lib/run-feed";
 import type { Crew, CrewMember } from "@/lib/viz/crew";
+import { tunnelScene } from "@/lib/viz/tunnel-scene";
+import type { RunRecord } from "@/server/engine/schema";
 import { APP, TUNNEL, appOutline, crossing, rowOf } from "@/lib/viz/tunnel";
 
-import { clip } from "./parts";
+import { clip, CrewList } from "./parts";
+import { WindTunnel3D } from "./tunnel-3d/wind-tunnel-3d";
 
 /*
  * The wind tunnel: a run's crew at work (the five agents, a fly-off's
@@ -596,7 +606,8 @@ function Marks({ stream }: { stream: StreamOf }) {
   );
 }
 
-export function WindTunnel({
+/** The tunnel in 2D: where WebGL cannot draw the 3D one. */
+export function WindTunnelFlat({
   crew,
   subject,
   workspaces = [],
@@ -819,43 +830,59 @@ export function WindTunnel({
           outcome={crew.outcome}
         />
       </div>
-      {/* On a narrow screen the drawing is too small to read: the same facts
-        as a list under it. */}
-      <ul className="hidden divide-y divide-border/60 px-5 pb-2 @max-lg:block">
-        {crew.members.map((member) => (
-          <li
-            key={member.id}
-            className="flex items-center gap-3 py-2 text-[0.8125rem]"
-          >
-            <span
-              aria-hidden="true"
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                member.status === "running"
-                  ? "bg-brand"
-                  : member.status === "done"
-                    ? "bg-ok"
-                    : member.status === "pending"
-                      ? "bg-muted-foreground/40"
-                      : "bg-sev-critical",
-              )}
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block">{member.name}</span>
-              {member.doing || member.note ? (
-                <span className="block truncate text-xs text-muted-foreground">
-                  {member.status === "running" ? member.doing : member.note}
-                </span>
-              ) : null}
-            </span>
-            {member.findings !== null ? (
-              <span className="font-mono text-sm tabular-nums">
-                {member.findings}
-              </span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+      <CrewList crew={crew} />
     </div>
+  );
+}
+
+let webglKnown: boolean | null = null;
+
+/** Whether this browser can draw WebGL; asked once. */
+function hasWebgl(): boolean {
+  if (webglKnown === null) {
+    try {
+      const canvas = document.createElement("canvas");
+      webglKnown = Boolean(
+        canvas.getContext("webgl2") ?? canvas.getContext("webgl"),
+      );
+    } catch {
+      webglKnown = false;
+    }
+  }
+  return webglKnown;
+}
+
+const noSubscribe = () => () => {};
+
+/**
+ * The run page's wind tunnel: in 3D, with what the run's kind adds
+ * (src/lib/viz/tunnel-scene.ts); in 2D where WebGL cannot draw.
+ */
+export function WindTunnel({
+  crew,
+  subject,
+  workspaces = [],
+  run,
+  feed,
+}: {
+  crew: Crew;
+  subject: string;
+  /** The project's workspaces, shown as its services. */
+  workspaces?: string[];
+  /** The run and its live feed: what each kind adds comes from them. */
+  run: RunRecord;
+  feed: Feed;
+}) {
+  const webgl = useSyncExternalStore(noSubscribe, hasWebgl, () => true);
+  const [failed, setFailed] = useState(false);
+  const onFail = useCallback(() => setFailed(true), []);
+  const scene = useMemo(() => tunnelScene(run, feed), [run, feed]);
+  if (!webgl || failed) {
+    return (
+      <WindTunnelFlat crew={crew} subject={subject} workspaces={workspaces} />
+    );
+  }
+  return (
+    <WindTunnel3D crew={crew} scene={scene} subject={subject} onFail={onFail} />
   );
 }

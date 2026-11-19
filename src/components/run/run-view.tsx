@@ -35,6 +35,7 @@ import { ArchitectureDiagram } from "@/components/project/architecture-diagram";
 import { LocalTime } from "@/components/local-time";
 import { LiveMap } from "@/components/project/live-map";
 import { agentStates, applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
+import { throttled } from "@/lib/throttle";
 import { crewOf } from "@/lib/viz/crew";
 import { nextRunsOf } from "@/lib/viz/next";
 import { resultOf } from "@/lib/viz/result";
@@ -87,6 +88,8 @@ const REFRESH_ON = new Set([
   "agent.failed",
   "run.completed",
   "run.failed",
+  // An Engine Out hop or a Preflight line, saved mid-stage.
+  "run.progress",
 ]);
 
 /**
@@ -106,33 +109,40 @@ function useRun(initial: RunRecord) {
     let stopped = false;
     const source = new EventSource(`/api/runs/${id}/events`);
 
-    const refresh = async () => {
-      try {
-        const response = await fetch(`/api/runs/${id}`, { cache: "no-store" });
-        if (!response.ok || stopped) return;
-        setRun(((await response.json()) as { run: RunRecord }).run);
-      } catch {
-        // The next event tries again.
-      }
-    };
+    // At most one fetch every 750ms: a replayed run sends its events in a
+    // burst, and the last one is never lost.
+    const refresh = throttled(() => {
+      void (async () => {
+        try {
+          const response = await fetch(`/api/runs/${id}`, {
+            cache: "no-store",
+          });
+          if (!response.ok || stopped) return;
+          setRun(((await response.json()) as { run: RunRecord }).run);
+        } catch {
+          // The next event tries again.
+        }
+      })();
+    }, 750);
 
     source.onopen = () => setConnected(true);
     source.onmessage = (message) => {
       const stored = JSON.parse(message.data) as StoredEvent;
       setFeed((current) => applyEvent(current, stored.event));
       setTimes((current) => applyTime(current, stored.event, stored.at));
-      if (REFRESH_ON.has(stored.event.type)) void refresh();
+      if (REFRESH_ON.has(stored.event.type)) refresh();
     };
     // The server says "end" when nothing more will come.
     source.addEventListener("end", () => {
       source.close();
-      void refresh();
+      refresh();
     });
     // The browser reconnects by itself and resumes after the last event.
     source.onerror = () => setConnected(false);
 
     return () => {
       stopped = true;
+      refresh.cancel();
       source.close();
     };
   }, [id]);
@@ -666,6 +676,8 @@ export function RunView({
                   crew={crew}
                   subject={context.projectName ?? run.title}
                   workspaces={run.workspaces ?? []}
+                  run={run}
+                  feed={feed}
                 />
                 {running ? (
                   <>

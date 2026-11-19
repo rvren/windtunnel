@@ -78,26 +78,48 @@ take something away.
   start page (`/app/runs/new?kind=…`, `components/run/start/`), whose
   request body and checks are `src/lib/start-run.ts`. The kind is called
   **Tunnel Run** in the UI (`audit` in the code).
-- **The run page's Live/Result tab is the wind tunnel**
-  (`components/run/crew/wind-tunnel.tsx`, data from `crewOf` in
-  `src/lib/viz/crew.ts`, where things stand in `src/lib/viz/tunnel.ts`),
-  drawn as a real one at the owner's request, in one panel that fits a
-  screen:
-  - A **turbofan** coming out of the left wall, turning while the run goes
-    on: a bright metal lip, the fan set back in the duct, wide overlapping
-    blades, a rounded nose cone (built from its cross-sections, so its
-    outline and shading are right for the angle), and the seams of its
-    body drawn only on the side that faces us.
-  - A rake with one **stream** per worker: a simple line with a soft
-    glow. A light travels along it while its worker works; a finding
-    leaves the application as a spark.
-  - The **application** as three 3D layers (interface, services with the
-    real workspaces, data), floating in the middle. The streams run level,
-    straight into it, **fade where they touch it** (a soft mask in the
-    shape of `appOutline`), and come out the other side.
-  - Each stream ends in a small **dot** beside its worker's name and count.
-    When the run ends the turbine stops, and each stream and its dot turn
-    green (red where work failed or the run stopped).
+- **The run page's Live/Result tab is the wind tunnel**, in real 3D
+  (three.js, loaded only on the run page:
+  `components/run/crew/tunnel-3d/`; the crew from `crewOf` in
+  `src/lib/viz/crew.ts`, what each kind adds from `tunnelScene` in
+  `src/lib/viz/tunnel-scene.ts`, where things stand in `TUNNEL_3D` in
+  `src/lib/viz/tunnel.ts`), drawn as a real one at the owner's request, in
+  one panel that fits a screen:
+  - A **test section seen from downstream**, looking back at its fan:
+    frames along it, open on the side that faces us; a glass ceiling with
+    two light strips; at the far end the **turbofan** in its duct behind a
+    polished lip, turning while the run goes on, its duct lit while it
+    turns.
+  - The **application on a turntable**: three plates on a sting, its
+    interface (frontends), its services and its data (databases, queues,
+    outside systems), each part of the run's map a tile with its name
+    (the workspaces when there is no map).
+  - A rake with one **stream** per worker: a fine line with a soft glow,
+    level, fading inside the model. A light travels it while its worker
+    works; a finding leaves the model as a spark.
+  - Each stream ends in a small **dot** beside its worker's name and
+    count. The names, notes, counts and a kind's few words are HTML over
+    the canvas, placed by `project` (the camera's own projection, tested
+    against three.js), so they show before three.js loads. When the run
+    ends the fan stops, and each stream and its dot turn green (red where
+    work failed or the run stopped).
+  - **Each kind adds its own detail**, all from real data: Tunnel Run a
+    pin in its severity's colour where each finding is, and Flutter's
+    chains as red arcs; Crosswind a nozzle in the back wall blowing the
+    change across, its ripple lit; Fly-off three designs on three
+    turntables, critique arcs, the picked one lifted in green; Black Box a
+    beacon on the failing part, the request's route, the fix turning it
+    green; Engine Out the cut part dark and dashed, the failure hopping
+    out as arcs; Dogfight (and Black Box's duel) a shield per round in
+    front of the target, the attacker's red stream, "Round N" then "Held";
+    Preflight the spec on the back wall, one light per line, and a scan
+    sweeping the model. Engine Out's hops and Preflight's lines arrive mid
+    stage through the `run.progress` event, which makes the page fetch
+    the run again (at most once every 750ms, `src/lib/throttle.ts`).
+  - Its render loop is the one animation outside Motion: it runs only
+    while something moves and the panel is on screen; with reduced motion
+    nothing turns or travels. Where WebGL cannot draw, the 2D tunnel
+    (`WindTunnelFlat` in `wind-tunnel.tsx`) takes its place.
   - **While the run goes on the page is as little as it can be** (the
     owner asked for something very simple that still has impact): the
     header is one line, the title and the figures (`RunHeader minimal`);
@@ -115,9 +137,10 @@ take something away.
     table fan"), thick wobbling smoke ("ropes"), heavy and then fine
     arrowheads, the swirl mark on the spinner, a flat kite-shaped cone,
     full rings for the body's seams (a wireframe), dotted particles,
-    ribbons, and streams bent round the application. Keep it elegant:
-    simple, fine, soft. It must look as good in the light theme (pale
-    metal, violet lines) as in the dark; its colours are the `--wt-*`
+    ribbons, and streams bent round the application; then asked for a
+    real, modern 3D tunnel and details of its own for each kind. Keep it
+    elegant: simple, fine, soft. It must look as good in the light theme
+    (pale metal, violet lines) as in the dark; its colours are the `--wt-*`
     variables set on the drawing, one value per theme.
 
   Under it once the run has
@@ -307,7 +330,7 @@ font-medium`; body is 14px; secondary text is `text-muted-foreground`.
   `Reveal` for sections that scroll into view, `FadeInItem` for rows that are
   added, `Smooth` for size changes. One soft ease-out, about half a second,
   a rise of 10px at most. The tuffui widgets keep their own motion
-  (`tuff/motion-tokens.ts`) and honour reduced motion. Nothing bounces, spins for show or loops, except the wind tunnel's lights while a worker works,
+  (`tuff/motion-tokens.ts`) and honour reduced motion. Nothing bounces, spins for show or loops, except the wind tunnel's fan and lights while a worker works (its three.js render loop, the one animation outside Motion),
   the hero art and a spinner while work is going on. Do not add CSS
   keyframes or new `transition-*` classes; add a helper instead. Reduced
   motion is honoured in `MotionRoot`.

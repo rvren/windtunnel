@@ -3,6 +3,7 @@ import path from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { costOf, formatCost, usageCost } from "@/lib/cost";
+import { EXAMPLE_SPEC } from "@/lib/features";
 
 import { executeRun, newRun, type RunInput } from "../run";
 import { SAMPLE_SCRIPT, ScriptedLlm, type Script } from "../sample";
@@ -61,7 +62,7 @@ async function play(input: RunInput, script: Script) {
         event.type === "actor.started" || event.type === "actor.completed",
     )
     .map((event) => `${(event as { actorId: string }).actorId} ${event.type}`);
-  return { done, stages, actors };
+  return { done, stages, actors, events: events.map((item) => item.event) };
 }
 
 const projectScript = () =>
@@ -659,5 +660,55 @@ describe("starting a run of a newer kind", () => {
       kind: "blackbox",
       incident: "500 on search",
     });
+  });
+});
+
+describe("progress the wind tunnel shows as it comes", () => {
+  const project = {
+    id: "project-1",
+    name: "Storefront",
+    workspaces,
+    demo: true,
+  };
+  const progress = (events: { type: string }[]) =>
+    events.filter((event) => event.type === "run.progress").length;
+
+  it("announces each Engine Out hop as it is filed", async () => {
+    const { done, events } = await play(
+      {
+        requirement: "",
+        documents: [],
+        kind: "engineout",
+        outage: { part: "cmp-billing", mode: "slow" },
+        project,
+      },
+      projectScript(),
+    );
+    expect(done.status).toBe("completed");
+    expect(done.outage?.hops.length).toBeGreaterThan(0);
+    // One announcement per hop filed, before the judge orders them.
+    const cut = events.findIndex(
+      (event) => event.type === "stage.completed" && event.stage === "cut",
+    );
+    expect(progress(events.slice(0, cut))).toBeGreaterThanOrEqual(
+      done.outage!.hops.length,
+    );
+  });
+
+  it("announces each Preflight line as it is reported", async () => {
+    const { done, events } = await play(
+      {
+        requirement: EXAMPLE_SPEC,
+        documents: [],
+        kind: "preflight",
+        project,
+      },
+      projectScript(),
+    );
+    expect(done.status).toBe("completed");
+    const checked =
+      done.preflight?.lines.filter((line) => line.status !== "unclear") ?? [];
+    expect(checked.length).toBeGreaterThan(0);
+    expect(progress(events)).toBe(checked.length);
   });
 });
