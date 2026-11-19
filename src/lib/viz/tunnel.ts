@@ -98,8 +98,8 @@ export function crossing(
 //
 // The test section seen from downstream, looking back at the fan: x runs
 // with the air (from the fan to the viewer's right), y is up, z comes out
-// of the back wall towards the viewer. The open side of the frames faces
-// the camera. Everything the drawing places (the camera, the rows, where
+// of the back wall towards the viewer. The section's open side faces the
+// camera. Everything the drawing places (the camera, the rows, where
 // each part sits on its plate) is here, so the labels over the drawing can
 // be placed by plain math, before three.js has loaded.
 
@@ -108,7 +108,7 @@ export type Vec3 = [number, number, number];
 /*
  * The camera stands close, at three-quarters, looking back up the section
  * at the fan (the view the owner chose). The section ends on its open side
- * at `open`, short of the camera, so the frames, floor and walls stay
+ * at `open`, short of the camera, so the floor, ceiling and walls stay
  * inside a short, wide drawing instead of running out of it.
  */
 export const TUNNEL_3D = {
@@ -132,8 +132,6 @@ export const TUNNEL_3D = {
   back: -2,
   /** Where the section ends on the side that faces the camera. */
   open: 1.2,
-  /** The frames along the test section, clear of the model. */
-  frames: [-3.3, -2.05, 2.3, 3.5],
   /** Each plate's height, from the top. */
   plateY: { interface: 0.5, services: 0, data: -0.5 },
   plate: { w: 2.1, d: 1.5 },

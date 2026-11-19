@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { Reflector } from "three/addons/objects/Reflector.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
@@ -18,9 +19,10 @@ import { css, type Palette, type Rgb } from "./colors";
 
 /*
  * The 3D wind tunnel: a test section seen from downstream, looking back at
- * its fan. The fan turns in its duct behind a polished lip; frames run
- * along the section, open on the side that faces us; a glass ceiling
- * carries two light strips. The application stands on a turntable in the
+ * its fan. The fan turns in its duct behind a flared, matte inlet, with
+ * stator vanes behind it; the section is a polished floor, a smoked-glass
+ * back wall and a glass ceiling with two light strips, open on the side
+ * that faces us, with no frames across it (the owner found them noisy). The application stands on a turntable in the
  * middle: three plates on a sting (its interface, its services, its data),
  * each part of it a tile. A rake lets out one fine stream per worker; a
  * light travels a stream while its worker works, the stream fades inside
@@ -43,6 +45,83 @@ const PLATES: PlateId[] = ["interface", "services", "data"];
  * its nose and its lip hold their shape without bright reflections.
  */
 const MATTE = { metalness: 0.35, roughness: 0.72 } as const;
+
+/** How fast the fan turns once the run is over, in radians a second. */
+const IDLE_SPIN = 0.9;
+
+/**
+ * A symmetric aerofoil section (NACA 00xx), as struts in a real tunnel
+ * are faired: `chord` along the flow (x, leading edge upstream), `thick`
+ * its greatest thickness across it.
+ */
+function aerofoil(chord: number, thick: number): THREE.Shape {
+  const t = thick / chord;
+  const half = (x: number) =>
+    5 *
+    t *
+    chord *
+    (0.2969 * Math.sqrt(x) -
+      0.126 * x -
+      0.3516 * x ** 2 +
+      0.2843 * x ** 3 -
+      0.1036 * x ** 4);
+  const shape = new THREE.Shape();
+  const steps = 24;
+  for (let i = 0; i <= steps; i += 1) {
+    const x = (1 - Math.cos((i / steps) * Math.PI)) / 2;
+    const at = [x * chord - chord / 2, half(x)] as const;
+    if (i === 0) shape.moveTo(...at);
+    else shape.lineTo(...at);
+  }
+  for (let i = steps - 1; i > 0; i -= 1) {
+    const x = (1 - Math.cos((i / steps) * Math.PI)) / 2;
+    shape.lineTo(x * chord - chord / 2, -half(x));
+  }
+  shape.closePath();
+  return shape;
+}
+
+/** A faired strut standing from `from` to `to` (heights). */
+function strutGeometry(chord: number, thick: number, from: number, to: number) {
+  const geometry = new THREE.ExtrudeGeometry(aerofoil(chord, thick), {
+    depth: to - from,
+    bevelEnabled: false,
+    curveSegments: 8,
+  });
+  // Extruded along z; stood up along y, its thickness across the flow.
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, from, 0);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/**
+ * One fan blade, in the fan's own frame (radial along y, turning about z):
+ * a cambered surface that widens and sweeps towards its tip and twists
+ * from steep at the hub to flat at the tip, as a turbofan's do.
+ */
+function bladeGeometry(hub: number, tip: number): THREE.BufferGeometry {
+  const geometry = new THREE.PlaneGeometry(1, 1, 6, 18);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i += 1) {
+    const u = position.getX(i); // -0.5 .. 0.5 across the chord
+    const s = position.getY(i) + 0.5; // 0 at the hub, 1 at the tip
+    const r = hub + s * (tip - hub);
+    const chord = 0.2 + 0.18 * s;
+    const twist = 1.05 - 0.55 * s;
+    const camber = (0.25 - u * u) * chord * 0.22;
+    const along = u * chord;
+    const sweep = s * s * 0.12;
+    position.setXYZ(
+      i,
+      along * Math.cos(twist) - camber * Math.sin(twist) + sweep,
+      r,
+      along * Math.sin(twist) + camber * Math.cos(twist),
+    );
+  }
+  geometry.computeVertexNormals();
+  return geometry;
+}
 
 const PLATE_OPACITY: Record<PlateId, number> = {
   interface: 0.82,
@@ -115,6 +194,10 @@ interface Stream {
   alpha: number;
   alphaTarget: number;
   running: boolean;
+  /** Done, and not failed: the air keeps flowing down it. */
+  flowing: boolean;
+  /** How far its light has travelled. */
+  travel: number;
   latest: string | null;
 }
 
@@ -201,6 +284,8 @@ export class Tunnel3D {
   private fan!: THREE.Group;
   private fanSpeed = 0;
   private fanTarget = 0;
+  /** Nothing at work and nothing landing: frames are drawn more slowly. */
+  private idle = false;
   private fanLight!: THREE.PointLight;
   /** The blades blurred into a disc at speed, as a real fan looks. */
   private fanBlur!: THREE.MeshBasicMaterial;
@@ -279,9 +364,11 @@ export class Tunnel3D {
       ? THREE.NoToneMapping
       : THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1;
-    // Soft shadows under the model, its stand and the frames.
+    // Soft shadows under the model and its stand.
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Percentage-closer filtering, softened by the light's shadow radius
+    // (three.js folded its soft variant into this one).
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     const studio = new THREE.PMREMGenerator(this.renderer);
     this.environment = studio.fromScene(new RoomEnvironment(), 0.04).texture;
     studio.dispose();
@@ -432,9 +519,25 @@ export class Tunnel3D {
     const cz = (T.back + T.open) / 2;
     const height = T.ceiling - T.floor;
 
+    // A polished floor: a mirror under a sheer layer of the floor's colour,
+    // so the model and the streams show faintly in it.
+    const mirror = new Reflector(new THREE.PlaneGeometry(length, width), {
+      clipBias: 0.003,
+      textureWidth: 1024,
+      textureHeight: 512,
+      color: p.dark ? 0x8a8a96 : 0xb4b4c0,
+    });
+    mirror.rotation.x = -pi / 2;
+    mirror.position.set(cx, T.floor - 0.004, cz);
+    room.add(mirror);
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(length, width),
-      this.standard(p.floor, { roughness: 0.34, metalness: 0.2 }),
+      this.standard(p.floor, {
+        roughness: 0.3,
+        metalness: 0.15,
+        transparent: true,
+        opacity: p.dark ? 0.84 : 0.9,
+      }),
     );
     floor.receiveShadow = true;
     floor.rotation.x = -pi / 2;
@@ -442,7 +545,15 @@ export class Tunnel3D {
     room.add(floor);
     const back = new THREE.Mesh(
       new THREE.PlaneGeometry(length, height),
-      this.standard(p.wall, { roughness: 0.7, metalness: 0.1 }),
+      // Smoked glass: dark and smooth, the room's light on it.
+      new THREE.MeshPhysicalMaterial({
+        color: this.color(p.wall),
+        // Satin enough that a small light leaves a soft sheen, not a glint.
+        roughness: 0.34,
+        metalness: 0.15,
+        clearcoat: 0.6,
+        clearcoatRoughness: 0.35,
+      }),
     );
     back.receiveShadow = true;
     back.position.set(cx, 0, T.back);
@@ -477,16 +588,6 @@ export class Tunnel3D {
       room.add(strip);
     }
 
-    // Brushed steel, reflecting the room.
-    const metal = this.standard(p.frame, {
-      metalness: 0.85,
-      roughness: 0.32,
-    });
-    for (const x of T.frames) {
-      const rib = this.rib(x, metal);
-      rib.castShadow = true;
-      room.add(rib);
-    }
     // The wall the fan comes through.
     // Turned to face the air, its width runs along -z: its middle is at
     // -cz in its own plane, and the fan's hole stays on the axis.
@@ -536,12 +637,27 @@ export class Tunnel3D {
     deep.rotation.y = pi / 2;
     deep.position.x = T.fan - 0.45;
     room.add(deep);
+    // A bell-mouth: the duct flares smoothly out into the wall, as a real
+    // tunnel's inlet does, instead of a ring round a hole.
+    const flare: THREE.Vector2[] = [new THREE.Vector2(T.fanRadius, -0.3)];
+    for (let i = 0; i <= 16; i += 1) {
+      const a = (i / 16) * (pi / 2);
+      flare.push(
+        new THREE.Vector2(
+          T.fanRadius + 0.24 * (1 - Math.cos(a)),
+          0.24 * Math.sin(a),
+        ),
+      );
+    }
+    const mouth = new THREE.LatheGeometry(flare, 96);
+    // Its axis along the air (x), opening downstream.
+    mouth.rotateZ(-pi / 2);
     const lip = new THREE.Mesh(
-      new THREE.TorusGeometry(T.fanRadius + 0.02, 0.07, 16, 96),
-      this.standard(p.metal, MATTE),
+      mouth,
+      this.standard(p.metal, { ...MATTE, side: THREE.DoubleSide }),
     );
-    lip.rotation.y = pi / 2;
-    lip.position.x = x0 + 0.12;
+    lip.position.x = x0 - 0.1;
+    lip.receiveShadow = true;
     room.add(lip);
 
     // Wide, swept, overlapping blades round a rounded nose cone.
@@ -557,13 +673,21 @@ export class Tunnel3D {
       ...MATTE,
       side: THREE.DoubleSide,
     });
-    for (let index = 0; index < 22; index += 1) {
-      const geometry = new THREE.BoxGeometry(0.3, 0.92, 0.02);
-      geometry.rotateY(0.6);
-      geometry.translate(0, 0.78, 0);
-      const mesh = new THREE.Mesh(geometry, blade);
-      mesh.rotation.z = (index * pi * 2) / 22;
+    const shape = bladeGeometry(0.32, 1.27);
+    for (let index = 0; index < 20; index += 1) {
+      const mesh = new THREE.Mesh(shape, blade);
+      mesh.rotation.z = (index * pi * 2) / 20;
       this.fan.add(mesh);
+    }
+    // Fixed stator vanes behind the fan, straightening the air.
+    const vane = this.standard(p.frame, { ...MATTE, side: THREE.DoubleSide });
+    for (let index = 0; index < 13; index += 1) {
+      const geometry = new THREE.BoxGeometry(0.035, 0.94, 0.16);
+      geometry.translate(0, 0.8, 0);
+      const mesh = new THREE.Mesh(geometry, vane);
+      mesh.rotation.z = (index * pi * 2) / 13 + 0.12;
+      mesh.position.z = -0.3;
+      mount.add(mesh);
     }
     const hub = new THREE.Mesh(
       new THREE.CylinderGeometry(0.33, 0.33, 0.18, 32),
@@ -590,35 +714,6 @@ export class Tunnel3D {
     );
     blur.position.z = 0.04;
     mount.add(blur);
-  }
-
-  /** A frame of the test section, open on the side that faces us. */
-  private rib(x: number, material: THREE.Material) {
-    const path = new THREE.CurvePath<THREE.Vector3>();
-    const r = 0.35;
-    const at = (y: number, z: number) => new THREE.Vector3(x, y, z);
-    const { floor: y0, ceiling: y1, back: zb, open: z0 } = T;
-    path.add(new THREE.LineCurve3(at(y0, z0), at(y0, zb + r)));
-    path.add(
-      new THREE.QuadraticBezierCurve3(
-        at(y0, zb + r),
-        at(y0, zb),
-        at(y0 + r, zb),
-      ),
-    );
-    path.add(new THREE.LineCurve3(at(y0 + r, zb), at(y1 - r, zb)));
-    path.add(
-      new THREE.QuadraticBezierCurve3(
-        at(y1 - r, zb),
-        at(y1, zb),
-        at(y1, zb + r),
-      ),
-    );
-    path.add(new THREE.LineCurve3(at(y1, zb + r), at(y1, z0)));
-    return new THREE.Mesh(
-      new THREE.TubeGeometry(path, 90, 0.045, 10),
-      material,
-    );
   }
 
   // ── The cast: what one input builds ─────────────────────────────────────
@@ -674,11 +769,13 @@ export class Tunnel3D {
     const rows = rows3d(input.streams.length);
     const fade0 = spots[0] - 1.2 * scale;
     const fade1 = spots[spots.length - 1] + 1.2 * scale;
+    // The smoke rake: a faired strut, its nozzles pointing downstream.
     const rake = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.014, 0.014, T.ceiling - T.floor, 8),
-      this.standard(p.metal, { metalness: 0.85 }),
+      strutGeometry(0.14, 0.03, T.floor, T.ceiling),
+      this.standard(p.metal, { metalness: 0.3, roughness: 0.6 }),
     );
     rake.position.set(T.rake, 0, 0);
+    rake.castShadow = true;
     this.stage.add(rake);
     input.streams.forEach((worker, index) => {
       const y = rows[index];
@@ -714,10 +811,11 @@ export class Tunnel3D {
         shader(0.16, 1),
       );
       const nozzle = new THREE.Mesh(
-        new THREE.SphereGeometry(0.042, 12, 12),
-        this.standard(p.metal, { metalness: 0.85, roughness: 0.25 }),
+        new THREE.CylinderGeometry(0.011, 0.014, 0.12, 12),
+        this.standard(p.metal, { metalness: 0.7, roughness: 0.3 }),
       );
-      nozzle.position.set(T.rake, y, 0);
+      nozzle.rotation.z = -Math.PI / 2;
+      nozzle.position.set(T.rake + 0.11, y, 0);
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.05, 16, 16),
         this.basic(this.tone("muted"), { opacity: 1 }),
@@ -741,6 +839,8 @@ export class Tunnel3D {
         alpha: 0.28,
         alphaTarget: 0.28,
         running: false,
+        flowing: false,
+        travel: index * 1.37,
         latest: null,
       });
     });
@@ -775,11 +875,11 @@ export class Tunnel3D {
     rim.rotation.x = Math.PI / 2;
     rim.position.y = T.floor + 0.038;
     group.add(rim);
+    // A faired strut from the turntable up to the model.
     const sting = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.028, 0.028, T.plateY.data - T.floor, 12),
-      this.standard(p.metal, { metalness: 0.85, roughness: 0.22 }),
+      strutGeometry(0.18 * Math.max(scale, 0.7), 0.045, T.floor, T.plateY.data),
+      this.standard(p.metal, { metalness: 0.6, roughness: 0.35 }),
     );
-    sting.position.y = (T.plateY.data + T.floor) / 2;
     sting.castShadow = true;
     group.add(sting);
 
@@ -1146,10 +1246,12 @@ export class Tunnel3D {
     this.applyDuel(input, animate);
     this.applySpec(input);
     this.applyDesigns(input, animate);
+    // Full speed while a worker works, slower between stages, and an idle
+    // turn once the run is over: the tunnel never stands dead still.
     this.fanTarget = this.reduced
       ? 0
       : input.ended
-        ? 0
+        ? IDLE_SPIN
         : input.streams.some((stream) => stream.status === "running")
           ? 10
           : 3.5;
@@ -1170,6 +1272,11 @@ export class Tunnel3D {
       const verdict = verdictOf(worker.status, input.outcome);
       const pending = worker.status === "pending";
       stream.running = !input.ended && worker.status === "running";
+      stream.flowing =
+        !stream.running &&
+        worker.status !== "pending" &&
+        worker.status !== "failed" &&
+        worker.status !== "declined";
       stream.target.copy(
         verdict === "good"
           ? this.tone("ok")
@@ -1545,6 +1652,12 @@ export class Tunnel3D {
 
   private frame = (ms: number) => {
     this.frameId = 0;
+    // Idle (nothing at work, nothing landing), the quiet motion needs no
+    // more than about 30 frames a second.
+    if (this.idle && this.last && ms - this.last < 32) {
+      this.wake();
+      return;
+    }
     const dt = this.last ? Math.min(0.05, (ms - this.last) / 1000) : 0;
     this.last = ms;
     this.clock = ms / 1000;
@@ -1565,7 +1678,10 @@ export class Tunnel3D {
     const spin = Math.min(1, this.fanSpeed / 10);
     this.fanLight.intensity =
       (p.dark ? 1.0 : 0.8) * Math.PI * 2.2 * (0.25 + 0.75 * spin);
-    this.ductGlow.opacity = (p.dark ? 0.4 : 0.18) * (0.3 + 0.7 * spin);
+    // The duct's light breathes, gently, while the fan idles.
+    const breath = this.reduced ? 0 : 0.18 * Math.sin(this.clock * 1.3);
+    this.ductGlow.opacity =
+      (p.dark ? 0.4 : 0.18) * (0.3 + 0.7 * spin) * (1 + breath * (1 - spin));
     this.fanBlur.opacity = 0.32 * Math.max(0, (this.fanSpeed - 4) / 6);
     if (this.fanSpeed > 0.01 || this.fanTarget > 0) moving = true;
 
@@ -1588,11 +1704,21 @@ export class Tunnel3D {
         const u = mesh.material.uniforms;
         (u.color.value as THREE.Color).copy(stream.color);
         u.alpha.value = alpha * stream.alpha;
-        u.on.value = stream.running && !this.reduced ? 1 : 0;
-        u.pulse.value =
-          T.rake - 0.3 + ((this.clock * 2.6 + stream.index * 1.37) % span);
+        u.on.value = this.reduced
+          ? 0
+          : stream.running
+            ? 1
+            : stream.flowing
+              ? 0.38
+              : 0;
+        u.pulse.value = T.rake - 0.3 + (stream.travel % span);
       }
-      if (stream.running && !this.reduced) moving = true;
+      // A worker at work sends a bright light down its stream; once done,
+      // the air keeps flowing: a soft light drifts down it, slower.
+      if (!this.reduced && (stream.running || stream.flowing)) {
+        stream.travel += dt * (stream.running ? 2.6 : 1.1);
+        moving = true;
+      }
     }
 
     for (const tile of this.tiles.values()) {
@@ -1668,6 +1794,9 @@ export class Tunnel3D {
       }
     }
     if (this.effects.length > 0) moving = true;
+    this.idle =
+      this.effects.length === 0 &&
+      !this.streams.some((stream) => stream.running);
     return moving;
   }
 

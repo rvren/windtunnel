@@ -85,11 +85,13 @@ take something away.
   `src/lib/viz/tunnel-scene.ts`, where things stand in `TUNNEL_3D` in
   `src/lib/viz/tunnel.ts`), drawn as a real one at the owner's request, in
   one panel that fits a screen:
-  - A **test section seen from downstream**, looking back at its fan:
-    frames along it, open on the side that faces us; a glass ceiling with
-    two light strips; at the far end the **turbofan** in its duct behind a
-    polished lip, turning while the run goes on, its duct lit while it
-    turns.
+  - A **test section seen from downstream**, looking back at its fan: a
+    polished floor that faintly mirrors the model and the streams, a
+    smoked-glass back wall, a glass ceiling with two light strips, open on
+    the side that faces us. **No
+    frames or bars across it**: the owner found them noisy. At the far
+    end the **turbofan** turns in a flared, matte bell-mouth inlet, its
+    twisted blades over fixed stator vanes, its duct lit while it turns.
   - The **application on a turntable**: three plates on a sting, its
     interface (frontends), its services and its data (databases, queues,
     outside systems), each part of the run's map a tile with its name
@@ -101,8 +103,16 @@ take something away.
     count. The names, notes, counts and a kind's few words are HTML over
     the canvas, placed by `project` (the camera's own projection, tested
     against three.js), so they show before three.js loads. When the run
-    ends the fan stops, and each stream and its dot turn green (red where
-    work failed or the run stopped).
+    ends each stream and its dot turn green (red where work failed or the
+    run stopped).
+  - **It never stands dead still** (the owner found the still room
+    lifeless): the fan turns at full speed while a worker works, slower
+    between stages, and idles once the run is over; a bright light
+    travels a stream while its worker works, and once the worker is done
+    a soft light keeps drifting down it, slower, as the air goes on
+    flowing; the duct's glow breathes while the fan idles. Idle, the scene
+    draws at about 30 frames a second; off screen or with reduced motion,
+    nothing moves.
   - **Each kind adds its own detail**, all from real data: Tunnel Run a
     pin in its severity's colour where each finding is, and Flutter's
     chains as red arcs; Crosswind a nozzle in the back wall blowing the
@@ -117,9 +127,10 @@ take something away.
     stage through the `run.progress` event, which makes the page fetch
     the run again (at most once every 750ms, `src/lib/throttle.ts`).
   - **Lit as a real room**: a soft studio environment that the metal and
-    glass reflect, soft shadows from the key light (the model, its stand
-    and the frames onto the floor and the turntable), acrylic plates with
-    a clear coat, brushed-steel frames, and a **matte turbine** (the owner
+    glass reflect, soft shadows from the key light (the model and its
+    stand onto the floor and the turntable), acrylic plates with a clear
+    coat, faired aerofoil struts for the model's stand and the smoke rake
+    (its nozzles pointing downstream), and a **matte turbine** (the owner
     asked for no reflections on it). The dark theme blooms its lights,
     with no tone mapping there (it would press the panel's near-black to
     black) and the drawing's edge faded into the panel; the light theme
@@ -134,8 +145,8 @@ take something away.
     finds what is under the pointer on screen (`pick`), a ball winning
     over a tile, so a small pin is easy to reach.
   - Its render loop is the one animation outside Motion: it runs only
-    while something moves and the panel is on screen; with reduced motion
-    nothing turns or travels. Where WebGL cannot draw, the 2D tunnel
+    while the panel is on screen; with reduced motion nothing turns or
+    travels. Where WebGL cannot draw, the 2D tunnel
     (`WindTunnelFlat` in `wind-tunnel.tsx`) takes its place.
   - **While the run goes on the page is as little as it can be** (the
     owner asked for something very simple that still has impact): the
@@ -347,7 +358,7 @@ font-medium`; body is 14px; secondary text is `text-muted-foreground`.
   `Reveal` for sections that scroll into view, `FadeInItem` for rows that are
   added, `Smooth` for size changes. One soft ease-out, about half a second,
   a rise of 10px at most. The tuffui widgets keep their own motion
-  (`tuff/motion-tokens.ts`) and honour reduced motion. Nothing bounces, spins for show or loops, except the wind tunnel's fan and lights while a worker works (its three.js render loop, the one animation outside Motion),
+  (`tuff/motion-tokens.ts`) and honour reduced motion. Nothing bounces, spins for show or loops, except the wind tunnel's fan and lights (its three.js render loop, the one animation outside Motion: full speed while a worker works, idle once the run is over),
   the hero art and a spinner while work is going on. Do not add CSS
   keyframes or new `transition-*` classes; add a helper instead. Reduced
   motion is honoured in `MotionRoot`.
