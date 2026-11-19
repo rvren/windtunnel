@@ -70,6 +70,7 @@ import { runBlackbox } from "./kinds/blackbox";
 import type { KindContext } from "./kinds/context";
 import { chainsStage } from "./kinds/chains";
 import { runDogfight } from "./kinds/dogfight";
+import { runPreflight } from "./kinds/preflight";
 import { runEngineOut } from "./kinds/engineout";
 import { impactStage, readChange } from "./kinds/crosswind";
 import { runFlyoff } from "./kinds/flyoff";
@@ -195,17 +196,19 @@ export function newRun(
         )
       : kind === "blackbox" && input.incident
         ? titleOf(`Black box: ${input.incident}`)
-        : kind === "dogfight" && input.dogfight
-          ? titleOf(
-              `Dogfight: ${input.dogfight.label ?? input.dogfight.groupId}`,
-            )
-          : kind === "engineout" && input.outage
+        : kind === "preflight"
+          ? titleOf(`Preflight: ${base}`)
+          : kind === "dogfight" && input.dogfight
             ? titleOf(
-                `Engine out: ${input.outage.label ?? input.outage.part} ${input.outage.mode === "slow" ? "slowed down" : "down"}`,
+                `Dogfight: ${input.dogfight.label ?? input.dogfight.groupId}`,
               )
-            : kind === "flyoff"
-              ? titleOf(`Fly-off: ${base}`)
-              : base;
+            : kind === "engineout" && input.outage
+              ? titleOf(
+                  `Engine out: ${input.outage.label ?? input.outage.part} ${input.outage.mode === "slow" ? "slowed down" : "down"}`,
+                )
+              : kind === "flyoff"
+                ? titleOf(`Fly-off: ${base}`)
+                : base;
   return {
     id,
     createdAt: at,
@@ -469,7 +472,10 @@ export async function executeRun(
       outline: string;
     } | null;
 
-    if (kind === "dogfight") {
+    if (kind === "preflight") {
+      if (!code) throw new RunError("A Preflight reads a project's code.");
+      await runPreflight(ctx, code, expertise);
+    } else if (kind === "dogfight") {
       if (!code) throw new RunError("A Dogfight reads a project's code.");
       await runDogfight(
         ctx,

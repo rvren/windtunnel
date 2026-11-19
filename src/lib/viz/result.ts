@@ -2,6 +2,7 @@ import { SEVERITY_LABEL, SEVERITY_ORDER, termsFor } from "@/lib/labels";
 import type { RunRecord, Severity } from "@/server/engine/schema";
 
 import { cutLabel, outageNumbers, worstHops } from "./outage";
+import { STATUS_LABEL, statusCounts, worstLines } from "./preflight";
 
 /*
  * What a finished run came to, said plainly: one headline, a line under
@@ -133,6 +134,32 @@ export function resultOf(run: RunRecord): RunResult {
         label: fix?.status === "made" ? "Review The Fix" : "See The Incident",
         tab: "report",
       },
+    };
+  }
+
+  if (kind === "preflight" && run.preflight) {
+    const counts = statusCounts(run.preflight);
+    const total = run.preflight.lines.length;
+    return {
+      headline: `${counts.implemented} of ${plural(total, "line")} of the spec ${counts.implemented === 1 ? "is" : "are"} in the code.`,
+      detail: `${counts.contradicted} contradicted, ${counts.missing} missing, ${counts.partly} partly done.`,
+      numbers: [
+        { label: "Implemented", value: String(counts.implemented) },
+        { label: "Missing", value: String(counts.missing) },
+        { label: "Contradicted", value: String(counts.contradicted) },
+      ],
+      items: worstLines(run.preflight).map((line) => ({
+        id: line.id,
+        title: line.text,
+        note: `${STATUS_LABEL[line.status]}: ${line.note}`,
+        severity:
+          line.status === "contradicted"
+            ? "critical"
+            : line.status === "missing"
+              ? "high"
+              : "medium",
+      })),
+      action: { label: "See The Spec", tab: "report" },
     };
   }
 

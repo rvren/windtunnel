@@ -18,6 +18,7 @@ import {
   FlyoffVerdict,
   HopReport,
   ImpactAnswer,
+  LineReport,
   TriageAnswer,
   type AgentReport,
   type Challenges,
@@ -142,6 +143,20 @@ export class ScriptedLlm implements LlmClient {
     }
     if (request.schema === FlyoffVerdict) {
       return ["judge", { kind: "ok", value: SAMPLE_FLYOFF_VERDICT }];
+    }
+    // Preflight: each agent's lines, by the agent named in its brief.
+    if (request.schema === LineReport) {
+      const agent =
+        AGENTS.find((item) =>
+          request.system.includes(`You are the agent "${item.name}"`),
+        )?.id ?? "product_critic";
+      return [
+        `preflight:${agent}`,
+        {
+          kind: "ok",
+          value: { summary: "Checked each line against the code." },
+        },
+      ];
     }
     // A Dogfight's rounds: the issue and the round are named in the prompt.
     const fought = /<target id="([^"]+)"/.exec(request.prompt)?.[1] ?? "";

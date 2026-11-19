@@ -1,5 +1,6 @@
 import type { AgentId } from "@/lib/agents";
 import { engineOutScripts } from "./sample-engineout";
+import { preflightScripts } from "./sample-preflight";
 
 import type { Script } from "./sample";
 import type {
@@ -1811,6 +1812,7 @@ export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
       ],
       ...tools,
       ...engineOut.tools,
+      ...preflightScripts(has, pathOf),
       ...(has("catalog")
         ? Object.fromEntries(
             [1, 2].map((n) => [

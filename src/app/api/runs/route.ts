@@ -63,6 +63,9 @@ export async function POST(request: Request) {
   if (!kind.ok) return failure(kind.error, 400);
   const parsed = parseRunInput(body, names !== null);
   if (!parsed.ok) return failure(parsed.error, 400);
+  if (kind.kind === "preflight" && !parsed.input.requirement) {
+    return failure("Paste the spec to check against the code.", 400);
+  }
   if (kind.kind === "flyoff" && !parsed.input.requirement) {
     return failure("A fly-off needs a requirement to design.", 400);
   }

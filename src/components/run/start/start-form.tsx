@@ -63,6 +63,7 @@ const STEP_TITLE: Record<RunKind, string> = {
   blackbox: "What went wrong",
   engineout: "What to cut",
   dogfight: "The fix to defend",
+  preflight: "The spec to check",
 };
 
 const CONFIRM_TITLE: Record<RunKind, string> = {
@@ -72,6 +73,7 @@ const CONFIRM_TITLE: Record<RunKind, string> = {
   blackbox: "Investigate this incident?",
   engineout: "Cut this part?",
   dogfight: "Start the dogfight?",
+  preflight: "Check this spec against the code?",
 };
 
 const count = (n: number) => n.toLocaleString("en");
@@ -684,7 +686,7 @@ export function StartForm({
               ) : null
             }
           />
-        ) : kind === "flyoff" ? (
+        ) : kind === "flyoff" || kind === "preflight" ? (
           textBox(feature.example)
         ) : (
           textBox(feature.example, true)

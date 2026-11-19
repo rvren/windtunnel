@@ -388,6 +388,7 @@ audits update tracked issues and send work orders to 8090.
 | Black box  | survey, triage, remediation                                                         | `src/server/engine/kinds/blackbox.ts`  |
 | Engine Out | survey, map, cut, cascade                                                           | `src/server/engine/kinds/engineout.ts` |
 | Dogfight   | survey, duel, verdict                                                               | `src/server/engine/kinds/dogfight.ts`  |
+| Preflight  | survey, split, trace                                                                | `src/server/engine/kinds/preflight.ts` |
 
 ```mermaid
 flowchart LR
@@ -446,6 +447,17 @@ written back onto the run its issue came from (`hardenIssueFix` in
 `src/server/engine/registry.ts`), so the issue's pull request is the
 hardened one and says how many rounds it held. A Black Box run puts its fix
 through the same duel, for at most two rounds.
+
+**Preflight** checks a written spec against the code (`runs.data.preflight`).
+The split stage is code: `splitSpec` takes the spec's list items and
+sentences, in its own words, and `lensOf` gives each line to the agent
+whose lens fits it. In the trace stage the five agents, in parallel, read
+the code for their lines and report each through `report_line`
+(`reportLineTool`): implemented, partly or contradicted with the code that
+shows it (each range checked; a claim with none left is refused), or
+missing with where they searched. A line no agent reported stays "not
+checked". The result exports as a traceability table in Markdown and CSV
+(`src/lib/viz/preflight.ts`).
 
 Every kind has a free scripted path: `src/server/engine/sample-kinds.ts`
 holds sample answers, and `ScriptedLlm` tells the kinds apart by the answer

@@ -75,6 +75,10 @@ export function startProblem(
       if (!code)
         return "A Dogfight reads code. Add a workspace to this project first.";
       return input.dogfight.groupId ? null : "Choose the issue to defend.";
+    case "preflight":
+      if (!code)
+        return "Preflight checks the code. Add a workspace to this project first.";
+      return text ? null : "Paste the spec to check.";
   }
 }
 
@@ -145,6 +149,14 @@ export function startBody(
         requirement: "",
         documents: [],
         dogfight: input.dogfight,
+      };
+    case "preflight":
+      return {
+        projectId: project.id,
+        kind: "preflight",
+        workspaces: all,
+        requirement: input.text,
+        documents: [],
       };
   }
 }

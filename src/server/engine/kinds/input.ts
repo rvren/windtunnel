@@ -62,9 +62,13 @@ export function parseKind(
             ? "Engine Out reads a project's code: choose its workspaces."
             : kind === "dogfight"
               ? "A Dogfight reads a project's code: choose its workspaces."
-              : "A black box run reads a project's code: choose its workspaces.",
+              : kind === "preflight"
+                ? "Preflight checks a spec against a project's code: choose its workspaces."
+                : "A black box run reads a project's code: choose its workspaces.",
     };
   }
+
+  if (kind === "preflight") return { ok: true, kind };
 
   if (kind === "dogfight") {
     const fight = (body.dogfight ?? null) as Record<string, unknown> | null;

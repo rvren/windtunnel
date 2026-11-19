@@ -56,6 +56,7 @@ import { LatestFinding, LiveFindings } from "./live-findings";
 import { ChainsReport } from "./kinds/chains-report";
 import { DogfightReport } from "./kinds/dogfight-report";
 import { EngineOutReport } from "./kinds/engineout-report";
+import { PreflightReport } from "./kinds/preflight-report";
 import { ResultCard } from "./result-card";
 import { RunHeader } from "./run-header";
 import { DeleteRunButton } from "./run-delete";
@@ -276,7 +277,9 @@ export function RunView({
           ? Boolean(run.outage?.headline)
           : kind === "dogfight"
             ? run.dogfight?.held !== null && run.dogfight?.held !== undefined
-            : run.designModel !== null;
+            : kind === "preflight"
+              ? Boolean(run.preflight?.lines.length)
+              : run.designModel !== null;
   // The report waits for the end of the run; until then the story is it.
   const ended = !running;
   const chapters = storyOf(run, feed, times);
@@ -371,7 +374,8 @@ export function RunView({
     (kind === "flyoff" ||
       kind === "blackbox" ||
       kind === "engineout" ||
-      kind === "dogfight")
+      kind === "dogfight" ||
+      kind === "preflight")
   ) {
     details.push({
       id: "report",
@@ -382,7 +386,9 @@ export function RunView({
             ? "Cascade"
             : kind === "dogfight"
               ? "Rounds"
-              : "Incident",
+              : kind === "preflight"
+                ? "Spec"
+                : "Incident",
       icon: FileText,
     });
   }
@@ -789,6 +795,11 @@ export function RunView({
           {reportReady && kind === "engineout" ? (
             <TabsContent value="report">
               <EngineOutReport run={run} />
+            </TabsContent>
+          ) : null}
+          {reportReady && kind === "preflight" ? (
+            <TabsContent value="report">
+              <PreflightReport run={run} />
             </TabsContent>
           ) : null}
           {reportReady && kind === "dogfight" ? (

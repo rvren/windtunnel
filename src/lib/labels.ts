@@ -25,6 +25,8 @@ export const STAGE_ORDER = [
   "cascade",
   "duel",
   "verdict",
+  "split",
+  "trace",
 ] as const;
 
 /** What each kind of run is called (as in lib/features.ts). */
@@ -35,6 +37,7 @@ export const KIND_LABEL = {
   blackbox: "Black Box",
   engineout: "Engine Out",
   dogfight: "Dogfight",
+  preflight: "Preflight",
 } as const;
 
 export const STAGE_LABEL = {
@@ -57,6 +60,8 @@ export const STAGE_LABEL = {
   cascade: "Cascade",
   duel: "Duel",
   verdict: "Verdict",
+  split: "Split",
+  trace: "Trace",
 } as const;
 
 export const STAGE_DESCRIPTION = {
@@ -79,6 +84,8 @@ export const STAGE_DESCRIPTION = {
   cascade: "Ordering the failure and checking every line",
   duel: "An attacker trying to get past each fix",
   verdict: "Putting the rounds together into one checked fix",
+  split: "Breaking the spec into lines, one per agent's lens",
+  trace: "Five agents finding the code behind each line",
 } as const;
 
 export const FINDING_TYPE_LABEL = {

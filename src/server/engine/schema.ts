@@ -197,6 +197,39 @@ export const Challenges = z.object({
 });
 export type Challenges = z.infer<typeof Challenges>;
 
+// ── Preflight: a written spec, checked line by line against the code ──────
+
+export const LINE_STATUSES = [
+  "implemented",
+  "partly",
+  "missing",
+  "contradicted",
+  "unclear",
+] as const;
+export type LineStatus = (typeof LINE_STATUSES)[number];
+
+/** What a trace agent says when it has reported its lines. */
+export const LineReport = z.object({ summary: z.string() });
+export type LineReport = z.infer<typeof LineReport>;
+
+export interface PreflightLine {
+  id: string;
+  /** The line, exactly as the spec words it. */
+  text: string;
+  /** The agent whose lens fits it, and who checks it. */
+  agentId: AgentId;
+  status: LineStatus;
+  note: string;
+  /** The code that shows it, checked; none for missing or unclear. */
+  locations: CodeLocation[];
+  /** For a missing line: where the agent looked. */
+  searched: string | null;
+}
+
+export interface RunPreflight {
+  lines: PreflightLine[];
+}
+
 // ── Dogfight: a fix that must hold against an attacker ────────────────────
 
 /** What the attacker says after reading the fixed code. */
@@ -431,6 +464,8 @@ export const STAGES = [
   "cascade",
   "duel",
   "verdict",
+  "split",
+  "trace",
 ] as const;
 export type Stage = (typeof STAGES)[number];
 
@@ -447,6 +482,7 @@ export const RUN_KINDS = [
   "blackbox",
   "engineout",
   "dogfight",
+  "preflight",
 ] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
@@ -478,6 +514,7 @@ export const STAGES_OF: Record<RunKind, readonly Stage[]> = {
   blackbox: ["survey", "triage", "remediation", "duel"],
   engineout: ["survey", "map", "cut", "cascade"],
   dogfight: ["survey", "duel", "verdict"],
+  preflight: ["survey", "split", "trace"],
 };
 
 /** A run's kind; runs made before kinds existed are audits. */
@@ -851,6 +888,8 @@ export interface RunRecord {
   outage?: RunOutage;
   /** Dogfight, or a Black Box's fix put to an attacker: every round. */
   dogfight?: RunDogfight;
+  /** Preflight: the spec, line by line, against the code. */
+  preflight?: RunPreflight;
   /** Flutter: accepted issues that add up to a breach. Code runs only. */
   chains?: AttackChain[];
   /** Chains the model gave that failed a check, and were left out. */

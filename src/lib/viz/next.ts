@@ -149,6 +149,27 @@ export function nextRunsOf(run: RunRecord): NextRun[] {
       href: link(run, "flyoff"),
     });
   }
+  if (kind === "audit" && !readCode(run) && run.requirement.trim()) {
+    add({
+      kind: "preflight",
+      label: "Check It Against The Code",
+      why: "Once it is built: each line of this requirement, marked against the project's code.",
+      href: link(run, "preflight"),
+    });
+  }
+  if (kind === "preflight" && run.preflight) {
+    const failing = run.preflight.lines.filter(
+      (line) => line.status === "contradicted" || line.status === "missing",
+    );
+    if (failing.length > 0) {
+      add({
+        kind: "audit",
+        label: "Test The Lines That Fail",
+        why: "Five agents attack the lines the code contradicts or misses, before they are built again.",
+        href: link(run, "audit", { subject: "requirement" }),
+      });
+    }
+  }
   if (kind === "flyoff" && winnerOf(run)) {
     add({
       kind: "audit",
@@ -267,6 +288,21 @@ export function prefillFrom(
     const hop = run.outage.hops.find((item) => item.id === query.hop);
     if (hop) {
       prefill.text = `Engine Out (${cutLabel(run.outage)}): ${hop.effect} At ${hop.location.path}:${hop.location.startLine}-${hop.location.endLine}.`;
+    }
+  }
+  if (kind === "preflight" && from === "audit" && run.requirement.trim()) {
+    prefill.text = run.requirement;
+  }
+  if (kind === "audit" && from === "preflight" && run.preflight) {
+    const failing = run.preflight.lines.filter(
+      (line) => line.status === "contradicted" || line.status === "missing",
+    );
+    if (failing.length > 0) {
+      prefill.text = [
+        `${plainTitle(run.title)}: the lines the code does not meet`,
+        "",
+        ...failing.map((line) => `- ${line.text}`),
+      ].join("\n");
     }
   }
   if (kind === "flyoff" && run.requirement.trim()) {

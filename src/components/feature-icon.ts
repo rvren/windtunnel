@@ -1,4 +1,5 @@
 import {
+  ClipboardCheck,
   GitCompareArrows,
   Plane,
   Siren,
@@ -18,4 +19,5 @@ export const FEATURE_ICON: Record<RunKind, LucideIcon> = {
   blackbox: Siren,
   engineout: Unplug,
   dogfight: Plane,
+  preflight: ClipboardCheck,
 };

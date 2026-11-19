@@ -42,6 +42,20 @@ export interface Feature {
 export const EXAMPLE_CHANGE =
   "Move sessions from cookies to a shared Redis, and let the gateway check them.";
 
+/** A spec to try Preflight with: what Storefront is meant to do. */
+export const EXAMPLE_SPEC = `# Storefront: what the shop must do
+
+- A shopper can search the catalog by product name.
+- A shopper sees only their own orders.
+- Only a signed-in shopper can place an order, and only as themselves.
+- The price charged is the catalog price, worked out on the server.
+- A session ends after 30 minutes without use.
+- A card is never charged twice for one order.
+- If payment fails, no order is made and the shopper is told.
+- Each order sends one confirmation email.
+- Card numbers are never written to logs.
+- A shopper can get a refund to their card.`;
+
 /** A part to cut to try Engine Out with, on the Storefront sample. */
 export const EXAMPLE_OUTAGE = {
   part: "cmp-billing",
@@ -139,30 +153,6 @@ export const FEATURES: Feature[] = [
     ],
   },
   {
-    kind: "dogfight",
-    name: "Dogfight",
-    start: "Start Dogfight",
-    promise:
-      "An attacker tries to get past a security fix, round after round, until the fix holds.",
-    question: "Will this fix hold against an attacker?",
-    input: "A security issue from a run of the project's code",
-    output: "A hardened fix, round by round, ready as a pull request",
-    example: "The search box can run SQL",
-    fresh: true,
-    actors: [
-      {
-        id: "defender",
-        name: "Defender",
-        role: "Writes the fix, then answers each attack.",
-      },
-      {
-        id: "attacker",
-        name: "Attacker",
-        role: "Reads the fixed code and looks for a way past it.",
-      },
-    ],
-  },
-  {
     kind: "engineout",
     name: "Engine Out",
     start: "Start Engine Out",
@@ -197,6 +187,43 @@ export const FEATURES: Feature[] = [
       },
     ],
   },
+  {
+    kind: "preflight",
+    name: "Preflight",
+    start: "Start Preflight",
+    promise:
+      "Check a written spec against the code, line by line: what is built, what is missing, and what the code does instead.",
+    question: "Does the code do what the spec says?",
+    input: "A spec or requirement, and the project's code",
+    output: "Each line of the spec marked, with the code that proves it",
+    example: EXAMPLE_SPEC,
+    fresh: true,
+    actors: FIVE_AGENTS,
+  },
+  {
+    kind: "dogfight",
+    name: "Dogfight",
+    start: "Start Dogfight",
+    promise:
+      "An attacker tries to get past a security fix, round after round, until the fix holds.",
+    question: "Will this fix hold against an attacker?",
+    input: "A security issue from a run of the project's code",
+    output: "A hardened fix, round by round, ready as a pull request",
+    example: "The search box can run SQL",
+    fresh: true,
+    actors: [
+      {
+        id: "defender",
+        name: "Defender",
+        role: "Writes the fix, then answers each attack.",
+      },
+      {
+        id: "attacker",
+        name: "Attacker",
+        role: "Reads the fixed code and looks for a way past it.",
+      },
+    ],
+  },
 ];
 
 export function featureOf(kind: RunKind): Feature {
@@ -209,7 +236,7 @@ export function featureOf(kind: RunKind): Feature {
  */
 export function plainTitle(title: string): string {
   return title.replace(
-    /^(crosswind|fly-off|black box|engine out|dogfight):\s*/i,
+    /^(crosswind|fly-off|black box|engine out|dogfight|preflight):\s*/i,
     "",
   );
 }
