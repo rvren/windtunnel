@@ -317,6 +317,7 @@ export function WindTunnel3D({
         "[--wt-bg:var(--card)] [--wt-ink:var(--foreground)]",
         "[--wt-floor:#9c9da1] dark:[--wt-floor:#25262a]",
         "[--wt-wall:#ecedee] dark:[--wt-wall:#2c2d31]",
+        "[--wt-steel:#d9dce0] dark:[--wt-steel:#959aa2]",
         "[--wt-frame:#c3c4c8] dark:[--wt-frame:#3a3b40]",
         "[--wt-metal:#b9bbc1] dark:[--wt-metal:#8e8ea2]",
         "[--wt-blade:#8f9198] dark:[--wt-blade:#5e5e72]",

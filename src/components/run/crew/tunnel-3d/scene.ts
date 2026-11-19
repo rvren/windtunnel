@@ -534,6 +534,8 @@ export class Tunnel3D {
     w: number,
     h: number,
     shade: ("left" | "right" | "top" | "bottom")[],
+    /** Concrete's mottle, or steel's brushed grain along its width. */
+    finish: "concrete" | "brushed" = "concrete",
   ): THREE.CanvasTexture {
     const height = 512;
     const width = Math.min(2048, Math.round((height * w) / h));
@@ -544,8 +546,22 @@ export class Tunnel3D {
     if (context) {
       context.fillStyle = css(base);
       context.fillRect(0, 0, width, height);
-      // A soft mottle: broad patches a shade lighter or darker.
-      for (let i = 0; i < 90; i += 1) {
+      // Brushed steel: fine streaks along the width, a shade lighter or
+      // darker, as a brushed sheet catches the light.
+      for (let i = 0; finish === "brushed" && i < 4200; i += 1) {
+        const y = Math.random() * height;
+        const x = Math.random() * width;
+        const run = width * (0.08 + Math.random() * 0.5);
+        const tone = Math.random() < 0.5 ? "0,0,0" : "255,255,255";
+        context.strokeStyle = `rgba(${tone},${0.012 + Math.random() * 0.03})`;
+        context.lineWidth = 0.5 + Math.random() * 0.9;
+        context.beginPath();
+        context.moveTo(x - run / 2, y);
+        context.lineTo(x + run / 2, y);
+        context.stroke();
+      }
+      // Concrete: a soft mottle, broad patches a shade lighter or darker.
+      for (let i = 0; finish === "concrete" && i < 90; i += 1) {
         const x = Math.random() * width;
         const y = Math.random() * height;
         const r = height * (0.12 + Math.random() * 0.4);
@@ -562,7 +578,7 @@ export class Tunnel3D {
       }
       // A fine grain, pixel by pixel.
       const image = context.getImageData(0, 0, width, height);
-      const grain = this.palette.dark ? 7 : 9;
+      const grain = finish === "brushed" ? 4 : this.palette.dark ? 7 : 9;
       for (let i = 0; i < image.data.length; i += 4) {
         const n = (Math.random() - 0.5) * grain;
         image.data[i] += n;
@@ -571,7 +587,8 @@ export class Tunnel3D {
       }
       context.putImageData(image, 0, 0);
       // The corners the light does not reach.
-      const depth = this.palette.dark ? 0.4 : 0.22;
+      const depth =
+        (this.palette.dark ? 0.4 : 0.22) * (finish === "brushed" ? 0.7 : 1);
       for (const edge of shade) {
         const across = edge === "left" || edge === "right";
         const reach = across ? width * 0.07 : height * 0.2;
@@ -599,12 +616,22 @@ export class Tunnel3D {
     return texture;
   }
 
-  /** A slab's materials: its face with the surface on it, plain sides. */
-  private slabMaterials(base: Rgb, map: THREE.Texture) {
-    const darker: Rgb = [base[0] * 0.86, base[1] * 0.86, base[2] * 0.86];
+  /**
+   * Brushed stainless steel: metal, satin rather than mirror (the owner
+   * wanted no sharp reflections on the walls), its highlights drawn out
+   * along the grain. Its face carries the brushed surface; plain sides.
+   */
+  private steelMaterials(map: THREE.Texture, base: Rgb = this.palette.steel) {
+    const darker: Rgb = [base[0] * 0.8, base[1] * 0.8, base[2] * 0.8];
     return [
-      this.standard([1, 1, 1], { map, roughness: 0.88, metalness: 0.02 }),
-      this.standard(darker, { roughness: 0.88, metalness: 0.02 }),
+      new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        map,
+        metalness: 0.8,
+        roughness: 0.42,
+        anisotropy: 0.65,
+      }),
+      this.standard(darker, { metalness: 0.8, roughness: 0.45 }),
     ];
   }
 
@@ -666,12 +693,25 @@ export class Tunnel3D {
     const { slab: thick, lip: proud } = T.slab;
     // Its far edge meets the back wall and its left end the fan's wall:
     // the texture darkens there.
+    // Brushed steel like the walls, a shade darker so the room stands on
+    // it, its grain running with the air.
     const floorDepth = width + proud * 2;
+    const floorSteel: Rgb = [
+      p.steel[0] * 0.82,
+      p.steel[1] * 0.82,
+      p.steel[2] * 0.82,
+    ];
     const floor = new THREE.Mesh(
       slabGeometry(length, floorDepth, thick, 0.16),
-      this.slabMaterials(
-        p.floor,
-        this.surface(p.floor, length, floorDepth, ["top", "left"]),
+      this.steelMaterials(
+        this.surface(
+          floorSteel,
+          length,
+          floorDepth,
+          ["top", "left"],
+          "brushed",
+        ),
+        floorSteel,
       ),
     );
     // Laid flat, its top face is the floor.
@@ -681,9 +721,14 @@ export class Tunnel3D {
     const wallHeight = height + thick + proud;
     const back = new THREE.Mesh(
       slabGeometry(length, wallHeight, thick, 0.16),
-      this.slabMaterials(
-        p.wall,
-        this.surface(p.wall, length, wallHeight, ["bottom", "left"]),
+      this.steelMaterials(
+        this.surface(
+          p.steel,
+          length,
+          wallHeight,
+          ["bottom", "left"],
+          "brushed",
+        ),
       ),
     );
     // Stood up behind the section, its face is the back wall; it runs
@@ -720,6 +765,15 @@ export class Tunnel3D {
     wall.holes.push(
       new THREE.Path().absarc(0, 0, T.fanRadius - 0.02, 0, pi * 2, true),
     );
+    // Its face's UVs are its shape's own units; its middle is off centre.
+    const housing = this.surface(
+      p.steel,
+      width + 0.5,
+      height + 0.3,
+      [],
+      "brushed",
+    );
+    housing.offset.x = 0.5 + (cz + 0.1) / (width + 0.5);
     const wallGeometry = new THREE.ExtrudeGeometry(wall, {
       depth: 0.22,
       bevelEnabled: false,
@@ -729,8 +783,8 @@ export class Tunnel3D {
     wallGeometry.rotateY(pi / 2);
     const endWall = new THREE.Mesh(
       wallGeometry,
-      // The fan's housing, a shade apart from the back wall.
-      this.standard(p.frame, { metalness: 0.08, roughness: 0.8 }),
+      // The fan's housing: brushed steel, like the back wall.
+      this.steelMaterials(housing),
     );
     endWall.position.x = x0;
     room.add(endWall);

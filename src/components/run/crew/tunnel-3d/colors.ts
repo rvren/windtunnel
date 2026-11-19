@@ -14,6 +14,8 @@ export interface Palette {
   bg: Rgb;
   floor: Rgb;
   wall: Rgb;
+  /** Brushed stainless steel: the walls. */
+  steel: Rgb;
   frame: Rgb;
   metal: Rgb;
   blade: Rgb;
@@ -34,6 +36,7 @@ const TOKENS: Record<Exclude<keyof Palette, "dark">, string> = {
   bg: "--wt-bg",
   floor: "--wt-floor",
   wall: "--wt-wall",
+  steel: "--wt-steel",
   frame: "--wt-frame",
   metal: "--wt-metal",
   blade: "--wt-blade",

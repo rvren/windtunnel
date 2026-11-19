@@ -87,10 +87,11 @@ take something away.
   one panel that fits a screen:
   - A **test section seen from downstream**, looking back at its fan: the
     floor and the back wall are solid matte slabs with softly bevelled
-    edges, like the wall the fan comes through, in neutral greys with no
-    tint (concrete-grey floor and off-white wall in the light theme,
-    charcoal and graphite in the dark), their faces textured like sealed
-    concrete (fine grain, soft mottle) and darker in the corners the light
+    edges, like the wall the fan comes through. The walls (the back wall
+    and the fan's housing) are **brushed stainless steel**, satin rather
+    than mirror, with a fine grain and highlights drawn out along it, in a
+    light steel shade; the floor is the same brushed steel a shade darker,
+    its grain running with the air. They darken in the corners the light
     does not reach; a soft overhead light pools around the model. The
     light theme is lit lower than the dark (pale surfaces wash out to flat
     white otherwise), its turbine a mid grey in a lighter housing, and the
