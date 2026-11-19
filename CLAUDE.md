@@ -91,7 +91,10 @@ take something away.
     tint (concrete-grey floor and off-white wall in the light theme,
     charcoal and graphite in the dark), their faces textured like sealed
     concrete (fine grain, soft mottle) and darker in the corners the light
-    does not reach; a soft overhead light pools around the model; a faint glass ceiling with
+    does not reach; a soft overhead light pools around the model. The
+    light theme is lit lower than the dark (pale surfaces wash out to flat
+    white otherwise), its turbine a mid grey in a lighter housing, and the
+    fan's violet glow kept faint there; a faint glass ceiling with
     no strips or bars along it (the owner had them taken off); open on the
     side that faces us. Nothing in the room
     mirrors: the owner tried a polished floor and chose matte. **No

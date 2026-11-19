@@ -617,9 +617,14 @@ export class Tunnel3D {
     room.fog = new THREE.Fog(this.color(p.bg), 18, 32);
     const pi = Math.PI;
     room.environment = this.environment;
-    room.environmentIntensity = p.dark ? 0.32 : 0.75;
-    room.add(new THREE.AmbientLight(0xffffff, (p.dark ? 0.12 : 0.35) * pi));
-    const key = new THREE.DirectionalLight(0xffffff, (p.dark ? 0.9 : 0.8) * pi);
+    // The light theme is lit lower than it looks it should be: pale
+    // surfaces wash out to flat white otherwise, and lose their shading.
+    room.environmentIntensity = p.dark ? 0.32 : 0.5;
+    room.add(new THREE.AmbientLight(0xffffff, (p.dark ? 0.12 : 0.2) * pi));
+    const key = new THREE.DirectionalLight(
+      0xffffff,
+      (p.dark ? 0.9 : 0.62) * pi,
+    );
     key.position.set(3, 9, 6);
     room.add(key);
     const fill = new THREE.DirectionalLight(
@@ -632,7 +637,7 @@ export class Tunnel3D {
     // light falls off towards the tunnel's ends.
     const pool = new THREE.SpotLight(
       0xffffff,
-      p.dark ? 46 : 26,
+      p.dark ? 46 : 20,
       10,
       0.62,
       0.9,
@@ -724,7 +729,8 @@ export class Tunnel3D {
     wallGeometry.rotateY(pi / 2);
     const endWall = new THREE.Mesh(
       wallGeometry,
-      this.standard(p.wall, { metalness: 0.05, roughness: 0.85 }),
+      // The fan's housing, a shade apart from the back wall.
+      this.standard(p.frame, { metalness: 0.08, roughness: 0.8 }),
     );
     endWall.position.x = x0;
     room.add(endWall);
@@ -1790,11 +1796,11 @@ export class Tunnel3D {
     this.fan.rotation.z += this.fanSpeed * dt;
     const spin = Math.min(1, this.fanSpeed / 10);
     this.fanLight.intensity =
-      (p.dark ? 1.0 : 0.8) * Math.PI * 2.2 * (0.25 + 0.75 * spin);
+      (p.dark ? 1.0 : 0.3) * Math.PI * 2.2 * (0.25 + 0.75 * spin);
     // The duct's light breathes, gently, while the fan idles.
     const breath = this.reduced ? 0 : 0.18 * Math.sin(this.clock * 1.3);
     this.ductGlow.opacity =
-      (p.dark ? 0.4 : 0.18) * (0.3 + 0.7 * spin) * (1 + breath * (1 - spin));
+      (p.dark ? 0.4 : 0.08) * (0.3 + 0.7 * spin) * (1 + breath * (1 - spin));
     this.fanBlur.opacity = 0.32 * Math.max(0, (this.fanSpeed - 4) / 6);
     if (this.fanSpeed > 0.01 || this.fanTarget > 0) moving = true;
 
