@@ -158,8 +158,10 @@ function rounded<P extends THREE.Path>(
   w: number,
   h: number,
   r: number,
+  /** Where its middle is along its width. */
+  middle = 0,
 ): P {
-  const x = -w / 2;
+  const x = middle - w / 2;
   const y = -h / 2;
   path.moveTo(x + r, y);
   path.lineTo(x + w - r, y);
@@ -340,7 +342,9 @@ export class Tunnel3D {
     const x1 = T.end + 0.3;
     const length = x1 - x0;
     const cx = (x0 + x1) / 2;
-    const width = T.near - T.back;
+    // The section runs from the back wall to its open side.
+    const width = T.open - T.back;
+    const cz = (T.back + T.open) / 2;
     const height = T.ceiling - T.floor;
 
     const floor = new THREE.Mesh(
@@ -348,7 +352,7 @@ export class Tunnel3D {
       this.standard(p.floor, { roughness: 0.55, metalness: 0.35 }),
     );
     floor.rotation.x = -pi / 2;
-    floor.position.set(cx, T.floor, 0);
+    floor.position.set(cx, T.floor, cz);
     room.add(floor);
     const back = new THREE.Mesh(
       new THREE.PlaneGeometry(length, height),
@@ -366,10 +370,10 @@ export class Tunnel3D {
       }),
     );
     glass.rotation.x = pi / 2;
-    glass.position.set(cx, T.ceiling, 0);
+    glass.position.set(cx, T.ceiling, cz);
     room.add(glass);
     // Two light strips along the ceiling.
-    for (const z of [T.back + 0.14, T.near - 0.14]) {
+    for (const z of [T.back + 0.14, T.open - 0.14]) {
       const strip = new THREE.Mesh(
         new THREE.BoxGeometry(length, 0.025, 0.05),
         this.basic(new THREE.Color(p.dark ? 0xdcd8ff : 0xffffff), {
@@ -388,7 +392,15 @@ export class Tunnel3D {
     });
     for (const x of T.frames) room.add(this.rib(x, metal));
     // The wall the fan comes through.
-    const wall = rounded(new THREE.Shape(), width + 0.3, height + 0.3, 0.36);
+    // Turned to face the air, its width runs along -z: its middle is at
+    // -cz in its own plane, and the fan's hole stays on the axis.
+    const wall = rounded(
+      new THREE.Shape(),
+      width + 0.3,
+      height + 0.3,
+      0.36,
+      -cz,
+    );
     wall.holes.push(
       new THREE.Path().absarc(0, 0, T.fanRadius - 0.02, 0, pi * 2, true),
     );
@@ -408,7 +420,7 @@ export class Tunnel3D {
 
     // The fan: its duct, lit from deep inside while it turns; the lip.
     const duct = new THREE.Mesh(
-      new THREE.CylinderGeometry(T.fanRadius, T.fanRadius, 1.5, 64, 1, true),
+      new THREE.CylinderGeometry(T.fanRadius, T.fanRadius, 0.8, 64, 1, true),
       this.standard(p.wall, {
         side: THREE.BackSide,
         metalness: 0.6,
@@ -416,7 +428,8 @@ export class Tunnel3D {
       }),
     );
     duct.rotation.z = pi / 2;
-    duct.position.x = T.fan - 0.4;
+    // Short, so it stays hidden behind the wall from the camera.
+    duct.position.x = T.fan - 0.1;
     room.add(duct);
     this.ductGlow = this.basic(this.color(p.brand), { opacity: 0 });
     const deep = new THREE.Mesh(
@@ -424,7 +437,7 @@ export class Tunnel3D {
       this.ductGlow,
     );
     deep.rotation.y = pi / 2;
-    deep.position.x = T.fan - 1.1;
+    deep.position.x = T.fan - 0.45;
     room.add(deep);
     const lip = new THREE.Mesh(
       new THREE.TorusGeometry(T.fanRadius + 0.02, 0.07, 16, 96),
@@ -476,7 +489,7 @@ export class Tunnel3D {
     const path = new THREE.CurvePath<THREE.Vector3>();
     const r = 0.35;
     const at = (y: number, z: number) => new THREE.Vector3(x, y, z);
-    const { floor: y0, ceiling: y1, back: zb, near: z0 } = T;
+    const { floor: y0, ceiling: y1, back: zb, open: z0 } = T;
     path.add(new THREE.LineCurve3(at(y0, z0), at(y0, zb + r)));
     path.add(
       new THREE.QuadraticBezierCurve3(

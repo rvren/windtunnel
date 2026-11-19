@@ -98,20 +98,26 @@ describe("the 3D tunnel", () => {
   });
 
   it("shows the whole test section, near corners included", () => {
-    const { floor, ceiling, back, near, fan, frames } = TUNNEL_3D;
-    // The fan's wall (it stands a little proud of the section), every
-    // frame, and the floor and ceiling at both ends.
-    const xs = [fan + 0.15, fan + 0.3, ...frames];
-    for (const x of xs) {
-      for (const y of [floor - 0.15, ceiling + 0.15]) {
-        for (const z of [back - 0.15, near + 0.15]) {
-          const at = project([x, y, z]);
-          expect(at.x).toBeGreaterThan(0.01);
-          expect(at.x).toBeLessThan(0.99);
-          expect(at.y).toBeGreaterThan(0.01);
-          expect(at.y).toBeLessThan(0.99);
-        }
+    const { floor, ceiling, back, open, fan, frames } = TUNNEL_3D;
+    // The fan's wall stands 0.15 proud of the section all round; a frame is
+    // a tube 0.045 thick, so 0.05 round its line.
+    const corners: Vec3[] = [];
+    for (const y of [floor - 0.15, ceiling + 0.15]) {
+      for (const z of [back - 0.15, open + 0.15]) {
+        corners.push([fan + 0.3, y, z]);
       }
+    }
+    for (const x of frames) {
+      for (const y of [floor - 0.05, ceiling + 0.05]) {
+        for (const z of [back - 0.05, open + 0.05]) corners.push([x, y, z]);
+      }
+    }
+    for (const corner of corners) {
+      const at = project(corner);
+      expect(at.x).toBeGreaterThan(0.01);
+      expect(at.x).toBeLessThan(0.99);
+      expect(at.y).toBeGreaterThan(0.01);
+      expect(at.y).toBeLessThan(0.99);
     }
   });
 

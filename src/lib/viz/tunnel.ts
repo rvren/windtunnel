@@ -106,19 +106,19 @@ export function crossing(
 export type Vec3 = [number, number, number];
 
 /*
- * The camera stands well back with a long lens (a narrow field of view):
- * the whole section fits a short, wide drawing, near corners included,
- * and it still looks down on the model by about 10 degrees, so the
- * plates and their parts read.
+ * The camera stands close, at three-quarters, looking back up the section
+ * at the fan (the view the owner chose). The section ends on its open side
+ * at `open`, short of the camera, so the frames, floor and walls stay
+ * inside a short, wide drawing instead of running out of it.
  */
 export const TUNNEL_3D = {
   /** The drawing's width over its height. */
-  aspect: 2.75,
+  aspect: 2.6,
   camera: {
-    position: [5.11, 2.39, 11.72] as Vec3,
-    target: [-0.24, -0.53, -0.55] as Vec3,
+    position: [6.3, 1.75, 6.6] as Vec3,
+    target: [-0.43, -0.79, -0.38] as Vec3,
     /** The vertical field of view, in degrees. */
-    fov: 20.6,
+    fov: 28.1,
   },
   /** Where the fan turns, the rake stands, the model sits, streams end. */
   fan: -5.7,
@@ -130,7 +130,8 @@ export const TUNNEL_3D = {
   /** The fan's radius, inside the wall it comes through. */
   fanRadius: 1.12,
   back: -2,
-  near: 2,
+  /** Where the section ends on the side that faces the camera. */
+  open: 1.2,
   /** The frames along the test section, clear of the model. */
   frames: [-3.3, -2.05, 2.3, 3.5],
   /** Each plate's height, from the top. */
