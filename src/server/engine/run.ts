@@ -197,7 +197,10 @@ export function newRun(
       : kind === "blackbox" && input.incident
         ? titleOf(`Black box: ${input.incident}`)
         : kind === "preflight"
-          ? titleOf(`Preflight: ${base}`)
+          ? // Named after the spec it checks: its heading or first line.
+            titleOf(
+              `Preflight: ${input.requirement.trim().replace(/^#+\s*/, "") || base}`,
+            )
           : kind === "dogfight" && input.dogfight
             ? titleOf(
                 `Dogfight: ${input.dogfight.label ?? input.dogfight.groupId}`,

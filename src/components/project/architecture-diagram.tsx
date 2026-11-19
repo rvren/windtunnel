@@ -467,17 +467,29 @@ export function ArchitectureDiagram({
       })
       .join(" ");
   };
+  // A card holds as many stops as fit along its top edge; past that, the
+  // last seat says how many more there are (each is still in the list
+  // beside the map).
+  const seats = Math.max(Math.floor((cardWidth - 12) / 24), 2);
+  const perCard = new Map<string, number>();
+  for (const hop of hops) perCard.set(hop.to, (perCard.get(hop.to) ?? 0) + 1);
   const onCard = new Map<string, number>();
-  const stops = hops.map((hop, index) => {
+  const stops = hops.flatMap((hop, index) => {
     const at = box.get(hop.to)!;
     const seat = onCard.get(hop.to) ?? 0;
     onCard.set(hop.to, seat + 1);
-    return {
-      hop,
-      delay: 0.3 + index * HOP_STEP,
-      x: at.x + 18 + seat * 24,
-      y: at.y,
-    };
+    const total = perCard.get(hop.to)!;
+    const overflow = total > seats && seat >= seats - 1;
+    if (overflow && seat > seats - 1) return [];
+    return [
+      {
+        hop,
+        delay: 0.3 + index * HOP_STEP,
+        x: at.x + 18 + seat * 24,
+        y: at.y,
+        more: overflow ? total - (seats - 1) : 0,
+      },
+    ];
   });
 
   return (
@@ -581,7 +593,7 @@ export function ArchitectureDiagram({
         })}
         {flight ? (
           <div key={`stops-${flight.play ?? 0}`}>
-            {stops.map(({ hop, delay, x, y }) => (
+            {stops.map(({ hop, delay, x, y, more }) => (
               <PopIn
                 key={hop.id}
                 delay={delay}
@@ -591,31 +603,41 @@ export function ArchitectureDiagram({
                   top: `calc(${y}px - 0.75rem)`,
                 }}
               >
-                <Button
-                  type="button"
-                  size="icon-xs"
-                  variant="outline"
-                  onClick={
-                    flight.onHop ? () => flight.onHop!(hop.id) : undefined
-                  }
-                  aria-pressed={
-                    flight.onHop ? flight.selected === hop.id : undefined
-                  }
-                  aria-label={`Step ${hop.number}: ${hop.label}`}
-                  title={hop.label}
-                  data-testid="flight-stop"
-                  data-hop={hop.id}
-                  style={{
-                    borderColor: HOP_TONE[hop.tone],
-                    color: HOP_TONE[hop.tone],
-                  }}
-                  className={cn(
-                    "rounded-full bg-card font-mono text-[0.6875rem] hover:bg-card dark:bg-card",
-                    flight.selected === hop.id && "ring-2 ring-current/30",
-                  )}
-                >
-                  {hop.number}
-                </Button>
+                {more > 0 ? (
+                  <span
+                    className="grid h-6 min-w-6 place-items-center rounded-full border bg-card px-1 font-mono text-[0.6875rem] text-muted-foreground"
+                    title={`${more} more steps here: see the list`}
+                    data-testid="flight-more"
+                  >
+                    +{more}
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="outline"
+                    onClick={
+                      flight.onHop ? () => flight.onHop!(hop.id) : undefined
+                    }
+                    aria-pressed={
+                      flight.onHop ? flight.selected === hop.id : undefined
+                    }
+                    aria-label={`Step ${hop.number}: ${hop.label}`}
+                    title={hop.label}
+                    data-testid="flight-stop"
+                    data-hop={hop.id}
+                    style={{
+                      borderColor: HOP_TONE[hop.tone],
+                      color: HOP_TONE[hop.tone],
+                    }}
+                    className={cn(
+                      "rounded-full bg-card font-mono text-[0.6875rem] hover:bg-card dark:bg-card",
+                      flight.selected === hop.id && "ring-2 ring-current/30",
+                    )}
+                  >
+                    {hop.number}
+                  </Button>
+                )}
               </PopIn>
             ))}
           </div>

@@ -4,6 +4,7 @@ import { LoaderCircle, Plus } from "lucide-react";
 
 import { PageHeader, PageLoading } from "@/components/app/page-header";
 import { Mark } from "@/components/brand/logo";
+import { FEATURE_ICON } from "@/components/feature-icon";
 import { LocalTime } from "@/components/local-time";
 import { Panel } from "@/components/panel";
 import {
@@ -14,15 +15,25 @@ import {
 import { RunFilters } from "@/components/run/run-filters";
 import { SeverityBar } from "@/components/severity-bar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { pillClass } from "@/components/pill";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCost } from "@/lib/cost";
-import { RUN_STATUS_LABEL } from "@/lib/labels";
+import { RUN_STATUS_LABEL, SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/labels";
 import { cn } from "@/lib/utils";
-import { runRow, runsTotals } from "@/lib/viz/runs-list";
+import { SEVERITY_TONE } from "@/lib/viz/cockpit-views";
+import {
+  kindCounts,
+  runRow,
+  runsTotals,
+  type RunRow,
+} from "@/lib/viz/runs-list";
 import { ensureDatabase } from "@/server/db/ready";
 import { runStore } from "@/server/engine/registry";
-import type { RunSummary } from "@/server/engine/schema";
+import {
+  RUN_KINDS,
+  type RunKind,
+  type RunSummary,
+} from "@/server/engine/schema";
 import { listProjects, type Project } from "@/server/projects/store";
 
 async function RunsTable({
@@ -33,6 +44,9 @@ async function RunsTable({
   const query = await searchParams;
   const projectId = typeof query.project === "string" ? query.project : null;
   const picked = [query.workspace ?? []].flat();
+  const kind = RUN_KINDS.includes(query.kind as RunKind)
+    ? (query.kind as RunKind)
+    : null;
   let runs: RunSummary[];
   let projects: Project[];
   let any: boolean;
@@ -80,6 +94,19 @@ async function RunsTable({
     );
   }
 
+  // The kinds present, counted before the kind filter, so each pill says
+  // how many runs it would show.
+  const kinds = kindCounts(runs);
+  const everyKind = runs.length;
+  if (kind) runs = runs.filter((run) => run.kind === kind);
+  const hrefFor = (next: RunKind | null) => {
+    const params = new URLSearchParams();
+    if (projectId) params.set("project", projectId);
+    for (const name of picked) params.append("workspace", name);
+    if (next) params.set("kind", next);
+    const text = params.toString();
+    return text ? `/app/runs?${text}` : "/app/runs";
+  };
   const nameOf = new Map(projects.map((item) => [item.id, item.name]));
   const deletable = runs
     .filter((run) => run.status !== "running")
@@ -97,6 +124,43 @@ async function RunsTable({
         }))}
         workspaces={current?.workspaces.map((item) => item.name) ?? []}
       />
+      {kinds.length > 1 ? (
+        <nav
+          aria-label="Kind of run"
+          className="mb-3 flex flex-wrap gap-1"
+          data-testid="runs-kinds"
+        >
+          <Link
+            href={hrefFor(null)}
+            aria-current={kind === null ? "page" : undefined}
+            className={pillClass(kind === null, true)}
+            data-testid="runs-kind-all"
+          >
+            All kinds
+            <span className="font-mono text-[0.6875rem] text-muted-foreground">
+              {everyKind}
+            </span>
+          </Link>
+          {kinds.map((item) => {
+            const Icon = FEATURE_ICON[item.kind];
+            return (
+              <Link
+                key={item.kind}
+                href={hrefFor(item.kind)}
+                aria-current={kind === item.kind ? "page" : undefined}
+                className={pillClass(kind === item.kind, true)}
+                data-testid={`runs-kind-${item.kind}`}
+              >
+                <Icon aria-hidden="true" />
+                {item.label}
+                <span className="font-mono text-[0.6875rem] text-muted-foreground">
+                  {item.count}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
       <RunSelection ids={deletable}>
         <Panel data-testid="runs-table">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-4 py-2.5">
@@ -129,14 +193,15 @@ async function RunsTable({
             // One grid for the whole list, each row on its subgrid, so every
             // column lines up from row to row. Below xl the time and the
             // cost move under the title.
-            <ul className="divide-y md:grid md:grid-cols-[1rem_minmax(12rem,1fr)_minmax(9rem,auto)_auto] md:gap-x-6 xl:grid-cols-[1rem_minmax(14rem,1fr)_minmax(10rem,auto)_auto_auto_auto]">
+            <ul className="divide-y md:grid md:grid-cols-[1rem_8rem_minmax(12rem,1fr)_minmax(9rem,auto)_auto] md:gap-x-6 xl:grid-cols-[1rem_9rem_minmax(14rem,1fr)_minmax(10rem,auto)_auto_auto_auto]">
               <li
                 aria-hidden="true"
                 className="hidden px-4 py-2 text-xs text-muted-foreground md:col-span-full md:grid md:grid-cols-subgrid"
               >
                 <span />
+                <span>Kind</span>
                 <span>Run</span>
-                <span>Findings</span>
+                <span>Result</span>
                 <span className="text-right">Work orders</span>
                 <span className="hidden text-right xl:block">Cost</span>
                 <span className="hidden text-right xl:block">Started</span>
@@ -194,7 +259,10 @@ function RunRowItem({
         />
       </span>
 
+      <KindCell kind={row.kind} probable={row.probable} />
+
       <div className="col-span-2 min-w-0 md:col-span-1">
+        <KindCell kind={row.kind} probable={row.probable} small />
         <div className="flex min-w-0 items-center gap-2">
           {run.status === "running" ? (
             <LoaderCircle
@@ -219,20 +287,6 @@ function RunRowItem({
           >
             {row.title}
           </Link>
-          {row.tag ? (
-            <Badge
-              variant="secondary"
-              className="shrink-0"
-              data-testid="runs-row-kind"
-              title={
-                row.probable
-                  ? "Tests an idea: its findings are probable risks."
-                  : undefined
-              }
-            >
-              {row.tag}
-            </Badge>
-          ) : null}
         </div>
         <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 pl-3.5 text-xs text-muted-foreground">
           {projectName ? (
@@ -279,7 +333,7 @@ function RunRowItem({
       </div>
 
       <div className="col-start-2 min-w-0 md:col-start-auto">
-        <Findings run={run} probable={row.probable} />
+        <Findings run={run} probable={row.probable} result={row.result} />
       </div>
 
       <span className="text-right font-mono text-xs text-muted-foreground tabular-nums">
@@ -298,10 +352,93 @@ function RunRowItem({
   );
 }
 
-/** What a run found: a bar by severity, a count of risks, or nothing. */
-function Findings({ run, probable }: { run: RunSummary; probable: boolean }) {
+/**
+ * The kind of run, with its icon: a column of its own on wider screens,
+ * and a small line over the title on a phone.
+ */
+function KindCell({
+  kind,
+  probable,
+  small = false,
+}: {
+  kind: RunRow["kind"];
+  probable: boolean;
+  small?: boolean;
+}) {
+  const Icon = FEATURE_ICON[kind.id];
+  if (small) {
+    return (
+      <p className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground md:hidden">
+        <Icon className="size-3.5" aria-hidden="true" />
+        {kind.label}
+        {kind.detail ? ` · ${kind.detail}` : ""}
+      </p>
+    );
+  }
+  return (
+    <div
+      className="hidden min-w-0 items-start gap-2 md:flex"
+      data-testid="runs-row-kind"
+      data-kind={kind.id}
+      title={
+        probable ? "Tests an idea: its findings are probable risks." : undefined
+      }
+    >
+      <Icon
+        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <span className="min-w-0">
+        <span className="block truncate text-[0.8125rem]">{kind.label}</span>
+        {kind.detail ? (
+          <span className="block text-xs text-muted-foreground">
+            {kind.detail}
+          </span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * What a run came to: a bar by severity of what it found, a count of
+ * risks, the issue a Dogfight defended, or a Fly-off's pick.
+ */
+function Findings({
+  run,
+  probable,
+  result,
+}: {
+  run: RunSummary;
+  probable: boolean;
+  result: RunRow["result"];
+}) {
   if (run.status === "running") {
     return <span className="text-xs text-muted-foreground">In progress</span>;
+  }
+  if (result === "picked") {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {run.status === "completed" ? "Design picked" : "No design picked"}
+      </span>
+    );
+  }
+  if (result === "defended" && run.findingCount > 0) {
+    const worst = SEVERITY_ORDER.find(
+      (severity) => (run.counts?.[severity] ?? 0) > 0,
+    );
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {worst ? (
+          <span
+            aria-hidden="true"
+            className="size-1.5 rounded-full"
+            style={{ background: SEVERITY_TONE[worst] }}
+          />
+        ) : null}
+        {worst ? `${SEVERITY_LABEL[worst]} issue defended` : "Issue defended"}
+      </span>
+    );
   }
   if (run.findingCount === 0) {
     return (

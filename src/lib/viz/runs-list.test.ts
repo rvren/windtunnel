@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { RunSummary } from "@/server/engine/schema";
 
-import { runRow, runsTotals } from "./runs-list";
+import { kindCounts, runRow, runsTotals } from "./runs-list";
 
 const run = (over: Partial<RunSummary> = {}): RunSummary => ({
   id: "r1",
@@ -22,28 +22,69 @@ const run = (over: Partial<RunSummary> = {}): RunSummary => ({
 });
 
 describe("runRow", () => {
-  it("calls a code run that repeats the project's name a code run", () => {
+  it("names every run's kind, a Tunnel Run with what it ran on", () => {
     const row = runRow(run(), "Storefront");
     expect(row.title).toBe("Code run");
-    expect(row.tag).toBeNull();
+    expect(row.kind).toEqual({
+      id: "audit",
+      label: "Tunnel Run",
+      detail: "Code",
+    });
     expect(row.workspaces).toEqual({ shown: ["web", "gateway"], more: 2 });
     expect(row.step).toBeNull();
+    expect(row.result).toBe("findings");
   });
 
-  it("keeps its own title, and tags requirement and other kinds", () => {
+  it("keeps the title without the kind in front of it", () => {
     const idea = runRow(run({ title: "Checkout", workspaces: [] }), "Shop");
     expect(idea).toMatchObject({
       title: "Checkout",
-      tag: "Requirement",
+      kind: { label: "Tunnel Run", detail: "An idea" },
       probable: true,
     });
     expect(idea.workspaces).toEqual({ shown: [], more: 0 });
-    expect(runRow(run({ kind: "flyoff" })).tag).toBe("Fly-off");
+    const out = runRow(
+      run({ kind: "engineout", title: "Engine out: Billing service down" }),
+    );
+    expect(out.title).toBe("Billing service down");
+    expect(out.kind).toEqual({
+      id: "engineout",
+      label: "Engine Out",
+      detail: null,
+    });
+  });
+
+  it("keeps another kind's title even when it is the project's name", () => {
+    expect(runRow(run({ kind: "preflight" }), "Storefront").title).toBe(
+      "Storefront",
+    );
+  });
+
+  it("reads a Dogfight's and a Fly-off's result as what they are", () => {
+    expect(runRow(run({ kind: "dogfight" })).result).toBe("defended");
+    expect(runRow(run({ kind: "flyoff" })).result).toBe("picked");
   });
 
   it("gives the stage of a running run", () => {
     const row = runRow(run({ status: "running", stage: null }));
     expect(row.step).toBe("Starting");
+  });
+});
+
+describe("kindCounts", () => {
+  it("counts the kinds present, in the launcher's order", () => {
+    expect(
+      kindCounts([
+        run({ kind: "dogfight" }),
+        run(),
+        run({ kind: "dogfight" }),
+        run({ kind: "engineout" }),
+      ]),
+    ).toEqual([
+      { kind: "audit", label: "Tunnel Run", count: 1 },
+      { kind: "engineout", label: "Engine Out", count: 1 },
+      { kind: "dogfight", label: "Dogfight", count: 2 },
+    ]);
   });
 });
 

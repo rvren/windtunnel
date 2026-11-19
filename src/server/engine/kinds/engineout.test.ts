@@ -155,6 +155,43 @@ describe("orderCascade", () => {
   });
 });
 
+describe("orderCascade, with both agents at the same place", () => {
+  it("tells one step once, with the worse severity", () => {
+    const at = (
+      id: string,
+      by: string,
+      startLine: number,
+      endLine: number,
+    ) => ({
+      ...hop(id, "cmp-web", "hangs"),
+      by,
+      location: { path: "core/passport.js", startLine, endLine, quote: "" },
+    });
+    const ordered = orderCascade(
+      [
+        at("outage-1", "outage", 12, 44),
+        at("journeys-1", "journeys", 30, 50),
+        at("journeys-2", "journeys", 54, 82),
+      ],
+      {
+        headline: "",
+        journeys: [],
+        hops: [
+          { id: "outage-1", depth: 1, severity: "medium" },
+          { id: "journeys-1", depth: 1, severity: "high" },
+          { id: "journeys-2", depth: 1, severity: "high" },
+        ],
+      },
+      map,
+      "cmp-billing",
+    );
+    expect(ordered.map((item) => [item.id, item.severity])).toEqual([
+      ["outage-1", "high"],
+      ["journeys-2", "high"],
+    ]);
+  });
+});
+
 describe("outageGroups", () => {
   it("turns the hops that need fixing into findings, by part", () => {
     const groups = outageGroups(

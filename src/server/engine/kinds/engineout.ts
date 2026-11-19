@@ -251,11 +251,13 @@ const DEFAULT_SEVERITY: Record<HopBehaviour, Severity> = {
 };
 
 /**
- * The hops in the judge's order. Every filed hop is kept: it cites checked
- * code. The judge sets its depth and severity; a hop the judge left out
- * takes its distance from the cut on the map and a severity from what it
- * does. A hop that holds is never more than low. Ordered by depth, then in
- * the order they were filed.
+ * The hops in the judge's order. Every filed hop is kept, as it cites
+ * checked code, except that two hops in the same part citing overlapping
+ * lines of one file are one step: the first is kept, with the worse
+ * severity. The judge sets each hop's depth and severity; a hop the judge
+ * left out takes its distance from the cut on the map and a severity from
+ * what it does. A hop that holds is never more than low. Ordered by depth,
+ * then in the order they were filed.
  */
 export function orderCascade(
   hops: OutageHop[],
@@ -279,8 +281,25 @@ export function orderCascade(
       return { hop: { ...hop, depth, severity }, index };
     })
     .sort((a, b) => a.hop.depth - b.hop.depth || a.index - b.index)
-    .map(({ hop }) => hop);
+    .map(({ hop }) => hop)
+    .reduce<OutageHop[]>((kept, hop) => {
+      // The two agents often reach the same place: one step, told once.
+      const same = kept.find(
+        (other) =>
+          other.to === hop.to &&
+          other.location.path === hop.location.path &&
+          other.location.startLine <= hop.location.endLine &&
+          hop.location.startLine <= other.location.endLine,
+      );
+      if (!same) return [...kept, hop];
+      same.severity = worseOf(same.severity, hop.severity);
+      return kept;
+    }, []);
 }
+
+const SEVERITY_RANK: Severity[] = ["critical", "high", "medium", "low"];
+const worseOf = (a: Severity, b: Severity): Severity =>
+  SEVERITY_RANK.indexOf(a) <= SEVERITY_RANK.indexOf(b) ? a : b;
 
 /** The hops that need fixing, as findings: Details and work orders use them. */
 export function outageGroups(

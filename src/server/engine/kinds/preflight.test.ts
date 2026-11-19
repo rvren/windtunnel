@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { EXAMPLE_SPEC } from "@/lib/features";
 
 import { runTool, ToolFailure } from "../llm";
-import { lensOf, reportLineTool, specLines, splitSpec } from "./preflight";
+import {
+  lensOf,
+  preflightGroups,
+  reportLineTool,
+  specLines,
+  splitSpec,
+} from "./preflight";
 
 describe("splitSpec", () => {
   it("takes list items and sentences, and leaves out headings and fragments", () => {
@@ -105,5 +111,22 @@ describe("report_line", () => {
       searched: " ",
     });
     expect(bare.text).toMatch(/where you searched/);
+  });
+});
+
+describe("preflightGroups", () => {
+  it("makes the lines the code does not meet into findings, worst highest", () => {
+    const lines = specLines(
+      "- A shopper sees only their own orders.\n- A shopper can get a refund to their card.\n- A shopper can search the catalog.",
+    );
+    lines[0].status = "contradicted";
+    lines[1].status = "missing";
+    lines[2].status = "implemented";
+    expect(
+      preflightGroups(lines).map((group) => [group.id, group.severity]),
+    ).toEqual([
+      ["line-1", "high"],
+      ["line-2", "medium"],
+    ]);
   });
 });

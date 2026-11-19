@@ -10,6 +10,7 @@ import {
   LineReport,
   ZERO_USAGE,
   type CodeLocation,
+  type FindingGroup,
   type LineStatus,
   type PreflightLine,
 } from "../schema";
@@ -216,6 +217,37 @@ ${outlineText}
 </repository_outline>`;
 }
 
+const LINE_SEVERITY = {
+  contradicted: "high",
+  missing: "medium",
+  partly: "low",
+} as const;
+
+/**
+ * The lines the code does not meet, as findings: the runs list counts
+ * them, and they read like any other missing requirement.
+ */
+export function preflightGroups(lines: PreflightLine[]): FindingGroup[] {
+  return lines.flatMap((line) =>
+    line.status === "contradicted" ||
+    line.status === "missing" ||
+    line.status === "partly"
+      ? [
+          {
+            id: line.id,
+            title: line.text,
+            type: "missing_requirement" as const,
+            severity: LINE_SEVERITY[line.status],
+            summary: line.note,
+            findingIds: [],
+            reviewed: true,
+            ...(line.locations[0] ? { location: line.locations[0] } : {}),
+          },
+        ]
+      : [],
+  );
+}
+
 export async function runPreflight(
   ctx: KindContext,
   code: CodeAtHand,
@@ -301,6 +333,7 @@ export async function runPreflight(
     if (results.every((result) => result === null)) {
       throw new RunError("No agent could read the code for this spec.");
     }
+    run.groups = preflightGroups(preflight.lines);
     const count = (status: LineStatus) =>
       preflight.lines.filter((line) => line.status === status).length;
     return `${count("implemented")} implemented, ${count("partly")} partly, ${count("missing")} missing, ${count("contradicted")} contradicted`;
