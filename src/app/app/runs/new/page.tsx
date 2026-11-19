@@ -11,8 +11,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { FEATURES, featureOf } from "@/lib/features";
 import { prefillFrom, prefillNote } from "@/lib/viz/next";
 import { runStore } from "@/server/engine/registry";
-import { ENGINE_OUT_SCENARIOS } from "@/server/engine/sample-engineout";
-import { latestMap } from "@/server/projects/latest-map";
+import { SAMPLE_DUELS, SAMPLE_OUTAGES } from "@/lib/samples";
+import { latestMap, latestSecurityIssues } from "@/server/projects/latest-map";
 import { RUN_KINDS, type RunKind } from "@/server/engine/schema";
 import { listProjects } from "@/server/projects/store";
 import { engineStatus } from "@/server/status";
@@ -83,6 +83,23 @@ async function Start({
     );
   }
   const projects = await listProjects();
+  // A Dogfight picks an issue from each project's latest code run.
+  const targets =
+    kind === "dogfight"
+      ? new Map(
+          await Promise.all(
+            projects
+              .filter((item) => item.workspaces.length > 0)
+              .map(
+                async (item) =>
+                  [
+                    item.id,
+                    await latestSecurityIssues(item.id).catch(() => []),
+                  ] as const,
+              ),
+          ),
+        )
+      : null;
   // Engine Out picks a part from each project's latest map.
   const maps =
     kind === "engineout"
@@ -112,6 +129,7 @@ async function Start({
           part: typeof query.part === "string" ? query.part : undefined,
           mode: typeof query.mode === "string" ? query.mode : undefined,
           hop: typeof query.hop === "string" ? query.hop : undefined,
+          group: typeof query.group === "string" ? query.group : undefined,
         }),
         note: prefillNote(earlier),
       }
@@ -191,8 +209,11 @@ async function Start({
                       name,
                       kind,
                     })) ?? null,
-                  scripted: ENGINE_OUT_SCENARIOS,
+                  scripted: SAMPLE_OUTAGES,
                 }
+              : {}),
+            ...(targets
+              ? { targets: targets.get(item.id) ?? [], duels: SAMPLE_DUELS }
               : {}),
           }))}
           initialProjectId={project}

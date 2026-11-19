@@ -178,7 +178,7 @@ describe("a black box run, scripted", () => {
       { ...script, kinds: { triage: sampleTriage("catalog/search.py") } },
     );
     expect(done.status).toBe("completed");
-    expect(stages).toEqual(["survey", "triage", "remediation"]);
+    expect(stages).toEqual(["survey", "triage", "remediation", "duel"]);
     expect(done.triage?.suspects[0]).toMatchObject({
       path: "catalog/search.py",
       startLine: 4,
@@ -193,6 +193,63 @@ describe("a black box run, scripted", () => {
       "triage actor.completed",
       "fixer actor.started",
       "fixer actor.completed",
+    ]);
+  });
+
+  it("puts the fix to an attacker until it holds, on the fixed code", async () => {
+    const script = projectScript();
+    const { done, stages, actors } = await play(
+      {
+        requirement: "",
+        documents: [],
+        kind: "blackbox",
+        incident: "500 on search with a quote in the term.",
+        project: {
+          id: "project-1",
+          name: "Storefront",
+          workspaces,
+          demo: true,
+        },
+      },
+      {
+        ...script,
+        kinds: {
+          triage: sampleTriage("catalog/search.py"),
+          duels: { "incident-1": script.kinds!.duels!["g-cat-sqli"] },
+        },
+        remediations: {
+          ...script.remediations,
+          "incident-1": script.remediations!["g-cat-sqli"],
+        },
+      },
+    );
+    expect(done.status).toBe("completed");
+    expect(stages.at(-1)).toBe("duel");
+    const fight = done.dogfight!;
+    expect(fight.held).toBe(true);
+    expect(fight.rounds.map((round) => round.attack?.verdict)).toEqual([
+      "through",
+      "held",
+    ]);
+    // Round 1 starts from the run's own fix; the way through cites the
+    // fixed code, checked: the parameter it brought in is there.
+    expect(fight.rounds[0].defence.from).toBe("run");
+    expect(fight.rounds[0].attack?.location).toMatchObject({
+      path: "catalog/search.py",
+      startLine: 5,
+    });
+    expect(fight.rounds[0].attack?.location?.quote).toContain("LIKE %s");
+    // The two rounds come together as one fix against the original file.
+    const fix = done.remediations!["incident-1"];
+    expect(fix.heldRounds).toBe(2);
+    expect(fix.edits).toHaveLength(1);
+    expect(fix.edits[0].before.join("\n")).toContain('query + "%\'"');
+    expect(fix.edits[0].after.join("\n")).toContain("ESCAPE");
+    expect(actors.slice(-4)).toEqual([
+      "fixer actor.started",
+      "fixer actor.completed",
+      "attacker actor.started",
+      "attacker actor.completed",
     ]);
   });
 

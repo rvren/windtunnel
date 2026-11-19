@@ -15,6 +15,8 @@ import type { TrackedState } from "@/components/issues/state-chip";
 import { Panel } from "@/components/panel";
 import { ArchitectureDiagram } from "@/components/project/architecture-diagram";
 import { Remediation } from "@/components/run/remediation";
+
+import { DuelRounds } from "./dogfight-report";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FINDING_TYPE_LABEL, SEVERITY_LABEL } from "@/lib/labels";
@@ -60,7 +62,9 @@ function Section({
 }) {
   return (
     <Panel className={cn("overflow-hidden", className)} data-testid={testId}>
-      <h3 className="border-b px-4 py-2.5 text-[0.8125rem] font-medium">{title}</h3>
+      <h3 className="border-b px-4 py-2.5 text-[0.8125rem] font-medium">
+        {title}
+      </h3>
       <div className="p-4">{children}</div>
     </Panel>
   );
@@ -600,6 +604,18 @@ export function BlackboxReport({
               fixCost="This fix is already written; opening the pull request costs nothing."
             />
           ) : null}
+        </Section>
+      ) : null}
+      {run.dogfight && run.dogfight.rounds.length > 0 ? (
+        <Section
+          title={
+            run.dogfight.held
+              ? `The fix held against the attacker after ${run.dogfight.rounds.length === 1 ? "1 round" : `${run.dogfight.rounds.length} rounds`}`
+              : `The attacker still gets past the fix`
+          }
+          testId="blackbox-duel"
+        >
+          <DuelRounds fight={run.dogfight} />
         </Section>
       ) : null}
     </div>

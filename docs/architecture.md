@@ -387,6 +387,7 @@ audits update tracked issues and send work orders to 8090.
 | Fly-off    | model, proposals, critique, judge                                                   | `src/server/engine/kinds/flyoff.ts`    |
 | Black box  | survey, triage, remediation                                                         | `src/server/engine/kinds/blackbox.ts`  |
 | Engine Out | survey, map, cut, cascade                                                           | `src/server/engine/kinds/engineout.ts` |
+| Dogfight   | survey, duel, verdict                                                               | `src/server/engine/kinds/dogfight.ts`  |
 
 ```mermaid
 flowchart LR
@@ -432,6 +433,19 @@ judge order the hops by distance from the cut and say what each journey
 comes to (`orderCascade` keeps every filed hop; a hop that holds is never
 above low). Hops that need fixing become findings (`outageGroups`). Nothing
 is run, and project issues are not changed by a what-if run.
+
+**Dogfight** puts the fix of a security issue to an attacker
+(`runs.data.dogfight`). In the duel stage the defender brings the fix the
+earlier run wrote, or writes one; the attacker (Sonnet, the Attacker's
+notes) reads the code with the fix applied in memory
+(`RepoReader.withOverlay`) and either cites lines of the fixed code that
+show a way through (`checkAttack`) or says it holds. The defender answers
+on top of its own fix, for at most three rounds. `combinedEdits` turns the
+rounds into one checked fix against the original files. A fix that held is
+written back onto the run its issue came from (`hardenIssueFix` in
+`src/server/engine/registry.ts`), so the issue's pull request is the
+hardened one and says how many rounds it held. A Black Box run puts its fix
+through the same duel, for at most two rounds.
 
 Every kind has a free scripted path: `src/server/engine/sample-kinds.ts`
 holds sample answers, and `ScriptedLlm` tells the kinds apart by the answer

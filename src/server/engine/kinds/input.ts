@@ -20,6 +20,7 @@ export type KindInput =
       change?: ChangeInput;
       incident?: string;
       outage?: { part: string; mode: OutageMode; label?: string };
+      dogfight?: { runId: string; groupId: string; label?: string };
     }
   | { ok: false; error: string };
 
@@ -59,7 +60,24 @@ export function parseKind(
           ? "Crosswind reads a project's code: choose its workspaces."
           : kind === "engineout"
             ? "Engine Out reads a project's code: choose its workspaces."
-            : "A black box run reads a project's code: choose its workspaces.",
+            : kind === "dogfight"
+              ? "A Dogfight reads a project's code: choose its workspaces."
+              : "A black box run reads a project's code: choose its workspaces.",
+    };
+  }
+
+  if (kind === "dogfight") {
+    const fight = (body.dogfight ?? null) as Record<string, unknown> | null;
+    const runId = text(fight?.runId);
+    const groupId = text(fight?.groupId);
+    if (!/^[0-9a-f-]{36}$/i.test(runId) || !groupId || groupId.length > 120) {
+      return { ok: false, error: "Choose the security issue to defend." };
+    }
+    const label = text(fight?.label).slice(0, 160);
+    return {
+      ok: true,
+      kind,
+      dogfight: { runId, groupId, ...(label ? { label } : {}) },
     };
   }
 

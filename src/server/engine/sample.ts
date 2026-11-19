@@ -11,6 +11,7 @@ import {
 import {
   Architecture,
   Blueprint,
+  AttackAnswer,
   CascadeAnswer,
   ChainAnswer,
   Critique,
@@ -21,7 +22,7 @@ import {
   type AgentReport,
   type Challenges,
   type DesignModel,
-  type RemediationAnswer,
+  RemediationAnswer,
   type Usage,
   type Verdict,
   type WorkOrders,
@@ -75,6 +76,11 @@ export interface Script {
     chains?: ChainAnswer;
     /** Engine Out's judge, by scenario ("part:mode"). */
     cascades?: Record<string, CascadeAnswer>;
+    /** Dogfight rounds, by the id of the issue defended; round 1 first. */
+    duels?: Record<
+      string,
+      { defence: RemediationAnswer; attack: AttackAnswer }[]
+    >;
   };
 }
 
@@ -136,6 +142,34 @@ export class ScriptedLlm implements LlmClient {
     }
     if (request.schema === FlyoffVerdict) {
       return ["judge", { kind: "ok", value: SAMPLE_FLYOFF_VERDICT }];
+    }
+    // A Dogfight's rounds: the issue and the round are named in the prompt.
+    const fought = /<target id="([^"]+)"/.exec(request.prompt)?.[1] ?? "";
+    const round = Number(/<round n="(\d+)"/.exec(request.prompt)?.[1] ?? "1");
+    const scripted = kinds.duels?.[fought]?.[round - 1];
+    if (request.schema === AttackAnswer) {
+      return [
+        `duel:${fought}:${round}:attack`,
+        {
+          kind: "ok",
+          value: scripted?.attack ?? {
+            verdict: "held",
+            title: "No way past the fix",
+            how: "The sample scripts no further attack.",
+            path: null,
+            startLine: null,
+            endLine: null,
+          },
+        },
+      ];
+    }
+    if (request.schema === RemediationAnswer && stage === "duel") {
+      return [
+        `duel:${fought}:${round}:defence`,
+        scripted
+          ? { kind: "ok", value: scripted.defence }
+          : { kind: "error", message: "No fix was scripted for this round." },
+      ];
     }
     // Engine Out: the scenario is the cut part and mode named in the prompt.
     const cut = /<cut part="([^"]+)" mode="(down|slow)"/.exec(request.prompt);

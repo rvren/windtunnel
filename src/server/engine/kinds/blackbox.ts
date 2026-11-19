@@ -4,6 +4,7 @@ import type { RepoReader } from "../repo/tools";
 import { TriageAnswer, type FindingGroup, type RunTriage } from "../schema";
 
 import type { CodeAtHand, KindContext } from "./context";
+import { duel } from "./dogfight";
 import { TRIAGE_SYSTEM, triagePrompt } from "./prompts";
 
 /*
@@ -153,4 +154,50 @@ export async function runBlackbox(
         : "A fix in steps, without a patch"
       : "No fix could be written";
   });
+
+  // The fix is put to an attacker before anyone opens a pull request.
+  await stage("duel", async () => {
+    const group = run.groups[0];
+    const first = group ? run.remediations?.[group.id] : undefined;
+    if (!group || first?.status !== "made" || first.edits.length === 0) {
+      return "No checked patch to put to the attacker";
+    }
+    run.dogfight = {
+      target: {
+        runId: null,
+        groupId: group.id,
+        title: group.title,
+        summary: group.summary,
+        severity: group.severity,
+        location: group.location ?? null,
+      },
+      maxRounds: BLACKBOX_ROUNDS,
+      rounds: [],
+      held: null,
+    };
+    const dogfight = run.dogfight;
+    const result = await duel(ctx, code, {
+      target: group,
+      first,
+      maxRounds: BLACKBOX_ROUNDS,
+      defender: "fixer",
+      attacker: "attacker",
+      notes: "",
+      secrets: secretValues(),
+      onRound: async (rounds) => {
+        dogfight.rounds = rounds;
+        await save();
+      },
+    });
+    dogfight.held = result.held;
+    if (result.fix) {
+      run.remediations = { ...run.remediations, [group.id]: result.fix };
+    }
+    return result.held
+      ? `The fix held after ${plural(result.rounds.length, "round")}`
+      : `The attacker still gets through after ${plural(result.rounds.length, "round")}`;
+  });
 }
+
+/** A Black Box fix is fought for at most this many rounds. */
+const BLACKBOX_ROUNDS = 2;

@@ -1564,6 +1564,81 @@ const CHAINS: {
   },
 ];
 
+/**
+ * The Dogfight on the catalog's SQL injection: the run's own fix makes the
+ * search text a parameter; the attacker shows, on the fixed code, that its
+ * wildcards and length still let one search scan the whole table; the
+ * second fix escapes them and caps both, and holds. Every line is real.
+ */
+function catalogDuel(
+  path: string,
+): NonNullable<NonNullable<Script["kinds"]>["duels"]>[string] {
+  return [
+    {
+      defence: {
+        summary:
+          "Pass the search text as a query parameter, with the wildcards added to the value, not to the SQL.",
+        steps: ["Pass the search text as a parameter."],
+        cwe: "CWE-89",
+        owasp: "A03:2021 Injection",
+        edits: [
+          {
+            path,
+            startLine: 5,
+            endLine: 6,
+            before:
+              '    sql = "SELECT id, name, price FROM products WHERE name LIKE \'%" + query + "%\'"\n    return catalog_db.execute(sql).fetchall()',
+            after:
+              '    sql = "SELECT id, name, price FROM products WHERE name LIKE %s"\n    return catalog_db.execute(sql, ("%" + query + "%",)).fetchall()',
+          },
+        ],
+        notes: [],
+      },
+      attack: {
+        verdict: "through",
+        title: "Wildcards still reach the query",
+        how: "The search text is a parameter now, but % and _ in it are still wildcards, and nothing limits its length or the rows sent back: one search can make the database compare every product the slow way and return the whole table.",
+        path,
+        startLine: 5,
+        endLine: 6,
+      },
+    },
+    {
+      defence: {
+        summary:
+          "Escape the wildcards in the search text, cut it to 100 characters, and return at most 50 rows.",
+        steps: [
+          "Escape backslash, % and _ in the search text, and tell the database the escape character.",
+          "Cut the search text to 100 characters.",
+          "Return at most 50 rows.",
+        ],
+        cwe: "CWE-400",
+        owasp: "A04:2021 Insecure Design",
+        edits: [
+          {
+            path,
+            startLine: 4,
+            endLine: 6,
+            before:
+              'def search(query):\n    sql = "SELECT id, name, price FROM products WHERE name LIKE %s"\n    return catalog_db.execute(sql, ("%" + query + "%",)).fetchall()',
+            after:
+              'def search(query):\n    text = query[:100].replace("\\\\", "\\\\\\\\").replace("%", "\\\\%").replace("_", "\\\\_")\n    sql = "SELECT id, name, price FROM products WHERE name LIKE %s ESCAPE \'\\\\\' LIMIT 50"\n    return catalog_db.execute(sql, ("%" + text + "%",)).fetchall()',
+          },
+        ],
+        notes: [],
+      },
+      attack: {
+        verdict: "held",
+        title: "No way past the fix",
+        how: "The search text is a parameter, its wildcards are escaped, it is cut to 100 characters, and at most 50 rows come back.",
+        path: null,
+        startLine: null,
+        endLine: null,
+      },
+    },
+  ];
+}
+
 export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
   const single = workspaces.length === 1;
   const nameOf = new Map<SampleService, string>();
@@ -1736,10 +1811,37 @@ export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
       ],
       ...tools,
       ...engineOut.tools,
+      ...(has("catalog")
+        ? Object.fromEntries(
+            [1, 2].map((n) => [
+              `duel:g-cat-sqli:${n}:attack`,
+              [
+                {
+                  tool: "read_file",
+                  input: {
+                    path: pathOf("catalog", "search.py"),
+                    startLine: 0,
+                    endLine: 0,
+                  },
+                },
+              ],
+            ]),
+          )
+        : {}),
     },
     challenges: {},
     remediations,
-    kinds: { chains: { chains }, cascades: engineOut.cascades },
+    kinds: {
+      chains: { chains },
+      cascades: engineOut.cascades,
+      ...(has("catalog")
+        ? {
+            duels: {
+              "g-cat-sqli": catalogDuel(pathOf("catalog", "search.py")),
+            },
+          }
+        : {}),
+    },
     judge: ok({ groups, rejected }),
     work_orders: ok({
       workOrders: WORK_ORDERS.map((order) => ({

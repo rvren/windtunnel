@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import type { RunKind } from "@/server/engine/schema";
 
 import { PartPicker, type PickPart } from "./part-picker";
+import { TargetPicker, type PickTarget } from "./target-picker";
 
 /*
  * The one way to start a run, for every kind: three steps, each with one
@@ -49,6 +50,10 @@ export interface StartFormProject {
   parts?: PickPart[] | null;
   /** Engine Out on a sample: the "part:mode" pairs that are scripted. */
   scripted?: string[] | null;
+  /** Dogfight: the security issues of the project's latest code run. */
+  targets?: PickTarget[];
+  /** Dogfight on a sample: the issue ids with a scripted duel. */
+  duels?: string[] | null;
 }
 
 const STEP_TITLE: Record<RunKind, string> = {
@@ -57,6 +62,7 @@ const STEP_TITLE: Record<RunKind, string> = {
   flyoff: "The feature to design",
   blackbox: "What went wrong",
   engineout: "What to cut",
+  dogfight: "The fix to defend",
 };
 
 const CONFIRM_TITLE: Record<RunKind, string> = {
@@ -65,6 +71,7 @@ const CONFIRM_TITLE: Record<RunKind, string> = {
   flyoff: "Start the fly-off?",
   blackbox: "Investigate this incident?",
   engineout: "Cut this part?",
+  dogfight: "Start the dogfight?",
 };
 
 const count = (n: number) => n.toLocaleString("en");
@@ -110,6 +117,7 @@ export function StartForm({
     text?: string;
     subject?: "requirement" | "code";
     outage?: StartInput["outage"];
+    dogfight?: StartInput["dogfight"];
     note?: string;
   };
   projects: StartFormProject[];
@@ -155,6 +163,9 @@ export function StartForm({
   const [outage, setOutage] = useState<StartInput["outage"]>(
     prefill?.outage ?? { part: "", mode: "down", label: "" },
   );
+  const [dogfight, setDogfight] = useState<StartInput["dogfight"]>(
+    prefill?.dogfight ?? { runId: "", groupId: "", label: "" },
+  );
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -170,6 +181,7 @@ export function StartForm({
     documents,
     change,
     outage,
+    dogfight,
   };
   const stopped = project?.demo ? null : blocked;
   const cost = project?.demo
@@ -334,6 +346,7 @@ export function StartForm({
                   next?.workspaces.find((item) => item.github)?.name ?? "",
               });
               setOutage({ ...outage, part: "", label: "" });
+              setDogfight({ runId: "", groupId: "", label: "" });
               if (kind === "flyoff" && !text.trim()) {
                 setText(next?.description ?? "");
               }
@@ -581,6 +594,61 @@ export function StartForm({
               </p>
             ) : null}
           </div>
+        ) : kind === "dogfight" ? (
+          <TargetPicker
+            targets={[
+              ...(prefill?.dogfight &&
+              !(project?.targets ?? []).some(
+                (item) =>
+                  item.runId === prefill.dogfight!.runId &&
+                  item.groupId === prefill.dogfight!.groupId,
+              )
+                ? [
+                    {
+                      runId: prefill.dogfight.runId,
+                      groupId: prefill.dogfight.groupId,
+                      title: prefill.dogfight.label,
+                      severity: "high",
+                      hasFix: true,
+                    },
+                  ]
+                : []),
+              ...(project?.targets ?? []),
+            ]}
+            scripted={
+              project?.demo || sampleMode ? (project?.duels ?? null) : null
+            }
+            value={dogfight}
+            onChange={edit(setDogfight)}
+            example={
+              (project?.targets ?? []).some(
+                (item) => item.groupId === "g-cat-sqli",
+              ) ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  data-testid="start-use-example"
+                  onClick={() => {
+                    const target = project?.targets?.find(
+                      (item) => item.groupId === "g-cat-sqli",
+                    );
+                    if (target) {
+                      setDogfight({
+                        runId: target.runId,
+                        groupId: target.groupId,
+                        label: target.title,
+                      });
+                    }
+                    setError(null);
+                  }}
+                >
+                  Use The Example
+                </Button>
+              ) : null
+            }
+          />
         ) : kind === "engineout" ? (
           <PartPicker
             parts={project?.parts ?? null}

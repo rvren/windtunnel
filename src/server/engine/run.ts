@@ -69,6 +69,7 @@ import {
 import { runBlackbox } from "./kinds/blackbox";
 import type { KindContext } from "./kinds/context";
 import { chainsStage } from "./kinds/chains";
+import { runDogfight } from "./kinds/dogfight";
 import { runEngineOut } from "./kinds/engineout";
 import { impactStage, readChange } from "./kinds/crosswind";
 import { runFlyoff } from "./kinds/flyoff";
@@ -134,9 +135,14 @@ export interface RunInput {
    * part's name for the run's title when the part is given by id.
    */
   outage?: { part: string; mode: OutageMode; label?: string };
+  /** Dogfight: the issue to defend, from an earlier run of the project. */
+  dogfight?: { runId: string; groupId: string; label?: string };
   /** A code run's requirement run: the idea this code implements. */
   requirementRunId?: string;
 }
+
+/** A Dogfight is fought for at most this many rounds. */
+const DOGFIGHT_ROUNDS = 3;
 
 /** How many times a model may come back with tool calls in one stage. */
 const MODEL_TURNS = 30;
@@ -189,13 +195,17 @@ export function newRun(
         )
       : kind === "blackbox" && input.incident
         ? titleOf(`Black box: ${input.incident}`)
-        : kind === "engineout" && input.outage
+        : kind === "dogfight" && input.dogfight
           ? titleOf(
-              `Engine out: ${input.outage.label ?? input.outage.part} ${input.outage.mode === "slow" ? "slowed down" : "down"}`,
+              `Dogfight: ${input.dogfight.label ?? input.dogfight.groupId}`,
             )
-          : kind === "flyoff"
-            ? titleOf(`Fly-off: ${base}`)
-            : base;
+          : kind === "engineout" && input.outage
+            ? titleOf(
+                `Engine out: ${input.outage.label ?? input.outage.part} ${input.outage.mode === "slow" ? "slowed down" : "down"}`,
+              )
+            : kind === "flyoff"
+              ? titleOf(`Fly-off: ${base}`)
+              : base;
   return {
     id,
     createdAt: at,
@@ -220,6 +230,23 @@ export function newRun(
       : {}),
     ...(kind === "blackbox" && input.incident
       ? { incident: input.incident.trim() }
+      : {}),
+    ...(kind === "dogfight" && input.dogfight
+      ? {
+          dogfight: {
+            target: {
+              runId: input.dogfight.runId,
+              groupId: input.dogfight.groupId,
+              title: input.dogfight.label ?? "",
+              summary: "",
+              severity: "high" as const,
+              location: null,
+            },
+            maxRounds: DOGFIGHT_ROUNDS,
+            rounds: [],
+            held: null,
+          },
+        }
       : {}),
     ...(kind === "engineout" && input.outage
       ? {
@@ -442,7 +469,15 @@ export async function executeRun(
       outline: string;
     } | null;
 
-    if (kind === "engineout") {
+    if (kind === "dogfight") {
+      if (!code) throw new RunError("A Dogfight reads a project's code.");
+      await runDogfight(
+        ctx,
+        code,
+        expertise.adversarial_user,
+        () => secretValues,
+      );
+    } else if (kind === "engineout") {
       if (!code)
         throw new RunError("An Engine Out run reads a project's code.");
       await runEngineOut(ctx, code, expertise);

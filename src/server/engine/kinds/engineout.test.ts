@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { SAMPLE_OUTAGES } from "@/lib/samples";
+
 import { runTool, ToolFailure } from "../llm";
+import { ENGINE_OUT_SCENARIOS } from "../sample-engineout";
 import type { Architecture, OutageHop } from "../schema";
 
 import {
@@ -165,5 +168,13 @@ describe("outageGroups", () => {
     expect(groups.map((group) => [group.id, group.title])).toEqual([
       ["a", "Orders service: effect a"],
     ]);
+  });
+});
+
+describe("the sample's outages", () => {
+  it("are the ones the screens offer", () => {
+    expect([...ENGINE_OUT_SCENARIOS].sort()).toEqual(
+      [...SAMPLE_OUTAGES].sort(),
+    );
   });
 });

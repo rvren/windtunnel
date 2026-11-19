@@ -103,7 +103,9 @@ export function resultOf(run: RunRecord): RunResult {
     const fixText =
       fix?.status === "made"
         ? fix.edits.length > 0
-          ? "Ready"
+          ? run.dogfight?.held
+            ? "Held"
+            : "Ready"
           : "As steps"
         : "None";
     return {
@@ -131,6 +133,44 @@ export function resultOf(run: RunRecord): RunResult {
         label: fix?.status === "made" ? "Review The Fix" : "See The Incident",
         tab: "report",
       },
+    };
+  }
+
+  if (kind === "dogfight" && run.dogfight && run.dogfight.held !== null) {
+    const fight = run.dogfight;
+    const rounds = fight.rounds.length;
+    const fix = run.remediations?.[fight.target.groupId];
+    const files = new Set(fix?.edits.map((edit) => edit.path) ?? []).size;
+    return {
+      headline: fight.held
+        ? `The fix held after ${plural(rounds, "round")}.`
+        : `The attacker still gets through after ${plural(rounds, "round")}.`,
+      detail: fight.target.title,
+      numbers: [
+        { label: rounds === 1 ? "Round" : "Rounds", value: String(rounds) },
+        {
+          label: "Ways through found",
+          value: String(
+            fight.rounds.filter((round) => round.attack?.verdict === "through")
+              .length,
+          ),
+        },
+        {
+          label: files === 1 ? "File changed" : "Files changed",
+          value: String(files),
+        },
+      ],
+      items: fight.rounds.slice(0, 3).map((round) => ({
+        id: `round-${round.n}`,
+        title: `Round ${round.n}: ${round.defence.summary}`,
+        note: round.attack
+          ? round.attack.verdict === "through"
+            ? `Got through: ${round.attack.title}`
+            : `Held: ${round.attack.title}`
+          : "No fix could be checked",
+        severity: round.attack?.verdict === "through" ? "critical" : null,
+      })),
+      action: { label: "See The Rounds", tab: "report" },
     };
   }
 

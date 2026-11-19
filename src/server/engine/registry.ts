@@ -68,6 +68,26 @@ function publish(runId: string, event: StoredEvent) {
 }
 
 /**
+ * Writes a Dogfight's fix back onto the run its issue came from, when the
+ * fix held. The issue's "Open a pull request" reads that run's fix, so the
+ * pull request is the hardened one, with no other change to that flow.
+ */
+async function hardenIssueFix(store: RunStore, done: RunRecord) {
+  const fight = done.dogfight;
+  const fix = fight ? done.remediations?.[fight.target.groupId] : undefined;
+  if (!fight?.held || !fight.target.runId || !fix || fix.edits.length === 0) {
+    return;
+  }
+  const earlier = await store.get(fight.target.runId);
+  if (!earlier || earlier.projectId !== done.projectId) return;
+  earlier.remediations = {
+    ...earlier.remediations,
+    [fight.target.groupId]: fix,
+  };
+  await store.save(earlier);
+}
+
+/**
  * A sample project's script, with what a black box run on it needs: the
  * catalog's search, which fails on a quote.
  */
@@ -82,8 +102,18 @@ function withKindSamples(script: Script, input: RunInput): Script {
     workspaces.length > 1 ? `${catalog.name}/search.py` : "search.py";
   return {
     ...script,
-    kinds: { ...script.kinds, triage: sampleTriage(path) },
-    // The defect is the catalog's SQL injection: its scripted fix applies.
+    // The defect is the catalog's SQL injection: its scripted fix applies,
+    // and so does its scripted duel.
+    kinds: {
+      ...script.kinds,
+      triage: sampleTriage(path),
+      duels: script.kinds?.duels?.["g-cat-sqli"]
+        ? {
+            ...script.kinds.duels,
+            "incident-1": script.kinds.duels["g-cat-sqli"],
+          }
+        : script.kinds?.duels,
+    },
     remediations: script.remediations?.["g-cat-sqli"]
       ? {
           ...script.remediations,
@@ -139,6 +169,17 @@ export async function startRun(input: RunInput): Promise<RunRecord> {
       // Only an audit's findings are the project's issues and work orders.
       // A Crosswind run's breaks belong to its change; a fly-off and a
       // black box have their own outputs.
+      if (kindOf(done) === "dogfight") {
+        // A fix that held becomes the issue's fix: its pull request opens
+        // from the run the issue came from.
+        await hardenIssueFix(store, done).catch((error) =>
+          console.error(
+            "[windtunnel] The hardened fix could not be kept:",
+            error,
+          ),
+        );
+        return;
+      }
       if (kindOf(done) === "blackbox") {
         // A black box defect is an issue in the project's code.
         await import("../issues/store")

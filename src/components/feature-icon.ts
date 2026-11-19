@@ -1,5 +1,6 @@
 import {
   GitCompareArrows,
+  Plane,
   Siren,
   Trophy,
   Unplug,
@@ -16,4 +17,5 @@ export const FEATURE_ICON: Record<RunKind, LucideIcon> = {
   flyoff: Trophy,
   blackbox: Siren,
   engineout: Unplug,
+  dogfight: Plane,
 };

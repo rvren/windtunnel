@@ -32,6 +32,8 @@ export interface StartInput {
   };
   /** Engine Out: the part to cut (a map id, or a name) and how it fails. */
   outage: { part: string; mode: OutageMode; label: string };
+  /** Dogfight: the security issue to defend, from a run of the project. */
+  dogfight: { runId: string; groupId: string; label: string };
 }
 
 /** Why the run cannot start yet, in one sentence, or null. */
@@ -69,6 +71,10 @@ export function startProblem(
       if (!code)
         return "Engine Out reads code. Add a workspace to this project first.";
       return input.outage.part.trim() ? null : "Choose the part to cut.";
+    case "dogfight":
+      if (!code)
+        return "A Dogfight reads code. Add a workspace to this project first.";
+      return input.dogfight.groupId ? null : "Choose the issue to defend.";
   }
 }
 
@@ -130,6 +136,15 @@ export function startBody(
           mode: input.outage.mode,
           label: input.outage.label.trim() || input.outage.part.trim(),
         },
+      };
+    case "dogfight":
+      return {
+        projectId: project.id,
+        kind: "dogfight",
+        workspaces: all,
+        requirement: "",
+        documents: [],
+        dogfight: input.dogfight,
       };
   }
 }

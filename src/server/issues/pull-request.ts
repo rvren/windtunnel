@@ -85,6 +85,12 @@ export function pullRequestText(
   const order = run.workOrders.find((item) => item.groupIds.includes(group.id));
   const lines = [
     `Windtunnel found this ${group.severity} security issue and wrote the fix below. Every changed line was checked against the code before this pull request was opened.`,
+    ...(record.heldRounds
+      ? [
+          "",
+          `An attacker then tried to get past this fix in a Windtunnel Dogfight, reading the fixed code. It held after ${record.heldRounds === 1 ? "1 round" : `${record.heldRounds} rounds`}.`,
+        ]
+      : []),
     "",
     "## The issue",
     record.summary || group.summary,

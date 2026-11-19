@@ -131,6 +131,35 @@ export const FEATURES: Feature[] = [
         name: "Fixer",
         role: "Writes the fix and checks it against the code.",
       },
+      {
+        id: "attacker",
+        name: "Attacker",
+        role: "Tries to get past the fix before anyone ships it.",
+      },
+    ],
+  },
+  {
+    kind: "dogfight",
+    name: "Dogfight",
+    start: "Start Dogfight",
+    promise:
+      "An attacker tries to get past a security fix, round after round, until the fix holds.",
+    question: "Will this fix hold against an attacker?",
+    input: "A security issue from a run of the project's code",
+    output: "A hardened fix, round by round, ready as a pull request",
+    example: "The search box can run SQL",
+    fresh: true,
+    actors: [
+      {
+        id: "defender",
+        name: "Defender",
+        role: "Writes the fix, then answers each attack.",
+      },
+      {
+        id: "attacker",
+        name: "Attacker",
+        role: "Reads the fixed code and looks for a way past it.",
+      },
     ],
   },
   {
@@ -179,5 +208,8 @@ export function featureOf(kind: RunKind): Feature {
  * for lists that already show the kind.
  */
 export function plainTitle(title: string): string {
-  return title.replace(/^(crosswind|fly-off|black box|engine out):\s*/i, "");
+  return title.replace(
+    /^(crosswind|fly-off|black box|engine out|dogfight):\s*/i,
+    "",
+  );
 }

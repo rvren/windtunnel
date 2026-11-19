@@ -197,6 +197,57 @@ export const Challenges = z.object({
 });
 export type Challenges = z.infer<typeof Challenges>;
 
+// ── Dogfight: a fix that must hold against an attacker ────────────────────
+
+/** What the attacker says after reading the fixed code. */
+export const AttackAnswer = z.object({
+  verdict: z.enum(["through", "held"]),
+  /** The way through in a few words, or why the fix holds. */
+  title: z.string(),
+  /** How, in one or two sentences; or what was tried. */
+  how: z.string(),
+  /** For a way through: the lines of the fixed code that show it. */
+  path: z.string().nullable(),
+  startLine: z.number().int().nullable(),
+  endLine: z.number().int().nullable(),
+});
+export type AttackAnswer = z.infer<typeof AttackAnswer>;
+
+export interface DuelRound {
+  n: number;
+  defence: {
+    summary: string;
+    /** Edits of this round, against the code as the round before left it. */
+    edits: RemediationRecord["edits"];
+    /** The fix the earlier run wrote, or one written in this duel. */
+    from: "run" | "written";
+  };
+  /** Null when the defender could write no fix this round. */
+  attack: {
+    verdict: "through" | "held";
+    title: string;
+    how: string;
+    /** Checked against the fixed code. A way through must have one. */
+    location: CodeLocation | null;
+  } | null;
+}
+
+export interface RunDogfight {
+  /** The issue under attack, as the earlier run accepted it. */
+  target: {
+    runId: string | null;
+    groupId: string;
+    title: string;
+    summary: string;
+    severity: Severity;
+    location: CodeLocation | null;
+  };
+  maxRounds: number;
+  rounds: DuelRound[];
+  /** True when the last fix held; null until the duel ends. */
+  held: boolean | null;
+}
+
 // ── Engine Out: one part cut on purpose, and what fails with it ───────────
 
 /** How the part fails: gone (refused at once) or slow (answers late). */
@@ -378,6 +429,8 @@ export const STAGES = [
   "map",
   "cut",
   "cascade",
+  "duel",
+  "verdict",
 ] as const;
 export type Stage = (typeof STAGES)[number];
 
@@ -393,6 +446,7 @@ export const RUN_KINDS = [
   "flyoff",
   "blackbox",
   "engineout",
+  "dogfight",
 ] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
@@ -421,8 +475,9 @@ export const STAGES_OF: Record<RunKind, readonly Stage[]> = {
     "work_orders",
   ],
   flyoff: ["model", "proposals", "critique", "judge"],
-  blackbox: ["survey", "triage", "remediation"],
+  blackbox: ["survey", "triage", "remediation", "duel"],
   engineout: ["survey", "map", "cut", "cascade"],
+  dogfight: ["survey", "duel", "verdict"],
 };
 
 /** A run's kind; runs made before kinds existed are audits. */
@@ -794,6 +849,8 @@ export interface RunRecord {
   remediations?: Record<string, RemediationRecord>;
   /** Engine Out: the part cut and the failure that spread from it. */
   outage?: RunOutage;
+  /** Dogfight, or a Black Box's fix put to an attacker: every round. */
+  dogfight?: RunDogfight;
   /** Flutter: accepted issues that add up to a breach. Code runs only. */
   chains?: AttackChain[];
   /** Chains the model gave that failed a check, and were left out. */
@@ -940,6 +997,8 @@ export interface RemediationRecord {
   dropped: { path: string; reason: string }[];
   notes: string[];
   error: string | null;
+  /** Set when an attacker found no way past this fix, after this many rounds. */
+  heldRounds?: number;
 }
 
 export type PiiCategory =

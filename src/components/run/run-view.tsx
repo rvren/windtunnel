@@ -54,6 +54,7 @@ import { CrewHeader } from "./crew/parts";
 import { WindTunnel } from "./crew/wind-tunnel";
 import { LatestFinding, LiveFindings } from "./live-findings";
 import { ChainsReport } from "./kinds/chains-report";
+import { DogfightReport } from "./kinds/dogfight-report";
 import { EngineOutReport } from "./kinds/engineout-report";
 import { ResultCard } from "./result-card";
 import { RunHeader } from "./run-header";
@@ -273,7 +274,9 @@ export function RunView({
         ? Boolean(run.triage)
         : kind === "engineout"
           ? Boolean(run.outage?.headline)
-          : run.designModel !== null;
+          : kind === "dogfight"
+            ? run.dogfight?.held !== null && run.dogfight?.held !== undefined
+            : run.designModel !== null;
   // The report waits for the end of the run; until then the story is it.
   const ended = !running;
   const chapters = storyOf(run, feed, times);
@@ -365,7 +368,10 @@ export function RunView({
   }
   if (
     reportReady &&
-    (kind === "flyoff" || kind === "blackbox" || kind === "engineout")
+    (kind === "flyoff" ||
+      kind === "blackbox" ||
+      kind === "engineout" ||
+      kind === "dogfight")
   ) {
     details.push({
       id: "report",
@@ -374,7 +380,9 @@ export function RunView({
           ? "Blueprints"
           : kind === "engineout"
             ? "Cascade"
-            : "Incident",
+            : kind === "dogfight"
+              ? "Rounds"
+              : "Incident",
       icon: FileText,
     });
   }
@@ -781,6 +789,11 @@ export function RunView({
           {reportReady && kind === "engineout" ? (
             <TabsContent value="report">
               <EngineOutReport run={run} />
+            </TabsContent>
+          ) : null}
+          {reportReady && kind === "dogfight" ? (
+            <TabsContent value="report">
+              <DogfightReport run={run} />
             </TabsContent>
           ) : null}
           {reportReady && (kind === "audit" || kind === "crosswind") ? (

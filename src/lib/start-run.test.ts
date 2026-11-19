@@ -25,6 +25,7 @@ const input = (over: Partial<StartInput> = {}): StartInput => ({
     head: "",
   },
   outage: { part: "", mode: "down", label: "" },
+  dogfight: { runId: "", groupId: "", label: "" },
   ...over,
 });
 
@@ -142,6 +143,25 @@ describe("Engine Out", () => {
       kind: "engineout",
       workspaces: ["web", "api"],
       outage: { part: "cmp-billing", mode: "slow", label: "Billing service" },
+    });
+  });
+});
+
+describe("Dogfight", () => {
+  it("needs code and an issue to defend", () => {
+    expect(startProblem(input({ kind: "dogfight" }), project)).toBe(
+      "Choose the issue to defend.",
+    );
+    const body = startBody(
+      input({
+        kind: "dogfight",
+        dogfight: { runId: "r1", groupId: "g-cat-sqli", label: "SQL" },
+      }),
+      project,
+    );
+    expect(body).toMatchObject({
+      kind: "dogfight",
+      dogfight: { runId: "r1", groupId: "g-cat-sqli", label: "SQL" },
     });
   });
 });

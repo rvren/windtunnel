@@ -129,6 +129,7 @@ export async function POST(request: Request) {
       ...(kind.change ? { change: kind.change } : {}),
       ...(kind.incident ? { incident: kind.incident } : {}),
       ...(kind.outage ? { outage: kind.outage } : {}),
+      ...(kind.dogfight ? { dogfight: kind.dogfight } : {}),
       ...(implementing ? { requirementRunId: implementing } : {}),
       ...(names
         ? {
