@@ -120,9 +120,10 @@ export const TUNNEL_3D = {
     /** The vertical field of view, in degrees. */
     fov: 28.1,
   },
-  /** Where the fan turns, the rake stands, the model sits, streams end. */
+  /** Where the fan turns, the streams start, the model sits, they end. */
   fan: -5.7,
-  rake: -4.1,
+  /** The streams start in the fan's inlet, so they come out of the fan. */
+  source: -5.45,
   model: 0.2,
   end: 3.2,
   floor: -1.3,

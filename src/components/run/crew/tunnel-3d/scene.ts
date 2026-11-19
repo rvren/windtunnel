@@ -23,7 +23,7 @@ import { css, type Palette, type Rgb } from "./colors";
  * and a faint glass ceiling, with no bars along it, open on the side
  * that faces us, with no frames across it (the owner found them noisy). The application stands on a turntable in the
  * middle: three plates on a sting (its interface, its services, its data),
- * each part of it a tile. A rake lets out one fine stream per worker; a
+ * each part of it a tile. One fine stream per worker comes out of the fan; a
  * light travels a stream while its worker works, the stream fades inside
  * the model, and ends in a dot beside the worker's name (the names are
  * HTML over the drawing). When the run ends the fan stops and each stream
@@ -213,7 +213,7 @@ function verdictOf(
   return status === "done" ? "good" : "bad";
 }
 
-// The stream: a fine tube whose light fades in from the rake, fades out
+// The stream: a fine tube whose light fades in out of the fan, fades out
 // before its end, fades inside the model, and carries a travelling light
 // while its worker works.
 const STREAM_VERTEX = `
@@ -227,7 +227,7 @@ uniform vec3 color;
 uniform float alpha, pulse, on, fade0, fade1, from, to, gain;
 varying float vx;
 void main() {
-  float a = alpha * smoothstep(from, from + 1.2, vx) * (1.0 - smoothstep(to - 0.35, to, vx));
+  float a = alpha * smoothstep(from, from + 0.9, vx) * (1.0 - smoothstep(to - 0.35, to, vx));
   float inside = smoothstep(fade0 - 0.35, fade0, vx) * (1.0 - smoothstep(fade1, fade1 + 0.35, vx));
   a *= 1.0 - 0.88 * inside;
   float light = on * exp(-pow((vx - pulse) / 0.45, 2.0)) * (1.0 - 0.85 * inside);
@@ -768,21 +768,15 @@ export class Tunnel3D {
     });
     if (designs <= 1) this.placeParts(scene, this.models[0]);
 
-    // The rake, and a stream per worker.
+    // A stream per worker, straight out of the fan: there is no rake,
+    // each stream leaves the fan's disc and fades in as it goes.
     const rows = rows3d(input.streams.length);
     const fade0 = spots[0] - 1.2 * scale;
     const fade1 = spots[spots.length - 1] + 1.2 * scale;
-    // The smoke rake: a faired strut, its nozzles pointing downstream.
-    const rake = new THREE.Mesh(
-      strutGeometry(0.14, 0.03, T.floor, T.ceiling),
-      this.standard(p.metal, { metalness: 0.3, roughness: 0.6 }),
-    );
-    rake.position.set(T.rake, 0, 0);
-    this.stage.add(rake);
     input.streams.forEach((worker, index) => {
       const y = rows[index];
       const path = new THREE.LineCurve3(
-        new THREE.Vector3(T.rake, y, 0),
+        new THREE.Vector3(T.source, y, 0),
         new THREE.Vector3(T.end, y, 0),
       );
       const shader = (alpha: number, gain: number) =>
@@ -794,7 +788,7 @@ export class Tunnel3D {
             on: { value: 0 },
             fade0: { value: fade0 },
             fade1: { value: fade1 },
-            from: { value: T.rake },
+            from: { value: T.source },
             to: { value: T.end },
             gain: { value: gain },
           },
@@ -812,18 +806,12 @@ export class Tunnel3D {
         new THREE.TubeGeometry(path, 4, 0.05, 10),
         shader(0.16, 1),
       );
-      const nozzle = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.011, 0.014, 0.12, 12),
-        this.standard(p.metal, { metalness: 0.7, roughness: 0.3 }),
-      );
-      nozzle.rotation.z = -Math.PI / 2;
-      nozzle.position.set(T.rake + 0.11, y, 0);
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.05, 16, 16),
         this.basic(this.tone("muted"), { opacity: 1 }),
       );
       dot.position.set(T.end, y, 0);
-      this.stage.add(core, glow, nozzle, dot);
+      this.stage.add(core, glow, dot);
       this.picks.set(`worker:${worker.id}`, {
         object: dot,
         radius: 16,
@@ -1544,7 +1532,7 @@ export class Tunnel3D {
         const atShield = new THREE.Vector3(x, attacker.y, 0);
         const target = this.beaconSpot(input.scene.beacon?.part ?? null);
         this.spark(
-          new THREE.Vector3(T.rake, attacker.y, 0),
+          new THREE.Vector3(T.source, attacker.y, 0),
           atShield,
           this.tone("danger"),
           0.6,
@@ -1712,7 +1700,7 @@ export class Tunnel3D {
       }
       stream.alpha = approach(stream.alpha, stream.alphaTarget, dt, 4);
       if (stream.alpha !== stream.alphaTarget) moving = true;
-      const span = T.end - T.rake + 1.4;
+      const span = T.end - T.source + 1.4;
       for (const [mesh, alpha] of [
         [stream.core, 0.9],
         [stream.glow, 0.16],
@@ -1727,7 +1715,7 @@ export class Tunnel3D {
             : stream.flowing
               ? 0.38
               : 0;
-        u.pulse.value = T.rake - 0.3 + (stream.travel % span);
+        u.pulse.value = T.source - 0.3 + (stream.travel % span);
       }
       // A worker at work sends a bright light down its stream; once done,
       // the air keeps flowing: a soft light drifts down it, slower.

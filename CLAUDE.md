@@ -98,8 +98,10 @@ take something away.
     interface (frontends), its services and its data (databases, queues,
     outside systems), each part of the run's map a tile with its name
     (the workspaces when there is no map).
-  - A rake with one **stream** per worker: a fine line with a soft glow,
-    level, fading inside the model. A light travels it while its worker
+  - One **stream** per worker, coming straight out of the fan (there is
+    no rake: the owner had the bar taken off): a fine line with a soft
+    glow, level, fading in as it leaves the fan and fading inside the
+    model. A light travels it while its worker
     works; a finding leaves the model as a spark.
   - Each stream ends in a small **dot** beside its worker's name and
     count. The names, notes, counts and a kind's few words are HTML over
@@ -131,8 +133,8 @@ take something away.
   - **Lit as a real room**: a soft studio environment that the metal and
     glass reflect, a soft contact shadow under each model (a shadow map's
     edges stepped, so there is none), acrylic plates with a clear
-    coat, faired aerofoil struts for the model's stand and the smoke rake
-    (its nozzles pointing downstream), and a **matte turbine** (the owner
+    coat, a faired aerofoil strut for the model's stand, and a **matte
+    turbine** (the owner
     asked for no reflections on it). The dark theme blooms its lights,
     with no tone mapping there (it would press the panel's near-black to
     black) and the drawing's edge faded into the panel; the light theme
