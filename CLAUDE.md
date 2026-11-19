@@ -88,7 +88,8 @@ take something away.
   - A **test section seen from downstream**, looking back at its fan: the
     floor and the back wall are solid matte slabs with softly bevelled
     edges, like the wall the fan comes through; a faint glass ceiling with
-    two light strips; open on the side that faces us. Nothing in the room
+    no strips or bars along it (the owner had them taken off); open on the
+    side that faces us. Nothing in the room
     mirrors: the owner tried a polished floor and chose matte. **No
     frames or bars across it**: the owner found them noisy. At the far
     end the **turbofan** turns in a flared, matte bell-mouth inlet, its

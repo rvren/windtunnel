@@ -20,7 +20,7 @@ import { css, type Palette, type Rgb } from "./colors";
  * The 3D wind tunnel: a test section seen from downstream, looking back at
  * its fan. The fan turns in its duct behind a flared, matte inlet, with
  * stator vanes behind it; the section is a matte floor, a matte back wall
- * and a faint glass ceiling with two light strips, open on the side
+ * and a faint glass ceiling, with no bars along it, open on the side
  * that faces us, with no frames across it (the owner found them noisy). The application stands on a turntable in the
  * middle: three plates on a sting (its interface, its services, its data),
  * each part of it a tile. A rake lets out one fine stream per worker; a
@@ -591,18 +591,6 @@ export class Tunnel3D {
     glass.rotation.x = pi / 2;
     glass.position.set(cx, T.ceiling, cz);
     room.add(glass);
-    // Two light strips along the ceiling.
-    for (const z of [T.back + 0.14, T.open - 0.14]) {
-      const strip = new THREE.Mesh(
-        new THREE.BoxGeometry(length, 0.025, 0.05),
-        this.basic(new THREE.Color(p.dark ? 0xdcd8ff : 0xffffff), {
-          opacity: p.dark ? 0.5 : 0.95,
-        }),
-      );
-      strip.position.set(cx, T.ceiling - 0.03, z);
-      room.add(strip);
-    }
-
     // The wall the fan comes through.
     // Turned to face the air, its width runs along -z: its middle is at
     // -cz in its own plane, and the fan's hole stays on the axis.
