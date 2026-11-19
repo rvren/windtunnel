@@ -6,6 +6,7 @@ import {
   hopsAlong,
   partsOnPath,
   placedHops,
+  routeAlong,
   type FlightPlan,
 } from "./flight-path";
 
@@ -148,5 +149,32 @@ describe("placedHops", () => {
       "nowhere",
       "gateway",
     ]);
+  });
+});
+
+describe("routeAlong", () => {
+  const calls = [
+    { from: "web", to: "gateway" },
+    { from: "gateway", to: "auth" },
+    { from: "gateway", to: "catalog" },
+    { from: "catalog", to: "db" },
+  ];
+
+  it("follows the calls either way round, the shortest way", () => {
+    expect(routeAlong("catalog", "web", calls)).toEqual([
+      "catalog",
+      "gateway",
+      "web",
+    ]);
+    expect(routeAlong("web", "auth", calls)).toEqual([
+      "web",
+      "gateway",
+      "auth",
+    ]);
+  });
+
+  it("goes straight when no calls join the two parts", () => {
+    expect(routeAlong("web", "island", calls)).toEqual(["web", "island"]);
+    expect(routeAlong("web", "web", calls)).toEqual(["web"]);
   });
 });

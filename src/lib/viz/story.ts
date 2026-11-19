@@ -222,12 +222,17 @@ export function storyOf(
   const splits = stageSplits(times);
   return stagesOf(run)
     .filter(
-      // Remediation is only part of runs that have it; older runs skip it.
+      // Remediation and chains are only part of runs that have them; older
+      // runs skip them.
       (stage) =>
-        stage !== "remediation" ||
-        feed.stages.remediation.state !== "pending" ||
-        run.remediations !== undefined ||
-        run.status === "running",
+        (stage !== "remediation" ||
+          feed.stages.remediation.state !== "pending" ||
+          run.remediations !== undefined ||
+          run.status === "running") &&
+        (stage !== "chains" ||
+          feed.stages.chains.state !== "pending" ||
+          run.chains !== undefined ||
+          run.status === "running"),
     )
     .map((stage) => {
       const live = feed.stages[stage];

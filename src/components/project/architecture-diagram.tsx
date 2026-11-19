@@ -21,6 +21,7 @@ import { layerComponents } from "@/lib/architecture-layout";
 import { cn } from "@/lib/utils";
 import {
   placedHops,
+  routeAlong,
   type FlightPlan,
   type HopTone,
 } from "@/lib/viz/flight-path";
@@ -446,23 +447,37 @@ export function ArchitectureDiagram({
     return [{ ...connection, ...route(from, to), lit }];
   });
 
-  // The flight path: a line per hop between two parts, drawn one after
-  // another, then a light that travels the hops in order; a numbered stop
-  // on each line's middle, or on the top edge of a part for a step inside it.
+  // The flight path: a line per hop between two parts, following the calls
+  // (under the parts it passes), drawn one after another; then a light that
+  // travels the hops in order. Each stop's number sits on the top edge of
+  // the part the hop arrives at, where its step is.
   const hops = flight ? placedHops(flight.plan, box.keys()) : [];
   const legs = hops.filter((hop) => hop.from !== hop.to);
   const tour = legs.length * HOP_TRIP + 1.4;
+  const legPath = (hop: (typeof hops)[number]) => {
+    const ids = routeAlong(hop.from, hop.to, connections).filter((id) =>
+      box.has(id),
+    );
+    return ids
+      .slice(1)
+      .map((id, index) => {
+        const { d } = route(box.get(ids[index])!, box.get(id)!);
+        // Each piece carries on from the last: across a part, under its card.
+        return index === 0 ? d : d.replace(/^M/, "L");
+      })
+      .join(" ");
+  };
   const onCard = new Map<string, number>();
   const stops = hops.map((hop, index) => {
-    const delay = 0.3 + index * HOP_STEP;
-    if (hop.from === hop.to) {
-      const at = box.get(hop.to)!;
-      const seat = onCard.get(hop.to) ?? 0;
-      onCard.set(hop.to, seat + 1);
-      return { hop, delay, x: at.x + 18 + seat * 24, y: at.y };
-    }
-    const { middle } = route(box.get(hop.from)!, box.get(hop.to)!);
-    return { hop, delay, ...middle };
+    const at = box.get(hop.to)!;
+    const seat = onCard.get(hop.to) ?? 0;
+    onCard.set(hop.to, seat + 1);
+    return {
+      hop,
+      delay: 0.3 + index * HOP_STEP,
+      x: at.x + 18 + seat * 24,
+      y: at.y,
+    };
   });
 
   return (
@@ -517,7 +532,7 @@ export function ArchitectureDiagram({
           {flight ? (
             <g key={`flight-${flight.play ?? 0}`} data-testid="flight-path">
               {legs.map((hop, index) => {
-                const { d } = route(box.get(hop.from)!, box.get(hop.to)!);
+                const d = legPath(hop);
                 const stroke = HOP_TONE[hop.tone];
                 const start = 0.3 + hops.indexOf(hop) * HOP_STEP;
                 return (

@@ -67,6 +67,7 @@ import {
 } from "./schema";
 import { runBlackbox } from "./kinds/blackbox";
 import type { KindContext } from "./kinds/context";
+import { chainsStage } from "./kinds/chains";
 import { impactStage, readChange } from "./kinds/crosswind";
 import { runFlyoff } from "./kinds/flyoff";
 import { changeContext } from "./kinds/prompts";
@@ -99,7 +100,7 @@ export interface EngineDeps {
    * Stages left out of this run. Only an eval run sets it: the eval of the
    * agents does not need fixes or work orders, which cost most of a run.
    */
-  skip?: ("remediation" | "work_orders")[];
+  skip?: ("chains" | "remediation" | "work_orders")[];
 }
 
 export interface RunInput {
@@ -803,6 +804,13 @@ export async function executeRun(
           run.groups = [...run.groups, ...secretGroups(run.inventory)];
           await save();
         }
+
+        // Flutter: the accepted issues that add up to a breach. Code only.
+        if (has("chains") && code)
+          await stage("chains", async () => {
+            if (skipped.has("chains")) return "Left out of this eval run";
+            return chainsStage(ctx, code);
+          });
 
         // 6. Remediation: how to fix each security finding, checked against the
         // code. Best effort: a remediation that fails never fails the run.

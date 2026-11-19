@@ -121,7 +121,8 @@ flowchart LR
   coverage["coverage<br/>no model call<br/>gaps code can see"] --> agents
   agents["agents<br/>Sonnet 5.5 × 5<br/>in parallel"] --> challenge
   challenge["challenge<br/>Sonnet 5.5 × 5<br/>review each other"] --> judge
-  judge["judge<br/>Opus 5.5<br/>merge, reject, rank<br/>+ secrets found by code"] --> remediation
+  judge["judge<br/>Opus 5.5<br/>merge, reject, rank<br/>+ secrets found by code"] --> chains
+  chains["chains<br/>Opus 5.5<br/>issues that add up to a breach<br/>code runs only"] --> remediation
   remediation["remediation<br/>Opus 5.5<br/>fix, patch, CWE, OWASP<br/>security findings only"] --> work_orders
   work_orders["work_orders<br/>Opus 5.5<br/>with acceptance criteria"] --> done
   done(["Run completed"]) -. "project linked" .-> deliver["Send work orders<br/>connectors/deliver.ts"]
@@ -135,6 +136,7 @@ flowchart LR
 | agents      | `src/server/engine/run.ts`, briefs in `src/lib/agents.ts`                                                    | Sonnet 5.5 | `checkAgentReport` in `src/server/engine/validate.ts`, or `report_finding` in `src/server/engine/repo/agent-tools.ts`    |
 | challenge   | `CHALLENGE_SYSTEM` in `src/server/engine/prompts.ts`                                                         | Sonnet 5.5 | `checkChallenges` in `src/server/engine/validate.ts`                                                                     |
 | judge       | `JUDGE_SYSTEM` in `src/server/engine/prompts.ts`                                                             | Opus 5.5   | `reconcileVerdict` in `src/server/engine/validate.ts`                                                                    |
+| chains      | `chainsStage` and `CHAINS_SYSTEM` in `src/server/engine/kinds/chains.ts`                                     | Opus 5.5   | `checkChains` (every link an accepted issue, every cited step's lines exist, never below its worst link)                 |
 | remediation | `src/server/engine/remediation.ts`, `REMEDIATION_SYSTEM` in `src/server/engine/prompts.ts`                   | Opus 5.5   | `checkEdits` (every edit matches the real file), `resolveCwe` and `resolveOwasp` in `src/server/engine/security-refs.ts` |
 | work_orders | `WORK_ORDER_SYSTEM` in `src/server/engine/prompts.ts`                                                        | Opus 5.5   | `checkWorkOrders` in `src/server/engine/validate.ts`                                                                     |
 
@@ -378,12 +380,12 @@ kind has its own stages (`STAGES_OF` in `src/server/engine/schema.ts`);
 have and hands the rest to an executor in `src/server/engine/kinds/`. Only
 audits update tracked issues and send work orders to 8090.
 
-| Kind      | Stages                                                                         | Executor                               |
-| --------- | ------------------------------------------------------------------------------ | -------------------------------------- |
-| Audit     | survey, model, coverage, agents, challenge, judge, remediation, work_orders    | `src/server/engine/run.ts`             |
-| Crosswind | change, survey, model, coverage, agents, challenge, judge, impact, work_orders | `src/server/engine/kinds/crosswind.ts` |
-| Fly-off   | model, proposals, critique, judge                                              | `src/server/engine/kinds/flyoff.ts`    |
-| Black box | survey, triage, remediation                                                    | `src/server/engine/kinds/blackbox.ts`  |
+| Kind      | Stages                                                                              | Executor                               |
+| --------- | ----------------------------------------------------------------------------------- | -------------------------------------- |
+| Audit     | survey, model, coverage, agents, challenge, judge, chains, remediation, work_orders | `src/server/engine/run.ts`             |
+| Crosswind | change, survey, model, coverage, agents, challenge, judge, impact, work_orders      | `src/server/engine/kinds/crosswind.ts` |
+| Fly-off   | model, proposals, critique, judge                                                   | `src/server/engine/kinds/flyoff.ts`    |
+| Black box | survey, triage, remediation                                                         | `src/server/engine/kinds/blackbox.ts`  |
 
 ```mermaid
 flowchart LR

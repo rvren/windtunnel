@@ -1,4 +1,10 @@
-import type { Architecture, Finding } from "./schema";
+import type {
+  Architecture,
+  CodeLocation,
+  Finding,
+  FindingGroup,
+  RunRecord,
+} from "./schema";
 
 /*
  * The checks on the architecture a model returns, and the two lookups the
@@ -86,6 +92,24 @@ export function componentOf(
     }
   }
   return best?.id ?? null;
+}
+
+/**
+ * Where an accepted group's code is: the first of its findings that cites
+ * code, or, for a group found by code (a secret), its own place. As the
+ * Issues tab and the cockpit place it.
+ */
+export function groupLocation(
+  group: FindingGroup,
+  run: Pick<RunRecord, "agents">,
+): CodeLocation | null {
+  for (const uid of group.findingIds) {
+    for (const agent of run.agents) {
+      const finding = agent.findings.find((item) => item.uid === uid);
+      if (finding?.location) return finding.location;
+    }
+  }
+  return group.location ?? null;
 }
 
 /** Where a finding is, for the cockpit. Null when it cites no code. */

@@ -197,6 +197,55 @@ export const Challenges = z.object({
 });
 export type Challenges = z.infer<typeof Challenges>;
 
+// ── Flutter: accepted issues that add up to a breach ──────────────────────
+
+/**
+ * Attack chains: accepted issues, often in different services, that an
+ * attacker uses one after another. Each link is an accepted group; the
+ * step from one link to the next may cite the code that joins them.
+ */
+export const ChainAnswer = z.object({
+  chains: z.array(
+    z.object({
+      title: z.string(),
+      impact: z.string(),
+      severity: Severity,
+      links: z.array(
+        z.object({
+          groupId: z.string(),
+          role: z.string(),
+          via: z
+            .object({
+              how: z.string(),
+              path: z.string(),
+              startLine: z.number().int(),
+              endLine: z.number().int(),
+            })
+            .nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+export type ChainAnswer = z.infer<typeof ChainAnswer>;
+
+/** A checked chain, as the run keeps it. */
+export interface AttackChain {
+  id: string;
+  title: string;
+  /** What an attacker ends up with. */
+  impact: string;
+  /** Never below the worst of its links. */
+  severity: Severity;
+  links: {
+    groupId: string;
+    /** What this issue does in the chain. */
+    role: string;
+    /** The code that leads here from the link before, checked. */
+    via: (CodeLocation & { how: string }) | null;
+  }[];
+}
+
 // ── Stage 5: the judge ──────────────────────────────────────────────────────
 
 export const Verdict = z.object({
@@ -251,6 +300,7 @@ export const STAGES = [
   "critique",
   "challenge",
   "judge",
+  "chains",
   "remediation",
   "impact",
   "work_orders",
@@ -275,6 +325,7 @@ export const STAGES_OF: Record<RunKind, readonly Stage[]> = {
     "agents",
     "challenge",
     "judge",
+    "chains",
     "remediation",
     "work_orders",
   ],
@@ -303,7 +354,11 @@ export function stagesOf(run: {
   source?: unknown;
 }): Stage[] {
   const all = STAGES_OF[kindOf(run)];
-  return all.filter((stage) => stage !== "survey" || Boolean(run.source));
+  // A run that read no code has nothing to survey, and no lines to chain.
+  return all.filter(
+    (stage) =>
+      (stage !== "survey" && stage !== "chains") || Boolean(run.source),
+  );
 }
 
 // ── Crosswind: one change, traced through every service ──────────────────
@@ -656,6 +711,10 @@ export interface RunRecord {
   usage: Partial<Record<Stage, Usage>>;
   /** Security findings' remediations, by group id. Absent on older runs. */
   remediations?: Record<string, RemediationRecord>;
+  /** Flutter: accepted issues that add up to a breach. Code runs only. */
+  chains?: AttackChain[];
+  /** Chains the model gave that failed a check, and were left out. */
+  chainsDropped?: number;
   /** Personal data and secrets in the code, found by name. Code runs only. */
   inventory?: Inventory;
 }

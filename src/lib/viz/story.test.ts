@@ -72,6 +72,7 @@ describe("the run as a story", () => {
       "agents",
       "challenge",
       "judge",
+      "chains",
       "remediation",
       "work_orders",
     ]);

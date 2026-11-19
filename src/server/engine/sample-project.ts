@@ -1470,6 +1470,99 @@ export interface SampleWorkspace {
   service: SampleService | null;
 }
 
+/**
+ * Flutter's chains on Storefront: issues filed alone that an attacker uses
+ * one after another. Each step between links cites real lines, which the
+ * run checks like any other.
+ */
+const CHAINS: {
+  title: string;
+  impact: string;
+  severity: Severity;
+  links: {
+    groupId: string;
+    role: string;
+    via: {
+      how: string;
+      service: SampleService;
+      path: string;
+      startLine: number;
+      endLine: number;
+    } | null;
+  }[];
+}[] = [
+  {
+    title: "Take over an account for good",
+    impact:
+      "Anyone who gets a shopper to run one crafted search can read their session token, and use the account for as long as they like.",
+    severity: "critical",
+    links: [
+      {
+        groupId: "g-cat-sqli",
+        role: "Search text is joined into SQL, so a crafted search makes the catalog return any text as a product name.",
+        via: null,
+      },
+      {
+        groupId: "g-web-xss",
+        role: "The shop writes each product name into the page as HTML, so that text runs as a script in the shopper's browser.",
+        via: {
+          how: "The shop shows whatever the catalog's search returns.",
+          service: "web",
+          path: "src/search.ts",
+          startLine: 4,
+          endLine: 5,
+        },
+      },
+      {
+        groupId: "g-web-token",
+        role: "The session token sits in local storage, where any script on the page can read it.",
+        via: {
+          how: "Any code on the page can ask for the token.",
+          service: "web",
+          path: "src/session.ts",
+          startLine: 5,
+          endLine: 7,
+        },
+      },
+      {
+        groupId: "g-auth-expiry",
+        role: "Sessions never expire and cannot be ended, so the stolen token works for good.",
+        via: {
+          how: "Auth accepts a token for as long as its row exists.",
+          service: "auth",
+          path: "src/session.ts",
+          startLine: 11,
+          endLine: 14,
+        },
+      },
+    ],
+  },
+  {
+    title: "Charge any customer any amount",
+    impact:
+      "Anyone can place an order as another customer at a price they choose, and that customer is charged for it.",
+    severity: "critical",
+    links: [
+      {
+        groupId: "g-gw-identity",
+        role: "The gateway takes the user from a header the caller sets, so any caller can act as any customer.",
+        via: null,
+      },
+      {
+        groupId: "g-ord-price",
+        role: "Orders charges whatever total the request carries.",
+        via: {
+          how: "Orders charges the user the gateway passed on, with the total from the request body.",
+          service: "orders",
+          path: "orders.py",
+          startLine: 6,
+          endLine: 8,
+        },
+      },
+    ],
+  },
+];
+
 export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
   const single = workspaces.length === 1;
   const nameOf = new Map<SampleService, string>();
@@ -1601,6 +1694,25 @@ export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
         }),
       ]),
   );
+  const chains = CHAINS.filter((chain) =>
+    chain.links.every(
+      (link) =>
+        groupIds.has(link.groupId) && (!link.via || has(link.via.service)),
+    ),
+  ).map((chain) => ({
+    ...chain,
+    links: chain.links.map(({ via, ...link }) => ({
+      ...link,
+      via: via
+        ? {
+            how: via.how,
+            path: pathOf(via.service, via.path),
+            startLine: via.startLine,
+            endLine: via.endLine,
+          }
+        : null,
+    })),
+  }));
   const firstPath = present[0] ? pathOf(present[0], "README.md") : "README.md";
   return {
     model: ok(MODEL),
@@ -1624,6 +1736,7 @@ export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
     },
     challenges: {},
     remediations,
+    kinds: { chains: { chains } },
     judge: ok({ groups, rejected }),
     work_orders: ok({
       workOrders: WORK_ORDERS.map((order) => ({

@@ -63,6 +63,42 @@ export function partsOnPath(plan: FlightPlan): string[] {
   return seen;
 }
 
+/**
+ * The parts a hop passes through on the map: the shortest way from one
+ * part to the other along the calls, either way round, so a hop follows
+ * the drawn lines instead of cutting across other parts. The two ends
+ * alone when no calls join them.
+ */
+export function routeAlong(
+  from: string,
+  to: string,
+  connections: { from: string; to: string }[],
+): string[] {
+  if (from === to) return [from];
+  const next = new Map<string, string[]>();
+  const link = (a: string, b: string) =>
+    next.set(a, [...(next.get(a) ?? []), b]);
+  for (const connection of connections) {
+    link(connection.from, connection.to);
+    link(connection.to, connection.from);
+  }
+  const came = new Map<string, string>([[from, from]]);
+  const queue = [from];
+  while (queue.length > 0) {
+    const here = queue.shift()!;
+    if (here === to) break;
+    for (const there of next.get(here) ?? []) {
+      if (came.has(there)) continue;
+      came.set(there, here);
+      queue.push(there);
+    }
+  }
+  if (!came.has(to)) return [from, to];
+  const path = [to];
+  while (path[0] !== from) path.unshift(came.get(path[0])!);
+  return path;
+}
+
 export interface CitedStep {
   id: string;
   label: string;

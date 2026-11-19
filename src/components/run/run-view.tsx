@@ -16,6 +16,7 @@ import {
   ListChecks,
   LoaderCircle,
   Maximize2,
+  Link2,
   Network,
   PencilLine,
   Radio,
@@ -52,6 +53,7 @@ import { ConfirmRunDialog, type RunCost } from "./confirm-run";
 import { CrewHeader } from "./crew/parts";
 import { WindTunnel } from "./crew/wind-tunnel";
 import { LatestFinding, LiveFindings } from "./live-findings";
+import { ChainsReport } from "./kinds/chains-report";
 import { ResultCard } from "./result-card";
 import { RunHeader } from "./run-header";
 import { DeleteRunButton } from "./run-delete";
@@ -211,6 +213,7 @@ const RUN_TABS = [
   "report",
   "map",
   "findings",
+  "chains",
   "work-orders",
   "model",
   "activity",
@@ -377,6 +380,16 @@ export function RunView({
         icon: ListChecks,
         count: run.groups.length,
       },
+      ...(run.chains && run.chains.length > 0
+        ? [
+            {
+              id: "chains" as const,
+              label: "Attack Chains",
+              icon: Link2,
+              count: run.chains.length,
+            },
+          ]
+        : []),
       {
         id: "work-orders",
         label: "Work Orders",
@@ -758,6 +771,9 @@ export function RunView({
             <>
               <TabsContent value="findings">
                 <Insights run={run} context={context} onOpen={openTab} />
+              </TabsContent>
+              <TabsContent value="chains">
+                <ChainsReport run={run} />
               </TabsContent>
               <TabsContent value="work-orders">
                 <WorkOrdersTab run={run} />

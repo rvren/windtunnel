@@ -337,7 +337,7 @@ async function runCase(key: CaseKey, rep: number, work: string, dir: string) {
       store: new MemoryRunStore(),
       publish: () => {},
       now: () => new Date(),
-      skip: ["remediation", "work_orders"],
+      skip: ["chains", "remediation", "work_orders"],
     },
     fresh,
   );

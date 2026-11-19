@@ -11,6 +11,7 @@ import {
 import {
   Architecture,
   Blueprint,
+  ChainAnswer,
   Critique,
   FlyoffVerdict,
   ImpactAnswer,
@@ -65,7 +66,12 @@ export interface Script {
   judge: Scripted<Verdict>;
   work_orders: Scripted<WorkOrders>;
   /** The newer kinds of run; sample answers stand in when left out. */
-  kinds?: { impact?: ImpactAnswer; triage?: TriageAnswer };
+  kinds?: {
+    impact?: ImpactAnswer;
+    triage?: TriageAnswer;
+    /** Flutter's attack chains. None when left out. */
+    chains?: ChainAnswer;
+  };
 }
 
 const SCRIPT_USAGE: Usage = {
@@ -126,6 +132,9 @@ export class ScriptedLlm implements LlmClient {
     }
     if (request.schema === FlyoffVerdict) {
       return ["judge", { kind: "ok", value: SAMPLE_FLYOFF_VERDICT }];
+    }
+    if (request.schema === ChainAnswer) {
+      return ["chains", { kind: "ok", value: kinds.chains ?? { chains: [] } }];
     }
     if (request.schema === TriageAnswer) {
       return [

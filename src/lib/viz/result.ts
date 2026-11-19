@@ -158,6 +158,9 @@ export function resultOf(run: RunRecord): RunResult {
   const n = run.groups.length;
   const critical = countOf(run, "critical");
   const terms = termsFor(probable);
+  // Flutter: on code, the issues that add up to a breach come first.
+  const chains = probable ? [] : (run.chains ?? []);
+  const topChain = chains[0];
   return {
     headline:
       n === 0
@@ -169,10 +172,25 @@ export function resultOf(run: RunRecord): RunResult {
         : null,
     numbers: [
       { label: terms.severity("critical"), value: String(critical) },
-      { label: terms.severity("high"), value: String(countOf(run, "high")) },
+      run.chains && !probable
+        ? { label: "Attack chains", value: String(chains.length) }
+        : {
+            label: terms.severity("high"),
+            value: String(countOf(run, "high")),
+          },
       { label: terms.workOrders, value: String(run.workOrders.length) },
     ],
-    items: topGroups(run),
+    items: topChain
+      ? [
+          {
+            id: topChain.id,
+            title: `Attack chain: ${topChain.title}`,
+            note: topChain.impact,
+            severity: topChain.severity,
+          },
+          ...topGroups(run).slice(0, 2),
+        ]
+      : topGroups(run),
     action:
       n > 0
         ? {

@@ -54,7 +54,7 @@ describe("sidebarRuns", () => {
       { id: "c", title: "C", status: "completed", kind: "audit", stage: null },
     ] as RunSummary[];
     expect(sidebarRuns(runs)).toEqual([
-      { id: "a", title: "A", step: "Agents 4/8" },
+      { id: "a", title: "A", step: "Agents 4/9" },
       { id: "b", title: "B", step: "Starting" },
     ]);
   });

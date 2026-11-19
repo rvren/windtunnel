@@ -58,6 +58,7 @@ export const FEATURES: Feature[] = [
     name: "Tunnel Run",
     start: "Start Tunnel Run",
     promise: "Five agents attack your idea or your code and report what fails.",
+    news: "Now finds attack chains: small issues that add up to a breach.",
     question: "What breaks when real people use this?",
     input: "A requirement in plain words, or a project's code",
     output: "Issues ranked by severity, and work orders to fix them",
