@@ -329,9 +329,12 @@ under a project called "Demo project" in a workspace called "demo".
 The Runs page and each project's Runs table can be narrowed by workspace (and
 the Runs page by project). The filter is in the address, so it can be linked.
 
-Each row of the Runs page shows the run's state, its project and the
-workspaces it read, its findings by severity, its work orders, what it cost
-and when it started. The bar above the list adds up the runs shown.
+Each row of the Runs page starts with the run's kind (a Tunnel Run on code
+or on an idea, Engine Out, Dogfight and so on), then shows its state, its
+project and the workspaces it read, what it found by severity, its work
+orders, what it cost and when it started. A row of pills filters the list
+by kind, with a count for each; the filter is in the address. The bar above
+the list adds up the runs shown.
 
 ## The live map
 
