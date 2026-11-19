@@ -42,7 +42,26 @@ export async function checkSuspects(
       // A file or line that does not exist is not evidence.
     }
   }
-  return { ...answer, suspects };
+  const route: NonNullable<RunTriage["route"]> = [];
+  for (const step of answer.route ?? []) {
+    try {
+      const slice = await reader.slice(
+        step.path,
+        step.startLine,
+        Math.min(step.endLine, step.startLine + QUOTE_LINES - 1),
+      );
+      route.push({
+        path: slice.path,
+        startLine: slice.startLine,
+        endLine: slice.endLine,
+        quote: slice.text,
+        step: step.step,
+      });
+    } catch {
+      // A step that cites nothing real is left out of the route.
+    }
+  }
+  return { ...answer, suspects, route };
 }
 
 /** The defect as the one finding the fix is written for. */

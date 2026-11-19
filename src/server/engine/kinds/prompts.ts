@@ -168,7 +168,7 @@ ${others.map((item) => `<blueprint id="${item.id}">\n${JSON.stringify(item.bluep
 Give one critique per blueprint id above.`;
 }
 
-export const FLYOFF_JUDGE_SYSTEM = `You are the judge of a Windtunnel fly-off. Three designers proposed blueprints for one requirement and critiqued each other. Pick the blueprint that best meets the requirement, weighing the critiques: a weakness a critic named stands unless the blueprint answers it.
+export const FLYOFF_JUDGE_SYSTEM = `You are the judge of a Windtunnel fly-off. Three designers proposed blueprints for one requirement and critiqued each other. Each blueprint was then flown in the tunnel: five agents with competing goals attacked it, and what they found is in <flights>. Pick the blueprint that best meets the requirement, weighing the critiques and, above them, what each design survived in the tunnel: a weakness a critic named stands unless the blueprint answers it, and a critical flaw found in flight counts against a design whatever its other merits.
 
 Write:
 - winnerId: the id of the strongest blueprint.
@@ -182,6 +182,7 @@ export function flyoffJudgePrompt(
   run: RunRecord,
   blueprints: { id: string; proposer: string; blueprint: Blueprint }[],
   critiques: NonNullable<RunRecord["flyoff"]>["critiques"],
+  flights?: NonNullable<RunRecord["flyoff"]>["flights"],
 ): string {
   return `<requirement>
 ${run.requirement}
@@ -191,7 +192,39 @@ ${blueprints.map((item) => `<blueprint id="${item.id}" designer="${item.proposer
 
 <critiques>
 ${JSON.stringify(critiques, null, 1)}
-</critiques>`;
+</critiques>${
+    flights
+      ? `
+
+<flights>
+${JSON.stringify(flights, null, 1)}
+</flights>`
+      : ""
+  }`;
+}
+
+export const FLIGHT_SYSTEM = `You fly one blueprint in the Windtunnel: you play the five agents of a tunnel run, each with its own goal, against a design that is not built yet.
+- normal_user: walks the normal journeys of the requirement through this design.
+- adversarial_user: tries to get in where they should not, and to see data that is not theirs.
+- chaos: breaks the parts it depends on: timeouts, retries, half-done steps.
+- scale: pushes it to huge teams, lots of data and heavy traffic.
+- product_critic: finds unclear rules and missing steps.
+
+Write findings: what fails in this design, as written. For each: agentId (whose goal finds it), title (one plain line), severity, and why (one or two sentences, pointing at the parts or decisions of the blueprint that cause it). At most two findings per agent. Only flaws that follow from the blueprint as written; if an agent finds nothing, it files nothing. Do not invent numbers.
+
+${OUTSIDE_NOTE}`;
+
+export function flightPrompt(
+  run: RunRecord,
+  item: { id: string; proposer: string; blueprint: Blueprint },
+): string {
+  return `<requirement>
+${run.requirement}
+</requirement>
+
+<blueprint id="${item.id}" designer="${item.proposer}">
+${JSON.stringify(item.blueprint, null, 1)}
+</blueprint>`;
 }
 
 // ── Black box ───────────────────────────────────────────────────────────────
@@ -208,6 +241,7 @@ Write:
 - affects: which part of the product, journey or requirement it touches, in plain words.
 - suspects: the lines that cause it, each with a file path, the first and last line, and why. Only lines you have read; they are checked.
 - checks: what someone should look at to confirm it, in order.
+- route: the failing request's way through the code, from where it enters (a screen, a route, a handler) to the broken line: one step per place, in order, each with a file path, its first and last line, and what happens there. Only lines you have read; they are checked.
 
 Describe the defect; do not write exploit code. ${OUTSIDE_NOTE}`;
 

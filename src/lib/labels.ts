@@ -27,6 +27,7 @@ export const STAGE_ORDER = [
   "verdict",
   "split",
   "trace",
+  "flight",
 ] as const;
 
 /** What each kind of run is called (as in lib/features.ts). */
@@ -62,6 +63,7 @@ export const STAGE_LABEL = {
   verdict: "Verdict",
   split: "Split",
   trace: "Trace",
+  flight: "Flight",
 } as const;
 
 export const STAGE_DESCRIPTION = {
@@ -86,6 +88,7 @@ export const STAGE_DESCRIPTION = {
   verdict: "Putting the rounds together into one checked fix",
   split: "Breaking the spec into lines, one per agent's lens",
   trace: "Five agents finding the code behind each line",
+  flight: "Each blueprint flown in the tunnel: five agents attack it",
 } as const;
 
 export const FINDING_TYPE_LABEL = {

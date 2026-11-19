@@ -42,6 +42,7 @@ import { storyOf } from "@/lib/viz/story";
 import { applyTime, emptyTimes, type RunTimes } from "@/lib/viz/times";
 import type { VersionChanges } from "@/lib/viz/refine";
 import {
+  type Architecture,
   stagesOf,
   type RunRecord,
   type RunStatus,
@@ -237,6 +238,8 @@ export interface RunContext {
   tracked: Record<string, TrackedState>;
   /** What a new run of this project costs. */
   cost: RunCost;
+  /** A Black Box's map to draw the failing request on: the project's latest. */
+  map?: Architecture | null;
   /** A requirement's versions, oldest first; empty for a code run. */
   versions: { id: string; number: number; status: RunStatus }[];
   /** The version this run refines, and what changed since it. */
@@ -789,7 +792,11 @@ export function RunView({
           ) : null}
           {reportReady && kind === "blackbox" ? (
             <TabsContent value="report">
-              <BlackboxReport run={run} tracked={context.tracked} />
+              <BlackboxReport
+                run={run}
+                tracked={context.tracked}
+                map={context.map ?? null}
+              />
             </TabsContent>
           ) : null}
           {reportReady && kind === "engineout" ? (

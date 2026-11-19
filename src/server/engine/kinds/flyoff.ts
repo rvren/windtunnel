@@ -2,6 +2,7 @@ import { RunError } from "../llm";
 import {
   Blueprint,
   Critique,
+  FlightAnswer,
   FlyoffVerdict,
   ZERO_USAGE,
   addUsage,
@@ -11,10 +12,12 @@ import {
 import type { KindContext } from "./context";
 import {
   CRITIC_SYSTEM,
+  FLIGHT_SYSTEM,
   FLYOFF_JUDGE_SYSTEM,
   PROPOSERS,
   PROPOSER_SYSTEM,
   critiquePrompt,
+  flightPrompt,
   flyoffJudgePrompt,
   proposerPrompt,
 } from "./prompts";
@@ -201,7 +204,63 @@ export async function runFlyoff(ctx: KindContext): Promise<void> {
     return `${plural(flyoff.critiques.length, "critique")}, ${plural(weaknesses, "weakness", "weaknesses")} named`;
   });
 
-  // 3. Judge: rank the blueprints and pick one.
+  // 3. Flight: each blueprint in the tunnel, the five agents against it.
+  // Best effort: a flight that fails leaves the judge the critiques.
+  await stage("flight", async () => {
+    let usage = ZERO_USAGE;
+    flyoff.flights = {};
+    await Promise.all(
+      ready.map(async (entry) => {
+        await emit({
+          type: "actor.started",
+          actorId: entry.id,
+          doing: "In the tunnel: five agents attack the design",
+        });
+        try {
+          const result = await llm.call({
+            stage: "flight",
+            model: run.models.agents,
+            effort: "medium",
+            system: FLIGHT_SYSTEM,
+            prompt: flightPrompt(run, {
+              id: entry.id,
+              proposer: entry.proposer,
+              blueprint: entry.blueprint!,
+            }),
+            schema: FlightAnswer,
+          });
+          usage = addUsage(usage, result.usage);
+          flyoff.flights![entry.id] =
+            result.kind === "declined"
+              ? { findings: [], error: "The model declined to fly it." }
+              : { findings: result.value.findings, error: null };
+        } catch (error) {
+          flyoff.flights![entry.id] = {
+            findings: [],
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+        await save();
+        const found = flyoff.flights![entry.id].findings;
+        const worst = found.filter(
+          (item) => item.severity === "critical" || item.severity === "high",
+        ).length;
+        await emit({
+          type: "actor.completed",
+          actorId: entry.id,
+          note: `${plural(found.length, "flaw")} found in flight, ${worst} serious`,
+        });
+      }),
+    );
+    run.usage.flight = usage;
+    const total = Object.values(flyoff.flights).reduce(
+      (sum, item) => sum + item.findings.length,
+      0,
+    );
+    return `${plural(ready.length, "blueprint")} flown, ${plural(total, "flaw")} found`;
+  });
+
+  // 4. Judge: rank the blueprints and pick one.
   await stage("judge", async () => {
     await emit({
       type: "actor.started",
@@ -221,6 +280,7 @@ export async function runFlyoff(ctx: KindContext): Promise<void> {
           blueprint: item.blueprint!,
         })),
         flyoff.critiques,
+        flyoff.flights,
       ),
       schema: FlyoffVerdict,
     });

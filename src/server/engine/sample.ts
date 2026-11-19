@@ -15,6 +15,7 @@ import {
   CascadeAnswer,
   ChainAnswer,
   Critique,
+  FlightAnswer,
   FlyoffVerdict,
   HopReport,
   ImpactAnswer,
@@ -32,6 +33,7 @@ import {
   SAMPLE_BLUEPRINTS,
   SAMPLE_CRITIQUE,
   SAMPLE_IMPACT,
+  SAMPLE_FLIGHTS,
   SAMPLE_FLYOFF_VERDICT,
 } from "./sample-kinds";
 
@@ -136,6 +138,15 @@ export class ScriptedLlm implements LlmClient {
       return [
         `proposal:${name}`,
         { kind: "ok", value: SAMPLE_BLUEPRINTS[name] },
+      ];
+    }
+    if (request.schema === FlightAnswer) {
+      const designer =
+        /<blueprint id="[^"]+" designer="([^"]+)"/.exec(request.prompt)?.[1] ??
+        "Pragmatist";
+      return [
+        `flight:${designer}`,
+        { kind: "ok", value: SAMPLE_FLIGHTS[designer] ?? { findings: [] } },
       ];
     }
     if (request.schema === Critique) {

@@ -81,8 +81,18 @@ export function resultOf(run: RunRecord): RunResult {
           label: "Designs",
           value: String(blueprints.filter((item) => item.blueprint).length),
         },
-        { label: "Critiques", value: String(critiques.length) },
         { label: "Weaknesses named", value: String(weaknesses) },
+        run.flyoff.flights
+          ? {
+              label: "Flaws found in flight",
+              value: String(
+                Object.values(run.flyoff.flights).reduce(
+                  (sum, item) => sum + item.findings.length,
+                  0,
+                ),
+              ),
+            }
+          : { label: "Critiques", value: String(critiques.length) },
       ],
       items: verdict.ranking.slice(0, 3).map((item) => {
         const entry = blueprints.find((b) => b.id === item.blueprintId);

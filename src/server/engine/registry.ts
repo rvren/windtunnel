@@ -100,13 +100,46 @@ function withKindSamples(script: Script, input: RunInput): Script {
   if (!catalog) return script;
   const path =
     workspaces.length > 1 ? `${catalog.name}/search.py` : "search.py";
+  // The failing request's route, through the services in this project.
+  const named = (service: string) =>
+    workspaces.find((item) => sampleServiceOf(item.origin) === service)?.name;
+  const web = named("web");
+  const gateway = named("gateway");
+  const route = [
+    ...(web && workspaces.length > 1
+      ? [
+          {
+            step: "The shop sends the search text to the gateway, as it was typed.",
+            path: `${web}/src/search.ts`,
+            startLine: 3,
+            endLine: 5,
+          },
+        ]
+      : []),
+    ...(gateway && workspaces.length > 1
+      ? [
+          {
+            step: "The gateway passes every /catalog/ request on to the catalog.",
+            path: `${gateway}/main.go`,
+            startLine: 7,
+            endLine: 7,
+          },
+        ]
+      : []),
+    {
+      step: "The catalog joins the text into its SQL, so a quote breaks the query.",
+      path,
+      startLine: 4,
+      endLine: 6,
+    },
+  ];
   return {
     ...script,
     // The defect is the catalog's SQL injection: its scripted fix applies,
     // and so does its scripted duel.
     kinds: {
       ...script.kinds,
-      triage: sampleTriage(path),
+      triage: sampleTriage(path, route),
       duels: script.kinds?.duels?.["g-cat-sqli"]
         ? {
             ...script.kinds.duels,

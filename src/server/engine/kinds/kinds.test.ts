@@ -130,7 +130,20 @@ describe("a fly-off, scripted", () => {
       SAMPLE_SCRIPT,
     );
     expect(done.status).toBe("completed");
-    expect(stages).toEqual(["model", "proposals", "critique", "judge"]);
+    expect(stages).toEqual([
+      "model",
+      "proposals",
+      "critique",
+      "flight",
+      "judge",
+    ]);
+    // Each blueprint was flown, and the judge saw what it survived.
+    expect(Object.keys(done.flyoff?.flights ?? {}).sort()).toEqual([
+      "p1",
+      "p2",
+      "p3",
+    ]);
+    expect(done.flyoff?.flights?.p2.findings[0].severity).toBe("critical");
     expect(done.flyoff?.blueprints.map((item) => item.status)).toEqual([
       "done",
       "done",
@@ -143,9 +156,11 @@ describe("a fly-off, scripted", () => {
     ).toBe(true);
     expect(done.flyoff?.verdict?.winnerId).toBe("p1");
     expect(done.title.startsWith("Fly-off: ")).toBe(true);
-    // Each designer is seen designing, then critiquing; then the judge.
+    // Each designer is seen designing, critiquing, then in flight; then the judge.
     for (const id of ["p1", "p2", "p3"]) {
       expect(actors.filter((item) => item.startsWith(`${id} `))).toEqual([
+        `${id} actor.started`,
+        `${id} actor.completed`,
         `${id} actor.started`,
         `${id} actor.completed`,
         `${id} actor.started`,

@@ -466,6 +466,7 @@ export const STAGES = [
   "verdict",
   "split",
   "trace",
+  "flight",
 ] as const;
 export type Stage = (typeof STAGES)[number];
 
@@ -510,7 +511,7 @@ export const STAGES_OF: Record<RunKind, readonly Stage[]> = {
     "impact",
     "work_orders",
   ],
-  flyoff: ["model", "proposals", "critique", "judge"],
+  flyoff: ["model", "proposals", "critique", "flight", "judge"],
   blackbox: ["survey", "triage", "remediation", "duel"],
   engineout: ["survey", "map", "cut", "cascade"],
   dogfight: ["survey", "duel", "verdict"],
@@ -644,6 +645,19 @@ export const FlyoffVerdict = z.object({
 });
 export type FlyoffVerdict = z.infer<typeof FlyoffVerdict>;
 
+/** One blueprint flown in the tunnel: what the five agents found in it. */
+export const FlightAnswer = z.object({
+  findings: z.array(
+    z.object({
+      agentId: AgentId,
+      title: z.string(),
+      severity: Severity,
+      why: z.string(),
+    }),
+  ),
+});
+export type FlightAnswer = z.infer<typeof FlightAnswer>;
+
 export interface RunFlyoff {
   blueprints: {
     id: string;
@@ -660,6 +674,11 @@ export interface RunFlyoff {
     weaknesses: { point: string; severity: Severity }[];
   }[];
   verdict: FlyoffVerdict | null;
+  /** Each blueprint flown in the tunnel, by its id. Absent on older runs. */
+  flights?: Record<
+    string,
+    { findings: FlightAnswer["findings"]; error: string | null }
+  >;
 }
 
 // ── Black box: production feedback to its cause ───────────────────────────
@@ -681,12 +700,26 @@ export const TriageAnswer = z.object({
     }),
   ),
   checks: z.array(z.string()),
+  /**
+   * The failing request's way through the code, from where it enters to
+   * the broken line: one step per place, in order, each with its lines.
+   */
+  route: z.array(
+    z.object({
+      step: z.string(),
+      path: z.string(),
+      startLine: z.number().int(),
+      endLine: z.number().int(),
+    }),
+  ),
 });
 export type TriageAnswer = z.infer<typeof TriageAnswer>;
 
-export interface RunTriage extends Omit<TriageAnswer, "suspects"> {
+export interface RunTriage extends Omit<TriageAnswer, "suspects" | "route"> {
   /** Only suspects whose lines exist, with the code they cite. */
   suspects: (CodeLocation & { why: string })[];
+  /** The request's route, only steps whose lines exist. Absent on older runs. */
+  route?: (CodeLocation & { step: string })[];
 }
 
 export type RunStatus = "running" | "completed" | "failed" | "interrupted";

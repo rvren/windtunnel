@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { PageLoading } from "@/components/app/page-header";
 import { RunView, type RunContext } from "@/components/run/run-view";
+import { latestMap } from "@/server/projects/latest-map";
 import { SOFTWARE_FACTORY } from "@/server/connectors/software-factory";
 import { getProjectLink, listDeliveries } from "@/server/connectors/store";
 import { listIssues } from "@/server/issues/store";
@@ -97,6 +98,10 @@ async function Run({ params }: { params: Promise<{ id: string }> }) {
       const link = await getProjectLink(run.projectId, SOFTWARE_FACTORY);
       context = {
         projectName: project?.name ?? null,
+        map:
+          (run.kind ?? "audit") === "blackbox"
+            ? await latestMap(run.projectId).catch(() => null)
+            : null,
         cost: project?.demo
           ? "sample-project"
           : sampleMode

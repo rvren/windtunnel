@@ -68,7 +68,8 @@ describe("resultOf", () => {
       }),
     );
     expect(result.headline).toBe("Pragmatist's design wins: Grants.");
-    expect(result.numbers.map((item) => item.value)).toEqual(["2", "1", "2"]);
+    // Designs, weaknesses named, critiques (no flights on this older run).
+    expect(result.numbers.map((item) => item.value)).toEqual(["2", "2", "1"]);
     expect(result.items[0].title).toBe("1. Pragmatist: Grants");
     expect(result.action?.tab).toBe("report");
   });

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { LayoutGroup } from "motion/react";
 import {
   ArrowUpRight,
+  RotateCcw,
   Check,
   Copy,
   GitPullRequest,
@@ -22,6 +23,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FINDING_TYPE_LABEL, SEVERITY_LABEL } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { SEVERITY_TONE } from "@/lib/viz/cockpit-views";
+import { hopsAlong } from "@/lib/viz/flight-path";
+import { rippleFlight } from "@/lib/viz/ripple";
 import type {
   Architecture,
   ImpactEffect,
@@ -116,6 +119,7 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
   const impact = run.impact;
   const change = run.change;
   const [view, setView] = useState<"after" | "before">("after");
+  const [play, setPlay] = useState(0);
   if (!impact || !change) {
     return (
       <p className="text-[0.8125rem] text-muted-foreground">
@@ -134,6 +138,13 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
       .map((part) => [part.id, EFFECT_TONE.removed]),
   );
   const shown = view === "after" ? impact.after : impact.before;
+  const ripple =
+    view === "after"
+      ? rippleFlight(
+          impact,
+          change.input.kind === "text" ? change.input.text : change.title,
+        )
+      : null;
   const added = change.files.reduce((sum, file) => sum + file.additions, 0);
   const removed = change.files.reduce((sum, file) => sum + file.deletions, 0);
 
@@ -176,17 +187,30 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
           title={
             <span className="flex items-center justify-between gap-3">
               Architecture
-              <Tabs
-                value={view}
-                onValueChange={(next) => setView(next as "after" | "before")}
-              >
-                <TabsList>
-                  <TabsTrigger value="after">After</TabsTrigger>
-                  <TabsTrigger value="before" disabled={!impact.before}>
-                    Before
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <span className="flex items-center gap-2">
+                {ripple ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPlay((n) => n + 1)}
+                    data-testid="crosswind-replay"
+                  >
+                    <RotateCcw />
+                    Replay
+                  </Button>
+                ) : null}
+                <Tabs
+                  value={view}
+                  onValueChange={(next) => setView(next as "after" | "before")}
+                >
+                  <TabsList>
+                    <TabsTrigger value="after">After</TabsTrigger>
+                    <TabsTrigger value="before" disabled={!impact.before}>
+                      Before
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </span>
             </span>
           }
         >
@@ -197,6 +221,7 @@ export function CrosswindReport({ run }: { run: RunRecord }) {
                 connections={shown.connections}
                 showWorkspace
                 marks={view === "after" ? marks : removedMarks}
+                flight={ripple ? { plan: ripple, play } : undefined}
               />
             </LayoutGroup>
           ) : (
@@ -387,6 +412,79 @@ export function FlyoffReport({ run }: { run: RunRecord }) {
           </div>
         </Section>
       ) : null}
+      {flyoff.flights && Object.keys(flyoff.flights).length > 0 ? (
+        <Section title="In the tunnel" testId="flyoff-flights">
+          <p className="mb-4 max-w-3xl text-xs text-muted-foreground">
+            Each blueprint was flown before the judge decided: the five agents
+            attacked it, each with its own goal.
+          </p>
+          <div className="grid gap-4 md:grid-cols-3">
+            {flyoff.blueprints
+              .filter((item) => flyoff.flights?.[item.id])
+              .map((item) => {
+                const flight = flyoff.flights![item.id];
+                const won = item.id === verdict?.winnerId;
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "rounded-md border p-3.5",
+                      won && "border-brand/50",
+                    )}
+                    data-testid="flyoff-flight"
+                  >
+                    <p className="flex items-center gap-1.5 text-[0.8125rem] font-medium">
+                      {won ? (
+                        <Trophy
+                          className="size-3.5 text-brand"
+                          aria-label="Winner"
+                        />
+                      ) : null}
+                      {item.proposer}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.blueprint?.name}
+                    </p>
+                    <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      {(["critical", "high", "medium", "low"] as const).map(
+                        (severity) => {
+                          const n = flight.findings.filter(
+                            (finding) => finding.severity === severity,
+                          ).length;
+                          return n > 0 ? (
+                            <span
+                              key={severity}
+                              className="flex items-center gap-1"
+                            >
+                              <Dot color={SEVERITY_TONE[severity]} />
+                              {n} {SEVERITY_LABEL[severity].toLowerCase()}
+                            </span>
+                          ) : null;
+                        },
+                      )}
+                      {flight.findings.length === 0 ? (
+                        <span className="text-muted-foreground">
+                          {flight.error ?? "Nothing failed"}
+                        </span>
+                      ) : null}
+                    </p>
+                    <ul className="mt-2.5 space-y-1.5">
+                      {flight.findings.map((finding) => (
+                        <li
+                          key={finding.title}
+                          className="flex gap-2 text-xs leading-snug"
+                        >
+                          <Dot color={SEVERITY_TONE[finding.severity]} />
+                          <span>{finding.title}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+          </div>
+        </Section>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-3">
         {flyoff.blueprints.map((entry) => {
@@ -498,12 +596,35 @@ export function FlyoffReport({ run }: { run: RunRecord }) {
 export function BlackboxReport({
   run,
   tracked,
+  map = null,
 }: {
   run: RunRecord;
   tracked: Record<string, TrackedState>;
+  /** The project's latest map, to draw the failing request on. */
+  map?: Architecture | null;
 }) {
   const triage = run.triage;
   const [prOpen, setPrOpen] = useState(false);
+  const [play, setPlay] = useState(0);
+  const route = triage?.route ?? [];
+  const routePlan =
+    route.length > 0 && map
+      ? {
+          cut: [],
+          hops: hopsAlong(
+            route.map((step, index) => ({
+              id: `step-${index + 1}`,
+              label: step.step,
+              location: step,
+              tone:
+                index === route.length - 1
+                  ? ("danger" as const)
+                  : ("accent" as const),
+            })),
+            map,
+          ),
+        }
+      : null;
   const record = run.remediations?.["incident-1"];
   const issue = tracked["incident-1"];
   const canOpen =
@@ -604,6 +725,55 @@ export function BlackboxReport({
               fixCost="This fix is already written; opening the pull request costs nothing."
             />
           ) : null}
+        </Section>
+      ) : null}
+      {route.length > 0 ? (
+        <Section
+          title={
+            <span className="flex items-center justify-between gap-3">
+              The failing request
+              {routePlan ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPlay((n) => n + 1)}
+                  data-testid="blackbox-route-replay"
+                >
+                  <RotateCcw />
+                  Replay
+                </Button>
+              ) : null}
+            </span>
+          }
+          testId="blackbox-route"
+        >
+          {routePlan && map ? (
+            <div className="mb-4">
+              <LayoutGroup id="blackbox-route">
+                <ArchitectureDiagram
+                  components={asParts(map)}
+                  connections={map.connections}
+                  showWorkspace={false}
+                  flight={{ plan: routePlan, play }}
+                />
+              </LayoutGroup>
+            </div>
+          ) : null}
+          <ol className="space-y-2 text-[0.8125rem]">
+            {route.map((step, index) => (
+              <li key={`${step.path}:${step.startLine}`} className="flex gap-3">
+                <span className="grid size-5 shrink-0 place-items-center rounded-full border font-mono text-[0.6875rem] text-muted-foreground">
+                  {index + 1}
+                </span>
+                <span className="min-w-0">
+                  {step.step}{" "}
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {step.path}:{step.startLine}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
         </Section>
       ) : null}
       {run.dogfight && run.dogfight.rounds.length > 0 ? (

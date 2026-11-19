@@ -1,6 +1,7 @@
 import type {
   Blueprint,
   Critique,
+  FlightAnswer,
   FlyoffVerdict,
   ImpactAnswer,
   TriageAnswer,
@@ -171,6 +172,64 @@ export const SAMPLE_CRITIQUE: Critique = {
   ],
 };
 
+/** What the five agents find when each sample blueprint is flown. */
+export const SAMPLE_FLIGHTS: Record<string, FlightAnswer> = {
+  Pragmatist: {
+    findings: [
+      {
+        agentId: "adversarial_user",
+        title: "One missed tenant filter shows another organization's users",
+        severity: "high",
+        why: "Every query relies on the one check in the shared data layer; a query that goes around it, such as a report, reads across organizations.",
+      },
+      {
+        agentId: "scale",
+        title: "The largest organization slows every other",
+        severity: "medium",
+        why: "All organizations share one database and one API, so a heavy tenant's reads slow everyone's dashboard.",
+      },
+    ],
+  },
+  Scaler: {
+    findings: [
+      {
+        agentId: "adversarial_user",
+        title: "A removed user keeps access while permissions are cached",
+        severity: "critical",
+        why: "Each service caches permissions it gets from the Permissions service, so a user removed by an admin can still act until the caches expire.",
+      },
+      {
+        agentId: "chaos",
+        title: "An invite sent twice when the queue retries",
+        severity: "high",
+        why: "The invite queue delivers at least once and the blueprint names no key to drop a repeat, so a retry emails the same invite again.",
+      },
+      {
+        agentId: "product_critic",
+        title: "Five services to build before the first invite",
+        severity: "medium",
+        why: "The requirement asks for invites and permissions; the blueprint needs a gateway, identity, permissions, a queue and the web app first.",
+      },
+    ],
+  },
+  Guardian: {
+    findings: [
+      {
+        agentId: "scale",
+        title: "Every schema change runs once per organization",
+        severity: "medium",
+        why: "With a schema per organization, a migration must run and succeed in each one, and a failure halfway leaves organizations on different versions.",
+      },
+      {
+        agentId: "normal_user",
+        title: "A new admin cannot invite anyone until roles are set up",
+        severity: "medium",
+        why: "Deny by default means a new organization's admin has no permissions to grant until roles are written for it.",
+      },
+    ],
+  },
+};
+
 export const SAMPLE_FLYOFF_VERDICT: FlyoffVerdict = {
   winnerId: "p1",
   summary:
@@ -201,7 +260,10 @@ export const SAMPLE_FLYOFF_VERDICT: FlyoffVerdict = {
 };
 
 /** For the Storefront sample: a search that fails on a quote. */
-export function sampleTriage(path: string): TriageAnswer {
+export function sampleTriage(
+  path: string,
+  route: TriageAnswer["route"] = [],
+): TriageAnswer {
   return {
     title: "Product search fails on a search term with a quote in it",
     hypothesis:
@@ -222,6 +284,7 @@ export function sampleTriage(path: string): TriageAnswer {
       "Search for a term with a single quote and watch the logs",
       "Bind the search text as a parameter and search again",
     ],
+    route,
   };
 }
 
