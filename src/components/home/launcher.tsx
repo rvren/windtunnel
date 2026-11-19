@@ -22,14 +22,19 @@ const STEPS = [
   "Get the result",
 ];
 
+const CARD =
+  "group rounded-card border bg-card p-6 transition-colors duration-200 outline-none hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring";
+
 function FeatureCard({ feature, main }: { feature: Feature; main: boolean }) {
   const Icon = FEATURE_ICON[feature.kind];
+  const href = `/app/runs/new?kind=${feature.kind}`;
   const start = (
     <span
       className={cn(
         buttonVariants({ variant: main ? "default" : "outline" }),
-        "mt-auto self-start",
+        "self-start justify-self-start",
       )}
+      data-testid={`launcher-start-${feature.kind}`}
     >
       {feature.start}
       <ArrowRight
@@ -39,77 +44,80 @@ function FeatureCard({ feature, main }: { feature: Feature; main: boolean }) {
     </span>
   );
   const facts = (
-    <dl
-      className={cn(
-        "grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1.5 text-[0.8125rem]",
-        !main && "mt-5 mb-6",
-      )}
-    >
+    <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1.5 text-[0.8125rem]">
       <dt className="text-muted-foreground">You give</dt>
       <dd>{feature.input}</dd>
       <dt className="text-muted-foreground">You get</dt>
       <dd>{feature.output}</dd>
     </dl>
   );
+  const words = (
+    <div>
+      <div className="flex items-center gap-3">
+        <span
+          className={cn(
+            "grid size-10 shrink-0 place-items-center rounded-tile border",
+            (main || feature.fresh) && "border-brand/40 text-brand",
+          )}
+        >
+          <Icon className="size-5" aria-hidden="true" />
+        </span>
+        <h2 className="text-xl font-medium">{feature.name}</h2>
+        {feature.fresh ? (
+          <span
+            className="rounded-full border border-brand/40 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-brand uppercase"
+            data-testid={`launcher-new-${feature.kind}`}
+          >
+            New
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-5 text-lg leading-snug">{feature.question}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{feature.promise}</p>
+      {feature.news ? (
+        <p className="mt-3 flex items-center gap-2 text-[0.8125rem]">
+          <span
+            aria-hidden="true"
+            className="size-1.5 shrink-0 rounded-full bg-brand"
+          />
+          {feature.news}
+        </p>
+      ) : null}
+    </div>
+  );
+
+  if (!main) {
+    // Three rows shared with the cards beside it (subgrid): the words, the
+    // facts, the button. However long a card's words, its facts and its
+    // button sit level with its neighbours'.
+    return (
+      <Link
+        href={href}
+        data-testid={`launcher-${feature.kind}`}
+        className={cn(CARD, "row-span-3 grid grid-rows-subgrid gap-y-0")}
+      >
+        {words}
+        <div className="mt-5 mb-6">{facts}</div>
+        {start}
+      </Link>
+    );
+  }
+  // The main kind spans the row, its facts beside its words.
   return (
     <Link
-      href={`/app/runs/new?kind=${feature.kind}`}
+      href={href}
       data-testid={`launcher-${feature.kind}`}
       className={cn(
-        "group flex flex-col rounded-card border bg-card p-6 transition-colors duration-200 outline-none hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring",
-        // The main kind spans the row, its facts beside its words.
-        main &&
-          "md:col-span-2 lg:col-span-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-x-10",
+        CARD,
+        "flex flex-col md:col-span-2 lg:col-span-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-x-10",
       )}
     >
       <div className="flex flex-col">
-        <div className="flex items-center gap-3">
-          <span
-            className={cn(
-              "grid size-10 shrink-0 place-items-center rounded-tile border",
-              (main || feature.fresh) && "border-brand/40 text-brand",
-            )}
-          >
-            <Icon className="size-5" aria-hidden="true" />
-          </span>
-          <h2 className="text-xl font-medium">{feature.name}</h2>
-          {feature.fresh ? (
-            <span
-              className="rounded-full border border-brand/40 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-brand uppercase"
-              data-testid={`launcher-new-${feature.kind}`}
-            >
-              New
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-5 text-lg leading-snug">{feature.question}</p>
-        <p className="mt-2 text-sm text-muted-foreground">{feature.promise}</p>
-        {feature.news ? (
-          <p className="mt-3 flex items-center gap-2 text-[0.8125rem]">
-            <span
-              aria-hidden="true"
-              className="size-1.5 shrink-0 rounded-full bg-brand"
-            />
-            {feature.news}
-          </p>
-        ) : null}
-        {main ? (
-          <>
-            <div className="mt-5 lg:hidden">{facts}</div>
-            <div className="mt-6">{start}</div>
-          </>
-        ) : (
-          <>
-            {facts}
-            {start}
-          </>
-        )}
+        {words}
+        <div className="mt-5 lg:hidden">{facts}</div>
+        <div className="mt-6">{start}</div>
       </div>
-      {main ? (
-        <div className="hidden self-center border-l pl-10 lg:block">
-          {facts}
-        </div>
-      ) : null}
+      <div className="hidden self-center border-l pl-10 lg:block">{facts}</div>
     </Link>
   );
 }
