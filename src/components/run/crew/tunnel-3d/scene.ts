@@ -624,14 +624,20 @@ export class Tunnel3D {
   private steelMaterials(map: THREE.Texture, base: Rgb = this.palette.steel) {
     const darker: Rgb = [base[0] * 0.8, base[1] * 0.8, base[2] * 0.8];
     return [
+      // The light theme's steel is paler: more of its own colour and a
+      // brighter sheen, since its room is lit low.
       new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         map,
-        metalness: 0.8,
+        metalness: this.palette.dark ? 0.8 : 0.5,
         roughness: 0.42,
         anisotropy: 0.65,
+        envMapIntensity: this.palette.dark ? 1 : 1.5,
       }),
-      this.standard(darker, { metalness: 0.8, roughness: 0.45 }),
+      this.standard(darker, {
+        metalness: this.palette.dark ? 0.8 : 0.5,
+        roughness: 0.45,
+      }),
     ];
   }
 
@@ -696,10 +702,11 @@ export class Tunnel3D {
     // Brushed steel like the walls, a shade darker so the room stands on
     // it, its grain running with the air.
     const floorDepth = width + proud * 2;
+    const shade = p.dark ? 0.82 : 0.9;
     const floorSteel: Rgb = [
-      p.steel[0] * 0.82,
-      p.steel[1] * 0.82,
-      p.steel[2] * 0.82,
+      p.steel[0] * shade,
+      p.steel[1] * shade,
+      p.steel[2] * shade,
     ];
     const floor = new THREE.Mesh(
       slabGeometry(length, floorDepth, thick, 0.16),
