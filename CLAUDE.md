@@ -70,7 +70,9 @@ take something away.
 
 - **The product is three steps: Choose → Watch → Result.** The home page
   (`/app`, `components/home/launcher.tsx`) is a launcher: one card per kind
-  of run, and the three steps. Every word about a kind (its name, question,
+  of run (Tunnel Run spans the top row, the rest sit three across, a new
+  kind is marked `fresh`), and the three steps. Flutter is a stage of
+  Tunnel Run, not a card. Every word about a kind (its name, question,
   input, result, workers, example) lives in `src/lib/features.ts`; never
   write a kind's description anywhere else. Every run starts from the one
   start page (`/app/runs/new?kind=…`, `components/run/start/`), whose
@@ -126,6 +128,16 @@ take something away.
   `actor.*` events; a new kind adds its workers to `features.ts` and emits
   those events.
 
+- **The flight path** (`flight` on `ArchitectureDiagram`, data from
+  `src/lib/viz/flight-path.ts`) is the one way a result draws a route on
+  the map: Engine Out's cascade, Flutter's chain, Crosswind's ripple, a
+  Black Box request. Numbered stops sit on the part each step is in; a hop
+  follows the calls (`routeAlong`); Replay draws it again. Live stays the
+  wind tunnel for every kind: the flight path belongs to the Result.
+- **Every result offers the next run** (`nextRunsOf` in
+  `src/lib/viz/next.ts`), filled in from it (`prefillFrom`); the start
+  page still asks first. On a sample run it offers only what the sample
+  scripts (`src/lib/samples.ts`).
 - **The frame of every detail page** (a run, a project), after the reference layout
   (the look stays this one): one bordered header panel holding a breadcrumb with small icon
   tools on its right, the title, one grey line of details, a mono row of

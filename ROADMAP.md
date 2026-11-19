@@ -26,9 +26,16 @@ Done:
   them, the cost of every run, and scheduled runs with a monthly cap
 - A clean, minimal UI: near-black, hairline borders, small type, a chip
   row and tabs on each page, an activity rail on run pages
-- A simple product in three steps: a launcher of the four kinds, one start
+- A simple product in three steps: a launcher of the kinds, one start
   page, and a live wind tunnel of the agents at work that turns into the
   result
+- Engine Out (one part cut on purpose, the failure hop by hop), Flutter
+  (attack chains inside Tunnel Run), Dogfight (a fix must hold against an
+  attacker; Black Box fixes go through it) and Preflight (a spec checked
+  line by line against the code), each with a scripted Storefront demo
+- A flight path on the project's map for Crosswind, Engine Out, Flutter
+  and Black Box; Fly-off designs flown in the tunnel; each result offers
+  the run that follows from it
 
 ## Before production: evals for every agent
 

@@ -237,24 +237,55 @@ takes the same three steps:
    (issues, work orders, map, model, scoreboard); **Activity** holds the
    step-by-step story.
 
-The four kinds:
+The seven kinds:
 
 - **Tunnel Run** tests an idea in words or a project's code: five agents
-  attack it and report what fails.
+  attack it and report what fails. On code it also finds **attack
+  chains** (Flutter): issues each reported alone that an attacker uses one
+  after another, often across services, until they add up to a breach.
+  Every link is an accepted issue and every step between them cites code
+  that is checked; the chain flies across the map, one stop per link.
 
 - **Crosswind** traces one change through every service: a pull request,
   two branches, or a change in plain words. It shows the parts the change
   touches, what it breaks, the known issues it fixes, and the architecture
   before and after.
-- **Fly-off**: three designers each propose a blueprint for a requirement,
-  critique each other, and a judge picks the strongest with its evidence.
+- **Fly-off**: three designers each propose a blueprint for a requirement
+  and critique each other. Each blueprint is then flown in the tunnel: the
+  five agents' goals are played against it. The judge picks the strongest
+  with its evidence, weighing what each design survived.
 - **Black Box**: paste an error or an incident note. An investigator traces
-  it to cited lines, the defect is tracked as an issue, and a fixer writes a
-  fix checked against the code. A pull request opens only when you ask.
+  it to cited lines and the request's route to them (drawn on the map), the
+  defect is tracked as an issue, and a fixer writes a fix checked against
+  the code. The fix then goes through a Dogfight before anyone ships it. A
+  pull request opens only when you ask.
+- **Engine Out**: cut one part on purpose (a service, a database or an
+  outside system), down or slow. The Outage tester follows every call into
+  it and the Everyday user walks the journeys that touch it; each step of
+  the failure cites the lines that decide it. The result is the failure
+  spreading across the map from the part that was cut, out to the
+  customer. Chaos engineering with nothing running.
+- **Preflight**: paste a spec. Its lines (in its own words) go to the agent
+  whose lens fits each, and every line comes back implemented, partly,
+  missing or contradicted, with the code that shows it. Exports as a
+  traceability table in Markdown and CSV.
+- **Dogfight**: pick a security issue. The defender brings its fix, the
+  attacker reads the code with the fix applied (in memory) and cites the
+  lines of a way past it, and the defender answers, for up to three rounds.
+  A fix that held becomes the issue's fix, and its pull request says so.
 
-Each kind has a free scripted demo on the sample project. In the wind
-tunnel a Fly-off shows its three designers and the judge, and a Black Box
-its investigator and fixer.
+Every result offers the run that follows from it, already filled in (a
+Tunnel Run on code offers to harden its top fix and cut its weakest part;
+Engine Out offers Black Box on its worst step; a requirement run offers
+Preflight). The start page still asks first. The Crosswind, Engine Out,
+Flutter and Black Box results draw on the project's map as one **flight
+path**: numbered stops on the parts, a line along the calls, Replay.
+
+Each kind has a free scripted demo on the sample project, every cited
+line real. On a sample project only what the sample scripts can be picked
+(Engine Out on billing, auth or the payment gateway; a Dogfight on the
+catalog's SQL injection), so the demo stays free. In the wind tunnel each
+kind shows its own workers.
 
 Every run shows what it cost. A project can also run an audit **on a
 schedule** (daily or weekly, at an hour) inside a monthly cap in dollars:
