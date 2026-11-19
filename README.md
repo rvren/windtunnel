@@ -219,12 +219,12 @@ takes the same three steps:
    the project, give the one input that kind needs (or **Use The Example**),
    and start. It always asks first, and says whether the run is billed.
 2. **Watch.** The run page's **Live** tab is the wind tunnel, in 3D, on
-   one screen: a test section seen from downstream, its fan turning at the
-   far end, and the application on a turntable in the middle as three
-   plates (interface, services, data), each part a tile. A rake lets out
-   one glowing line per worker; a light runs along a line while its worker
-   works, and each finding leaves the application as a spark into that
-   worker's count. Each kind adds its own detail: a Tunnel Run pins its
+   one screen, drawn as a blueprint in light: a fan on the left, drawn as a
+   turning circle that glows, and the application in the middle as three
+   outlined plates (interface, services, data), each part a tile. Out of
+   the fan come one glowing line per worker; a light runs along a line
+   while its worker works, and each finding leaves the application as a
+   spark into that worker's count. Each kind adds its own detail: a Tunnel Run pins its
    findings where they are and draws its attack chains, Engine Out cuts a
    part and the failure hops out from it, Dogfight raises a shield the
    attacker tries to break, Preflight lights the spec line by line, Fly-off
@@ -232,7 +232,7 @@ takes the same three steps:
    page while the run goes on: one large sentence saying what is
    happening, the newest finding, and one progress line with the stage's
    name.
-3. **Get the result.** When the run ends the fan stops, each line and
+3. **Get the result.** When the run ends the fan idles, each line and
    the dot at its end turn green (red where work failed or the run
    stopped), and the **Result** tab
    says what the run came to in one line, three numbers and the top three

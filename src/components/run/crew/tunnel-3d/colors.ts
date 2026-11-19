@@ -10,20 +10,11 @@ export type Rgb = [number, number, number];
 
 export interface Palette {
   dark: boolean;
-  /** The panel behind the drawing: the scene's background and its haze. */
+  /** The panel behind the drawing: the scene's background. */
   bg: Rgb;
-  floor: Rgb;
-  wall: Rgb;
-  /** Brushed stainless steel: the walls. */
-  steel: Rgb;
-  frame: Rgb;
-  metal: Rgb;
-  blade: Rgb;
-  plate: Rgb;
-  tile: Rgb;
   /** Text drawn into the scene: the parts' names, the application's. */
   ink: Rgb;
-  /** The streams. */
+  /** The fan, the streams and the fine lines of the drawing. */
   line: Rgb;
   brand: Rgb;
   ok: Rgb;
@@ -34,14 +25,6 @@ export interface Palette {
 
 const TOKENS: Record<Exclude<keyof Palette, "dark">, string> = {
   bg: "--wt-bg",
-  floor: "--wt-floor",
-  wall: "--wt-wall",
-  steel: "--wt-steel",
-  frame: "--wt-frame",
-  metal: "--wt-metal",
-  blade: "--wt-blade",
-  plate: "--wt-plate",
-  tile: "--wt-tile",
   ink: "--wt-ink",
   line: "--wt-line",
   brand: "--brand",

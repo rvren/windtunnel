@@ -96,48 +96,42 @@ export function crossing(
 
 // ── The 3D tunnel ─────────────────────────────────────────────────────────
 //
-// The test section seen from downstream, looking back at the fan: x runs
-// with the air (from the fan to the viewer's right), y is up, z comes out
-// of the back wall towards the viewer. The section's open side faces the
-// camera. Everything the drawing places (the camera, the rows, where
-// each part sits on its plate) is here, so the labels over the drawing can
-// be placed by plain math, before three.js has loaded.
+// A blueprint drawn in light, seen from downstream and to one side: x runs
+// with the air (from the fan to the viewer's right), y is up, z comes
+// towards the viewer. There is no room: the fan, the model and the streams
+// float. Everything the drawing places (the camera, the rows, where each
+// part sits on its plate) is here, so the labels over the drawing can be
+// placed by plain math, before three.js has loaded.
 
 export type Vec3 = [number, number, number];
 
 /*
- * The camera stands close, at three-quarters, looking back up the section
- * at the fan (the view the owner chose). The section ends on its open side
- * at `open`, short of the camera, so the floor, ceiling and walls stay
- * inside a short, wide drawing instead of running out of it.
+ * The camera is fitted to a short, wide drawing: the fan ring at the left
+ * edge, the stream names at about three quarters of its width, the plates,
+ * the turntable and Preflight's board inside it with a margin over and
+ * under. The test in tunnel.test.ts holds every one of them in frame.
  */
 export const TUNNEL_3D = {
   /** The drawing's width over its height. */
-  aspect: 2.6,
+  aspect: 3.0,
   camera: {
     position: [6.3, 1.75, 6.6] as Vec3,
-    target: [-0.43, -0.79, -0.38] as Vec3,
+    target: [0.04, -0.36, -1.37] as Vec3,
     /** The vertical field of view, in degrees. */
-    fov: 28.1,
+    fov: 20.6,
   },
   /** Where the fan turns, the streams start, the model sits, they end. */
-  fan: -5.7,
-  /** The streams start in the fan's inlet, so they come out of the fan. */
+  fan: -5.6,
+  /** The drawn fan's radius. */
+  fanRadius: 1.18,
+  /** The streams start just downstream of the fan's ring. */
   source: -5.45,
   model: 0.2,
   end: 3.2,
-  floor: -1.3,
-  ceiling: 1.3,
-  /** The fan's radius, inside the wall it comes through. */
-  fanRadius: 1.12,
+  /** The level of the turntable's ring: where a floor would be. */
+  floor: -1.0,
+  /** The depth Preflight's board and Crosswind's nozzle hang at. */
   back: -2,
-  /** Where the section ends on the side that faces the camera. */
-  open: 1.05,
-  /**
-   * The floor and back wall are slabs: how thick, and how far they stand
-   * proud of the section at their free edges.
-   */
-  slab: { slab: 0.12, lip: 0.06 },
   /** Each plate's height, from the top. */
   plateY: { interface: 0.5, services: 0, data: -0.5 },
   plate: { w: 2.1, d: 1.5 },
@@ -148,8 +142,8 @@ export const TUNNEL_3D = {
   /** Dogfight's shield, in front of the model. */
   shield: -1.35,
   /**
-   * Preflight's board, high on the back wall past the model, where the
-   * camera sees it clear of the plates and the names: from the model's x.
+   * Preflight's board, hung past the model where the camera sees it clear
+   * of the plates and the names: from the model's x.
    */
   board: { x: 1.35, y: 0.62 },
 } as const;

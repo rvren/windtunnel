@@ -501,7 +501,9 @@ is one header panel (`src/components/run/run-header.tsx`) and three
 sections: **Live** or **Result**, **Details** (the other tabs, `?tab=`) and
 **Activity**. The live view is the wind tunnel, in 3D
 (`src/components/run/crew/tunnel-3d/`: three.js, loaded only on the run
-page, with the 2D `WindTunnelFlat` where WebGL cannot draw). While the run
+page, with the 2D `WindTunnelFlat` where WebGL cannot draw), drawn as a
+blueprint in light: a fan that is a turning circle, fine streams, and the
+application as outlined plates, with nothing solid. While the run
 goes on the page holds little else: a one-line header (`RunHeader
 minimal`), the newest finding (`LatestFinding`) and one progress line
 (`StageProgress`); when it ends the tabs return and the stages show as a
@@ -519,8 +521,9 @@ lines). Engine Out's hops and Preflight's lines are saved mid-stage and
 announced with a `run.progress` event, so the page fetches the run again
 (at most once every 750ms) and the tunnel shows them as they come.
 Every ball in it answers the pointer with a card (`tipOf` in
-`src/lib/viz/tunnel-tips.ts`); a click keeps the card. `blackbox.ts`). The result card is `resultOf` in `src/lib/viz/result.ts`; a project page is the same pattern, its tabs (`?tab=`) rendered
-on the server, with `Cockpit`'s `section` prop choosing the stage, the
+`src/lib/viz/tunnel-tips.ts`); a click keeps the card. The result card
+is `resultOf` in `src/lib/viz/result.ts`; a project page is the same
+pattern, its tabs (`?tab=`) rendered on the server, with `Cockpit`'s `section` prop choosing the stage, the
 issues or security. The project page's kind buttons open the start page;
 `src/components/project/kind-dialogs.tsx` holds the schedule dialog. The
 run page shows each kind's report from

@@ -78,77 +78,61 @@ take something away.
   start page (`/app/runs/new?kind=…`, `components/run/start/`), whose
   request body and checks are `src/lib/start-run.ts`. The kind is called
   **Tunnel Run** in the UI (`audit` in the code).
-- **The run page's Live/Result tab is the wind tunnel**, in real 3D
+- **The run page's Live/Result tab is the wind tunnel**, in 3D
   (three.js, loaded only on the run page:
   `components/run/crew/tunnel-3d/`; the crew from `crewOf` in
   `src/lib/viz/crew.ts`, what each kind adds from `tunnelScene` in
   `src/lib/viz/tunnel-scene.ts`, where things stand in `TUNNEL_3D` in
-  `src/lib/viz/tunnel.ts`), drawn as a real one at the owner's request, in
-  one panel that fits a screen:
-  - A **test section seen from downstream**, looking back at its fan: the
-    floor and the back wall are solid matte slabs with softly bevelled
-    edges, like the wall the fan comes through. The walls (the back wall
-    and the fan's housing) are **brushed stainless steel**, satin rather
-    than mirror, with a fine grain and highlights drawn out along it, in a
-    light steel shade; the floor is the same brushed steel a shade darker,
-    its grain running with the air. They darken in the corners the light
-    does not reach; a soft overhead light pools around the model. The
-    light theme is lit lower than the dark (pale surfaces wash out to flat
-    white otherwise), its turbine a mid grey in a lighter housing, and the
-    fan's violet glow kept faint there; a faint glass ceiling with
-    no strips or bars along it (the owner had them taken off); open on the
-    side that faces us. Nothing in the room
-    mirrors: the owner tried a polished floor and chose matte. **No
-    frames or bars across it**: the owner found them noisy. At the far
-    end the **turbofan** turns in a flared, matte bell-mouth inlet, its
-    twisted blades over fixed stator vanes, its duct lit while it turns.
-  - The **application on a turntable**: three plates on a sting, its
-    interface (frontends), its services and its data (databases, queues,
-    outside systems), each part of the run's map a tile with its name
-    (the workspaces when there is no map).
-  - One **stream** per worker, coming straight out of the fan (there is
-    no rake: the owner had the bar taken off): a fine line with a soft
-    glow, level, fading in as it leaves the fan and fading inside the
-    model. A light travels it while its worker
-    works; a finding leaves the model as a spark.
+  `src/lib/viz/tunnel.ts`), in one panel that fits a screen. It is a
+  **blueprint drawn in light** (the owner asked for something minimal that
+  still has impact, saw three directions mocked, and chose this one):
+  - **Nothing solid.** No room, floor, walls, ceiling, bars, frames,
+    lights, shadows, reflections or patterns on a floor. Everything is a
+    fine line or a glow on the panel's own colour.
+  - The **fan** is a drawn circle in light: a bright ring, a faint ring
+    just inside, a hub ring and 18 curved spokes that turn, with a soft
+    glow behind that breathes. No turbine, housing or blades.
+  - One **stream** per worker, coming straight out of the fan: a fine line
+    with a soft glow, level, fading in as it leaves the fan and fading
+    inside the model. A light travels it while its worker works; a
+    finding leaves the model as a spark.
+  - The **application** is three plates drawn as outlines only (its
+    interface, its services, its data) on one ring, with a single line for
+    the stand. Each part of the run's map is an outlined tile with a faint
+    fill and its name (the workspaces when there is no map).
   - Each stream ends in a small **dot** beside its worker's name and
     count. The names, notes, counts and a kind's few words are HTML over
     the canvas, placed by `project` (the camera's own projection, tested
     against three.js), so they show before three.js loads. When the run
     ends each stream and its dot turn green (red where work failed or the
     run stopped).
-  - **It never stands dead still** (the owner found the still room
-    lifeless): the fan turns at full speed while a worker works, slower
-    between stages, and idles once the run is over; a bright light
-    travels a stream while its worker works, and once the worker is done
-    a soft light keeps drifting down it, slower, as the air goes on
-    flowing; the duct's glow breathes while the fan idles. Idle, the scene
+  - **It never stands dead still**: the fan turns at full speed while a
+    worker works, slower between stages, and idles once the run is over;
+    a bright light travels a stream while its worker works, and once the
+    worker is done a soft light keeps drifting down it, slower, as the air
+    goes on flowing; the glow behind the fan breathes. Idle, the scene
     draws at about 30 frames a second; off screen or with reduced motion,
     nothing moves.
   - **Each kind adds its own detail**, all from real data: Tunnel Run a
     pin in its severity's colour where each finding is, and Flutter's
-    chains as red arcs; Crosswind a nozzle in the back wall blowing the
-    change across, its ripple lit; Fly-off three designs on three
-    turntables, critique arcs, the picked one lifted in green; Black Box a
-    beacon on the failing part, the request's route, the fix turning it
-    green; Engine Out the cut part dark and dashed, the failure hopping
-    out as arcs; Dogfight (and Black Box's duel) a shield per round in
-    front of the target, the attacker's red stream, "Round N" then "Held";
-    Preflight the spec on the back wall, one light per line, and a scan
-    sweeping the model. Engine Out's hops and Preflight's lines arrive mid
-    stage through the `run.progress` event, which makes the page fetch
-    the run again (at most once every 750ms, `src/lib/throttle.ts`).
-  - **Lit as a real room**: a soft studio environment that the metal and
-    glass reflect, a soft contact shadow under each model (a shadow map's
-    edges stepped, so there is none), acrylic plates with a clear
-    coat, a faired aerofoil strut for the model's stand, and a **matte
-    turbine** (the owner
-    asked for no reflections on it). The dark theme blooms its lights,
-    with no tone mapping there (it would press the panel's near-black to
-    black) and the drawing's edge faded into the panel; the light theme
-    uses the Khronos neutral tone mapping. The coloured marks (pins, dots,
-    arcs) are never tone-mapped, so they keep the app's colours. At speed
-    the blades blur into a disc.
+    chains as red arcs; Crosswind a nozzle blowing the change across, its
+    ripple lit; Fly-off three designs on three rings, critique arcs, the
+    picked one lifted in green; Black Box a beacon on the failing part,
+    the request's route, the fix turning it green; Engine Out the cut part
+    dashed, the failure hopping out as arcs; Dogfight (and Black Box's
+    duel) a shield per round in front of the target, the attacker's red
+    stream, "Round N" then "Held"; Preflight the spec hung beside the
+    model, one light per line, and a scan sweeping the model. Engine Out's
+    hops and Preflight's lines arrive mid stage through the `run.progress`
+    event, which makes the page fetch the run again (at most once every
+    750ms, `src/lib/throttle.ts`).
+  - **Where the impact comes from**: the glow on the streams and the fan,
+    the travelling light, a soft bloom in the dark theme (lights add
+    there, so crossing lines glow), and each kind's detail. The dark
+    theme has no tone mapping (it would press the panel's near-black to
+    black); the light theme uses normal blending, since light does not
+    add on white. The coloured marks (pins, dots, arcs) are never
+    tone-mapped, so they keep the app's colours.
   - **Every ball answers the pointer**: a finding's pin, a worker's dot
     (or name), the beacon, a line of the spec, a part's tile, a design.
     Hover grows it and shows a card of what it is (`tipOf` in
@@ -172,16 +156,22 @@ take something away.
     the stages show as a rail with their times (`Stepper variant="rail"`).
   - The panel has no lines across it: no rule between the tunnel and the
     rail.
-  - The owner chose it over lanes and a radar, and rejected, in order: a
-    backlit fan with a grille and a marked floor, a fan on a stand ("a
-    table fan"), thick wobbling smoke ("ropes"), heavy and then fine
-    arrowheads, the swirl mark on the spinner, a flat kite-shaped cone,
-    full rings for the body's seams (a wireframe), dotted particles,
-    ribbons, and streams bent round the application; then asked for a
-    real, modern 3D tunnel and details of its own for each kind. Keep it
-    elegant: simple, fine, soft. It must look as good in the light theme
-    (pale metal, violet lines) as in the dark; its colours are the `--wt-*`
-    variables set on the drawing, one value per theme.
+  - The owner chose it over lanes and a radar, and rejected, in order
+    (the 2D tunnel): a backlit fan with a grille and a marked floor, a fan
+    on a stand ("a table fan"), thick wobbling smoke ("ropes"), heavy and
+    then fine arrowheads, the swirl mark on the spinner, a flat kite-shaped
+    cone, full rings for the body's seams (a wireframe), dotted particles,
+    ribbons, and streams bent round the application. Then, in 3D, a room:
+    bars and frames across it, strips along its ceiling, a rake holding
+    the streams, a polished mirror floor, matte and then brushed-steel
+    walls and floor, a solid top wall, and a turbine with a housing. They
+    asked for something minimal that still has impact and chose Blueprint
+    over an aperture of light and a stage under a light cone, with the fan
+    as light only and **no floor, and no pattern on one** (a grid, rings,
+    flow lines, crosses and hexagons were all mocked and passed over). Keep
+    it elegant: simple, fine, soft. It must look as good in the light theme
+    (violet lines on the card colour) as in the dark; its colours are the
+    `--wt-*` variables set on the drawing.
 
   Under it once the run has
   ended, the result card (`resultOf` in `src/lib/viz/result.ts`): one

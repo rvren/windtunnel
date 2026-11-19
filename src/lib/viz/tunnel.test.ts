@@ -97,33 +97,68 @@ describe("the 3D tunnel", () => {
     }
   });
 
-  it("shows the whole test section, near corners included", () => {
-    const { floor, ceiling, back, open, fan, end } = TUNNEL_3D;
-    // The fan's wall stands 0.15 proud of the section (0.35 on its open
-    // side); the
-    // floor and the ceiling run from it to just past the streams' end.
-    const corners: Vec3[] = [];
-    for (const y of [floor - 0.15, ceiling + 0.15]) {
-      for (const z of [back - 0.15, open + 0.35]) {
-        corners.push([fan + 0.3, y, z]);
+  it("holds everything the drawing shows inside it, with a margin", () => {
+    const {
+      fan,
+      fanRadius,
+      model,
+      end,
+      floor,
+      back,
+      plateY,
+      plate,
+      board,
+      designs,
+    } = TUNNEL_3D;
+    const points: Vec3[] = [];
+    // The fan's ring, all the way round.
+    for (let step = 0; step < 48; step += 1) {
+      const angle = (step / 48) * Math.PI * 2;
+      points.push([
+        fan,
+        Math.cos(angle) * fanRadius,
+        Math.sin(angle) * fanRadius,
+      ]);
+    }
+    // The plates' corners, one design or Fly-off's three side by side.
+    for (const x of [
+      model - 2.7,
+      model - plate.w / 2,
+      model + plate.w / 2,
+      2.9,
+    ]) {
+      for (const y of [plateY.interface + 0.03, plateY.data - 0.03]) {
+        for (const z of [-plate.d / 2, plate.d / 2]) points.push([x, y, z]);
       }
     }
-    for (const y of [floor, ceiling]) {
-      for (const z of [back, open]) corners.push([end + 0.3, y, z]);
+    // The turntable's ring, and the ends of the streams.
+    for (let step = 0; step < 32; step += 1) {
+      const angle = (step / 32) * Math.PI * 2;
+      points.push([model + Math.cos(angle), floor + 0.01, Math.sin(angle)]);
     }
-    // The floor's slab, below the floor and a little past the open side,
-    // and the back wall's, a little over the ceiling.
-    const { slab, lip } = TUNNEL_3D.slab;
-    for (const x of [fan + 0.3, end + 0.3]) {
-      corners.push([x, floor - slab, open + lip]);
-      corners.push([x, ceiling + lip, back - slab]);
+    // Fly-off's three turntables, smaller, side by side.
+    for (const offset of [-designs.offset, 0, designs.offset]) {
+      for (let step = 0; step < 24; step += 1) {
+        const angle = (step / 24) * Math.PI * 2;
+        points.push([
+          model + offset + Math.cos(angle) * designs.scale,
+          floor + 0.01,
+          Math.sin(angle) * designs.scale,
+        ]);
+      }
     }
-    for (const corner of corners) {
-      const at = project(corner);
+    for (const y of rows3d(5)) points.push([end, y, 0]);
+    // Preflight's board, hung at the back.
+    for (const x of [model + board.x - 0.4, model + board.x + 0.4]) {
+      for (const y of [board.y - 0.65, board.y + 0.7])
+        points.push([x, y, back]);
+    }
+    for (const point of points) {
+      const at = project(point);
       expect(at.x).toBeGreaterThan(0.01);
       expect(at.x).toBeLessThan(0.99);
-      expect(at.y).toBeGreaterThan(0.01);
-      expect(at.y).toBeLessThan(0.99);
+      expect(at.y).toBeGreaterThan(0.03);
+      expect(at.y).toBeLessThan(0.97);
     }
   });
 
@@ -136,8 +171,9 @@ describe("the 3D tunnel", () => {
         expect(label.x).toBeGreaterThan(0.6);
         // Room on the right for the longest name and the count.
         expect(label.x).toBeLessThan(0.8);
-        expect(label.y).toBeGreaterThan(0.12);
-        expect(label.y).toBeLessThan(0.88);
+        // A line of text is about 3% of the drawing's height.
+        expect(label.y).toBeGreaterThan(0.05);
+        expect(label.y).toBeLessThan(0.95);
       }
       // At least a line of text apart at the drawing's smallest size.
       for (let index = 1; index < labels.length; index += 1) {

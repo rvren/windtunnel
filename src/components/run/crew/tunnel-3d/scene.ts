@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
@@ -17,17 +16,18 @@ import type { AgentStatus, LineStatus } from "@/server/engine/schema";
 import { css, type Palette, type Rgb } from "./colors";
 
 /*
- * The 3D wind tunnel: a test section seen from downstream, looking back at
- * its fan. The fan turns in its duct behind a flared, matte inlet, with
- * stator vanes behind it; the section is a matte floor, a matte back wall
- * and a faint glass ceiling, with no bars along it, open on the side
- * that faces us, with no frames across it (the owner found them noisy). The application stands on a turntable in the
- * middle: three plates on a sting (its interface, its services, its data),
- * each part of it a tile. One fine stream per worker comes out of the fan; a
- * light travels a stream while its worker works, the stream fades inside
- * the model, and ends in a dot beside the worker's name (the names are
- * HTML over the drawing). When the run ends the fan stops and each stream
- * turns green, or red where work failed.
+ * The 3D wind tunnel, as a blueprint drawn in light: nothing solid, no
+ * floor, walls, ceiling, bars, lights, shadows or reflections (the owner
+ * asked for something minimal that still has impact, and chose this).
+ * The fan is a drawn circle with spokes that turn, glowing softly behind;
+ * out of it come one fine stream per worker, running level through the
+ * application and ending in a dot beside the worker's name (the names are
+ * HTML over the drawing). The application stands on a ring in the middle:
+ * three plates drawn as outlines (its interface, its services, its data),
+ * each part of it an outlined tile with its name. A light travels a
+ * stream while its worker works, and drifts down it once the worker is
+ * done; when the run ends each stream turns green, or red where work
+ * failed.
  *
  * What each kind adds comes from src/lib/viz/tunnel-scene.ts; where things
  * stand, from TUNNEL_3D in src/lib/viz/tunnel.ts.
@@ -39,69 +39,16 @@ import { css, type Palette, type Rgb } from "./colors";
 
 const T = TUNNEL_3D;
 const PLATES: PlateId[] = ["interface", "services", "data"];
-/**
- * The turbine's finish: matte, like anodised or painted metal, so the fan,
- * its nose and its lip hold their shape without bright reflections.
- */
-const MATTE = { metalness: 0.35, roughness: 0.72 } as const;
-
 /** How fast the fan turns once the run is over, in radians a second. */
 const IDLE_SPIN = 0.9;
+/** How bright a plate's outline is. */
+const EDGE = 0.9;
 
-/**
- * A symmetric aerofoil section (NACA 00xx), as struts in a real tunnel
- * are faired: `chord` along the flow (x, leading edge upstream), `thick`
- * its greatest thickness across it.
- */
-function aerofoil(chord: number, thick: number): THREE.Shape {
-  const t = thick / chord;
-  const half = (x: number) =>
-    5 *
-    t *
-    chord *
-    (0.2969 * Math.sqrt(x) -
-      0.126 * x -
-      0.3516 * x ** 2 +
-      0.2843 * x ** 3 -
-      0.1036 * x ** 4);
-  const shape = new THREE.Shape();
-  const steps = 24;
-  for (let i = 0; i <= steps; i += 1) {
-    const x = (1 - Math.cos((i / steps) * Math.PI)) / 2;
-    const at = [x * chord - chord / 2, half(x)] as const;
-    if (i === 0) shape.moveTo(...at);
-    else shape.lineTo(...at);
-  }
-  for (let i = steps - 1; i > 0; i -= 1) {
-    const x = (1 - Math.cos((i / steps) * Math.PI)) / 2;
-    shape.lineTo(x * chord - chord / 2, -half(x));
-  }
-  shape.closePath();
-  return shape;
-}
+let glowMap: THREE.Texture | null = null;
 
-/** A faired strut standing from `from` to `to` (heights). */
-function strutGeometry(chord: number, thick: number, from: number, to: number) {
-  const geometry = new THREE.ExtrudeGeometry(aerofoil(chord, thick), {
-    depth: to - from,
-    bevelEnabled: false,
-    curveSegments: 8,
-  });
-  // Extruded along z; stood up along y, its thickness across the flow.
-  geometry.rotateX(-Math.PI / 2);
-  geometry.translate(0, from, 0);
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
-let shadowTexture: THREE.Texture | null = null;
-
-/**
- * A soft shadow's shape: dark in the middle, fading out to nothing at the
- * edges. Drawn once and shared.
- */
-function contactShadow(): THREE.Texture {
-  if (shadowTexture) return shadowTexture;
+/** A soft round glow: bright in the middle, nothing at the edge. */
+function glowTexture(): THREE.Texture {
+  if (glowMap) return glowMap;
   const size = 128;
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -116,71 +63,15 @@ function contactShadow(): THREE.Texture {
       size / 2,
       size / 2,
     );
-    fade.addColorStop(0, "rgba(255,255,255,0.9)");
-    fade.addColorStop(0.45, "rgba(255,255,255,0.55)");
+    fade.addColorStop(0, "rgba(255,255,255,1)");
+    fade.addColorStop(0.35, "rgba(255,255,255,0.35)");
     fade.addColorStop(1, "rgba(255,255,255,0)");
     context.fillStyle = fade;
     context.fillRect(0, 0, size, size);
   }
-  shadowTexture = new THREE.CanvasTexture(canvas);
-  return shadowTexture;
+  glowMap = new THREE.CanvasTexture(canvas);
+  return glowMap;
 }
-
-/**
- * A solid slab, `w` by `d` and `t` thick, its corners rounded by `r` and
- * its edges softly bevelled: the floor and the back wall. Its face is the
- * plane z = 0, facing +z; its body lies behind it.
- */
-function slabGeometry(w: number, d: number, t: number, r: number) {
-  const bevel = 0.02;
-  const geometry = new THREE.ExtrudeGeometry(
-    rounded(new THREE.Shape(), w - bevel * 2, d - bevel * 2, r),
-    {
-      depth: t - bevel * 2,
-      bevelEnabled: true,
-      bevelThickness: bevel,
-      bevelSize: bevel,
-      bevelSegments: 3,
-      curveSegments: 16,
-    },
-  );
-  geometry.translate(0, 0, -t + bevel);
-  return geometry;
-}
-
-/**
- * One fan blade, in the fan's own frame (radial along y, turning about z):
- * a cambered surface that widens and sweeps towards its tip and twists
- * from steep at the hub to flat at the tip, as a turbofan's do.
- */
-function bladeGeometry(hub: number, tip: number): THREE.BufferGeometry {
-  const geometry = new THREE.PlaneGeometry(1, 1, 6, 18);
-  const position = geometry.attributes.position;
-  for (let i = 0; i < position.count; i += 1) {
-    const u = position.getX(i); // -0.5 .. 0.5 across the chord
-    const s = position.getY(i) + 0.5; // 0 at the hub, 1 at the tip
-    const r = hub + s * (tip - hub);
-    const chord = 0.2 + 0.18 * s;
-    const twist = 1.05 - 0.55 * s;
-    const camber = (0.25 - u * u) * chord * 0.22;
-    const along = u * chord;
-    const sweep = s * s * 0.12;
-    position.setXYZ(
-      i,
-      along * Math.cos(twist) - camber * Math.sin(twist) + sweep,
-      r,
-      along * Math.sin(twist) + camber * Math.cos(twist),
-    );
-  }
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
-const PLATE_OPACITY: Record<PlateId, number> = {
-  interface: 0.82,
-  services: 0.9,
-  data: 0.95,
-};
 
 export interface StreamInput {
   id: string;
@@ -255,7 +146,12 @@ interface Stream {
 }
 
 interface Tile {
-  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial[]>;
+  /** The tile's box, a faint fill; its outline, name and pins are children. */
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
+  fill: THREE.MeshBasicMaterial;
+  outline: THREE.LineBasicMaterial;
+  name: THREE.MeshBasicMaterial;
+  /** A cut part's dashed outline. */
   edges: THREE.LineSegments | null;
   glow: number;
   glowTarget: number;
@@ -268,7 +164,6 @@ interface Tile {
 interface Model {
   group: THREE.Group;
   plates: Record<PlateId, THREE.Group>;
-  plateMaterials: THREE.MeshStandardMaterial[];
   edges: THREE.LineBasicMaterial[];
   lift: number;
   liftTarget: number;
@@ -300,28 +195,6 @@ const approach = (now: number, target: number, dt: number, rate = 5) =>
     ? target
     : now + (target - now) * Math.min(1, dt * rate);
 
-function rounded<P extends THREE.Path>(
-  path: P,
-  w: number,
-  h: number,
-  r: number,
-  /** Where its middle is along its width. */
-  middle = 0,
-): P {
-  const x = middle - w / 2;
-  const y = -h / 2;
-  path.moveTo(x + r, y);
-  path.lineTo(x + w - r, y);
-  path.quadraticCurveTo(x + w, y, x + w, y + r);
-  path.lineTo(x + w, y + h - r);
-  path.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  path.lineTo(x + r, y + h);
-  path.quadraticCurveTo(x, y + h, x, y + h - r);
-  path.lineTo(x, y + r);
-  path.quadraticCurveTo(x, y, x + r, y);
-  return path;
-}
-
 export class Tunnel3D {
   private renderer: THREE.WebGLRenderer;
   private camera: THREE.PerspectiveCamera;
@@ -339,15 +212,11 @@ export class Tunnel3D {
   private fanTarget = 0;
   /** Nothing at work and nothing landing: frames are drawn more slowly. */
   private idle = false;
-  private fanLight!: THREE.PointLight;
-  /** The blades blurred into a disc at speed, as a real fan looks. */
-  private fanBlur!: THREE.MeshBasicMaterial;
-  /** The light the metal and glass reflect: a soft studio room. */
-  private environment: THREE.Texture | null = null;
+  /** The soft glow behind the fan; it breathes while the fan idles. */
+  private fanGlow!: THREE.SpriteMaterial;
   /** The dark theme's glow: lights that bloom. Null in the light theme. */
   private composer: EffectComposer | null = null;
   private bloom: UnrealBloomPass | null = null;
-  private ductGlow!: THREE.MeshBasicMaterial;
   private key = "";
   private first = true;
   private input: TunnelInput | null = null;
@@ -407,23 +276,13 @@ export class Tunnel3D {
       alpha: false,
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    // In the light theme, a camera's response to light that rolls off the
-    // highlights (Khronos PBR Neutral), so pale metal and glass do not
-    // clip; the coloured marks (pins, dots, arcs) opt out. In the dark
-    // theme the picture goes through the bloom, where tone mapping would
-    // apply to the whole frame and press the panel's near-black to black:
-    // there it is left off, and the panel and the marks keep their colours.
-    this.renderer.toneMapping = palette.dark
-      ? THREE.NoToneMapping
-      : THREE.NeutralToneMapping;
-    this.renderer.toneMappingExposure = 1;
-    const studio = new THREE.PMREMGenerator(this.renderer);
-    this.environment = studio.fromScene(new RoomEnvironment(), 0.04).texture;
-    studio.dispose();
+    // Nothing is lit or tone-mapped: every mark is the app's own colour.
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    this.root.background = this.color(palette.bg);
     this.camera = new THREE.PerspectiveCamera(T.camera.fov, T.aspect, 0.1, 80);
     this.camera.position.set(...T.camera.position);
     this.camera.lookAt(...T.camera.target);
-    this.buildRoom();
+    this.buildFan();
     this.root.add(this.stage);
     if (palette.dark) {
       // Rendered through a target with its own multisampling, so the edges
@@ -467,16 +326,9 @@ export class Tunnel3D {
     return this.color({ brand, ok, warning, danger, muted }[tone] as Rgb);
   }
 
-  private standard(
-    rgb: Rgb,
-    options: THREE.MeshStandardMaterialParameters = {},
-  ) {
-    return new THREE.MeshStandardMaterial({
-      color: this.color(rgb),
-      roughness: 0.45,
-      metalness: 0.25,
-      ...options,
-    });
+  /** Lights add in the dark theme, so crossing lines glow and bloom. */
+  private blend(): THREE.Blending {
+    return this.palette.dark ? THREE.AdditiveBlending : THREE.NormalBlending;
   }
 
   private basic(
@@ -486,21 +338,36 @@ export class Tunnel3D {
     return new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      // The app's colours, as they are: never through the film response.
+      depthWrite: false,
+      // The app's colours, as they are: never through a film response.
       toneMapped: false,
       ...options,
     });
   }
 
+  /** A fine line, drawn in light. */
+  private line(color: THREE.Color, opacity: number) {
+    return new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      blending: this.blend(),
+      toneMapped: false,
+    });
+  }
+
   /** A short text drawn into the scene, on a tile or a plate. */
-  private label(text: string, width: number, height: number, fill: Rgb) {
+  private label(text: string, width: number, height: number, fill: Rgb | null) {
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d");
     if (context) {
-      context.fillStyle = css(fill);
-      context.fillRect(0, 0, width, height);
+      if (fill) {
+        context.fillStyle = css(fill);
+        context.fillRect(0, 0, width, height);
+      }
       context.fillStyle = css(this.palette.ink);
       const size = Math.round(height * 0.24);
       context.font = `500 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`;
@@ -522,377 +389,80 @@ export class Tunnel3D {
     return texture;
   }
 
-  /**
-   * A surface as a real one looks: its colour with a fine grain and a soft
-   * mottle, like sealed concrete, and darker along the edges that meet
-   * another surface, where the light does not reach. `shade` names those
-   * edges in the texture's own terms. Made for a slab's face `w` by `h`
-   * (its UVs are its shape's own coordinates, centred on its middle).
-   */
-  private surface(
-    base: Rgb,
-    w: number,
-    h: number,
-    shade: ("left" | "right" | "top" | "bottom")[],
-    /** Concrete's mottle, or steel's brushed grain along its width. */
-    finish: "concrete" | "brushed" = "concrete",
-  ): THREE.CanvasTexture {
-    const height = 512;
-    const width = Math.min(2048, Math.round((height * w) / h));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d");
-    if (context) {
-      context.fillStyle = css(base);
-      context.fillRect(0, 0, width, height);
-      // Brushed steel: fine streaks along the width, a shade lighter or
-      // darker, as a brushed sheet catches the light.
-      for (let i = 0; finish === "brushed" && i < 4200; i += 1) {
-        const y = Math.random() * height;
-        const x = Math.random() * width;
-        const run = width * (0.08 + Math.random() * 0.5);
-        const tone = Math.random() < 0.5 ? "0,0,0" : "255,255,255";
-        context.strokeStyle = `rgba(${tone},${0.012 + Math.random() * 0.03})`;
-        context.lineWidth = 0.5 + Math.random() * 0.9;
-        context.beginPath();
-        context.moveTo(x - run / 2, y);
-        context.lineTo(x + run / 2, y);
-        context.stroke();
-      }
-      // Concrete: a soft mottle, broad patches a shade lighter or darker.
-      for (let i = 0; finish === "concrete" && i < 90; i += 1) {
-        const x = Math.random() * width;
-        const y = Math.random() * height;
-        const r = height * (0.12 + Math.random() * 0.4);
-        const patch = context.createRadialGradient(x, y, 0, x, y, r);
-        const tone = Math.random() < 0.5 ? "0,0,0" : "255,255,255";
-        const strength = this.palette.dark ? 0.6 : 1;
-        patch.addColorStop(
+  // ── The fan: everything that stays for every run ────────────────────────
+
+  /** A circle in the plane across the air (y, z), round the axis. */
+  private circle(radius: number, segments = 96) {
+    const points: THREE.Vector3[] = [];
+    for (let i = 0; i <= segments; i += 1) {
+      const angle = (i / segments) * Math.PI * 2;
+      points.push(
+        new THREE.Vector3(
           0,
-          `rgba(${tone},${(0.025 + Math.random() * 0.03) * strength})`,
-        );
-        patch.addColorStop(1, `rgba(${tone},0)`);
-        context.fillStyle = patch;
-        context.fillRect(x - r, y - r, r * 2, r * 2);
-      }
-      // A fine grain, pixel by pixel.
-      const image = context.getImageData(0, 0, width, height);
-      const grain = finish === "brushed" ? 4 : this.palette.dark ? 7 : 9;
-      for (let i = 0; i < image.data.length; i += 4) {
-        const n = (Math.random() - 0.5) * grain;
-        image.data[i] += n;
-        image.data[i + 1] += n;
-        image.data[i + 2] += n;
-      }
-      context.putImageData(image, 0, 0);
-      // The corners the light does not reach.
-      const depth =
-        (this.palette.dark ? 0.4 : 0.22) * (finish === "brushed" ? 0.7 : 1);
-      for (const edge of shade) {
-        const across = edge === "left" || edge === "right";
-        const reach = across ? width * 0.07 : height * 0.2;
-        const [x0, y0, x1, y1] =
-          edge === "left"
-            ? [0, 0, reach, 0]
-            : edge === "right"
-              ? [width, 0, width - reach, 0]
-              : edge === "top"
-                ? [0, 0, 0, reach]
-                : [0, height, 0, height - reach];
-        const fall = context.createLinearGradient(x0, y0, x1, y1);
-        fall.addColorStop(0, `rgba(0,0,0,${depth})`);
-        fall.addColorStop(1, "rgba(0,0,0,0)");
-        context.fillStyle = fall;
-        context.fillRect(0, 0, width, height);
-      }
-    }
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 8;
-    // The slab's face has UVs in its own units, from -w/2 to w/2.
-    texture.repeat.set(1 / w, 1 / h);
-    texture.offset.set(0.5, 0.5);
-    return texture;
-  }
-
-  /**
-   * Brushed stainless steel: metal, satin rather than mirror (the owner
-   * wanted no sharp reflections on the walls), its highlights drawn out
-   * along the grain. Its face carries the brushed surface; plain sides.
-   */
-  private steelMaterials(map: THREE.Texture, base: Rgb = this.palette.steel) {
-    const darker: Rgb = [base[0] * 0.8, base[1] * 0.8, base[2] * 0.8];
-    return [
-      // The light theme's steel is paler: more of its own colour and a
-      // brighter sheen, since its room is lit low.
-      new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
-        map,
-        metalness: this.palette.dark ? 0.8 : 0.5,
-        roughness: 0.42,
-        anisotropy: 0.65,
-        envMapIntensity: this.palette.dark ? 1 : 1.5,
-      }),
-      this.standard(darker, {
-        metalness: this.palette.dark ? 0.8 : 0.5,
-        roughness: 0.45,
-      }),
-    ];
-  }
-
-  // ── The room: everything that stays for every run ───────────────────────
-
-  private buildRoom() {
-    const p = this.palette;
-    const room = this.root;
-    room.background = this.color(p.bg);
-    room.fog = new THREE.Fog(this.color(p.bg), 18, 32);
-    const pi = Math.PI;
-    room.environment = this.environment;
-    // The light theme is lit lower than it looks it should be: pale
-    // surfaces wash out to flat white otherwise, and lose their shading.
-    room.environmentIntensity = p.dark ? 0.32 : 0.5;
-    room.add(new THREE.AmbientLight(0xffffff, (p.dark ? 0.12 : 0.2) * pi));
-    const key = new THREE.DirectionalLight(
-      0xffffff,
-      (p.dark ? 0.9 : 0.62) * pi,
-    );
-    key.position.set(3, 9, 6);
-    room.add(key);
-    const fill = new THREE.DirectionalLight(
-      0xffffff,
-      (p.dark ? 0.25 : 0.35) * pi,
-    );
-    fill.position.set(-6, 3, 4);
-    room.add(fill);
-    // A soft pool of light over the model, as a test section is lit: the
-    // light falls off towards the tunnel's ends.
-    const pool = new THREE.SpotLight(
-      0xffffff,
-      p.dark ? 46 : 20,
-      10,
-      0.62,
-      0.9,
-      2,
-    );
-    pool.position.set(T.model + 0.4, T.ceiling + 2.4, 0.2);
-    pool.target.position.set(T.model, T.floor, -0.4);
-    room.add(pool, pool.target);
-    this.fanLight = new THREE.PointLight(this.color(p.brand), 0, 7.5, 2);
-    this.fanLight.position.set(T.fan + 1.3, 0, 0.4);
-    room.add(this.fanLight);
-
-    const x0 = T.fan + 0.3;
-    const x1 = T.end + 0.3;
-    const length = x1 - x0;
-    const cx = (x0 + x1) / 2;
-    // The section runs from the back wall to its open side.
-    const width = T.open - T.back;
-    const cz = (T.back + T.open) / 2;
-    const height = T.ceiling - T.floor;
-
-    // The floor and the back wall are solid slabs, as the wall the fan
-    // comes through is: a thickness you can see, softly bevelled edges, a
-    // little proud of the section. Matte: they take the light and the
-    // model's soft shade, and mirror nothing (the owner chose matte).
-    const { slab: thick, lip: proud } = T.slab;
-    // Its far edge meets the back wall and its left end the fan's wall:
-    // the texture darkens there.
-    // Brushed steel like the walls, a shade darker so the room stands on
-    // it, its grain running with the air.
-    const floorDepth = width + proud * 2;
-    const shade = p.dark ? 0.82 : 0.9;
-    const floorSteel: Rgb = [
-      p.steel[0] * shade,
-      p.steel[1] * shade,
-      p.steel[2] * shade,
-    ];
-    const floor = new THREE.Mesh(
-      slabGeometry(length, floorDepth, thick, 0.16),
-      this.steelMaterials(
-        this.surface(
-          floorSteel,
-          length,
-          floorDepth,
-          ["top", "left"],
-          "brushed",
-        ),
-        floorSteel,
-      ),
-    );
-    // Laid flat, its top face is the floor.
-    floor.rotation.x = -pi / 2;
-    floor.position.set(cx, T.floor, cz);
-    room.add(floor);
-    const wallHeight = height + thick + proud;
-    const back = new THREE.Mesh(
-      slabGeometry(length, wallHeight, thick, 0.16),
-      this.steelMaterials(
-        this.surface(
-          p.steel,
-          length,
-          wallHeight,
-          ["bottom", "left"],
-          "brushed",
-        ),
-      ),
-    );
-    // Stood up behind the section, its face is the back wall; it runs
-    // from the bottom of the floor's slab to a little over the ceiling.
-    back.position.set(cx, (T.ceiling + proud + T.floor - thick) / 2, T.back);
-    room.add(back);
-    // Glass: clear and faint, with only a soft sheen.
-    const glass = new THREE.Mesh(
-      new THREE.PlaneGeometry(length, width),
-      this.standard(p.wall, {
-        transparent: true,
-        opacity: p.dark ? 0.05 : 0.16,
-        roughness: 0.6,
-        metalness: 0,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      }),
-    );
-    glass.rotation.x = pi / 2;
-    glass.position.set(cx, T.ceiling, cz);
-    room.add(glass);
-    // The wall the fan comes through.
-    // Turned to face the air, its width runs along -z: its middle is at
-    // -cz in its own plane, and the fan's hole stays on the axis.
-    // It reaches 0.35 past the open side (0.15 elsewhere), so the fan's
-    // lit duct never shows round its edge from the camera.
-    const wall = rounded(
-      new THREE.Shape(),
-      width + 0.5,
-      height + 0.3,
-      0.36,
-      -(cz + 0.1),
-    );
-    wall.holes.push(
-      new THREE.Path().absarc(0, 0, T.fanRadius - 0.02, 0, pi * 2, true),
-    );
-    // Its face's UVs are its shape's own units; its middle is off centre.
-    const housing = this.surface(
-      p.steel,
-      width + 0.5,
-      height + 0.3,
-      [],
-      "brushed",
-    );
-    housing.offset.x = 0.5 + (cz + 0.1) / (width + 0.5);
-    const wallGeometry = new THREE.ExtrudeGeometry(wall, {
-      depth: 0.22,
-      bevelEnabled: false,
-      curveSegments: 24,
-    });
-    wallGeometry.translate(0, 0, -0.11);
-    wallGeometry.rotateY(pi / 2);
-    const endWall = new THREE.Mesh(
-      wallGeometry,
-      // The fan's housing: brushed steel, like the back wall.
-      this.steelMaterials(housing),
-    );
-    endWall.position.x = x0;
-    room.add(endWall);
-
-    // The fan: its duct, lit from deep inside while it turns; the lip.
-    const duct = new THREE.Mesh(
-      new THREE.CylinderGeometry(T.fanRadius, T.fanRadius, 0.8, 64, 1, true),
-      this.standard(p.wall, {
-        side: THREE.BackSide,
-        metalness: 0.6,
-        roughness: 0.4,
-      }),
-    );
-    duct.rotation.z = pi / 2;
-    // Short, so it stays hidden behind the wall from the camera.
-    duct.position.x = T.fan - 0.1;
-    room.add(duct);
-    this.ductGlow = this.basic(this.color(p.brand), { opacity: 0 });
-    const deep = new THREE.Mesh(
-      new THREE.CircleGeometry(T.fanRadius, 64),
-      this.ductGlow,
-    );
-    deep.rotation.y = pi / 2;
-    deep.position.x = T.fan - 0.45;
-    room.add(deep);
-    // A bell-mouth: the duct flares smoothly out into the wall, as a real
-    // tunnel's inlet does, instead of a ring round a hole.
-    const flare: THREE.Vector2[] = [new THREE.Vector2(T.fanRadius, -0.3)];
-    for (let i = 0; i <= 16; i += 1) {
-      const a = (i / 16) * (pi / 2);
-      flare.push(
-        new THREE.Vector2(
-          T.fanRadius + 0.24 * (1 - Math.cos(a)),
-          0.24 * Math.sin(a),
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius,
         ),
       );
     }
-    const mouth = new THREE.LatheGeometry(flare, 96);
-    // Its axis along the air (x), opening downstream.
-    mouth.rotateZ(-pi / 2);
-    const lip = new THREE.Mesh(
-      mouth,
-      this.standard(p.metal, { ...MATTE, side: THREE.DoubleSide }),
-    );
-    lip.position.x = x0 - 0.1;
-    room.add(lip);
+    return new THREE.BufferGeometry().setFromPoints(points);
+  }
 
-    // Wide, swept, overlapping blades round a rounded nose cone.
-    const mount = new THREE.Group();
-    mount.rotation.y = pi / 2;
-    // Drawn for a fan of radius 1.32, then scaled to the one here.
-    mount.scale.setScalar(T.fanRadius / 1.32);
-    mount.position.x = T.fan - 0.1;
-    room.add(mount);
+  /**
+   * The fan, drawn: a bright ring, a faint ring just inside it, a hub ring
+   * and 18 curved spokes that turn, with a soft glow behind. Light only.
+   */
+  private buildFan() {
+    const p = this.palette;
+    const line = this.color(p.line);
+    const group = new THREE.Group();
+    group.position.set(T.fan, 0, 0);
+    this.root.add(group);
+    const ring = new THREE.TorusGeometry(T.fanRadius, 0.011, 8, 160);
+    ring.rotateY(Math.PI / 2);
+    group.add(
+      new THREE.Mesh(
+        ring,
+        this.basic(line, { opacity: 0.95, blending: this.blend() }),
+      ),
+    );
+    group.add(
+      new THREE.Line(this.circle(T.fanRadius - 0.1), this.line(line, 0.3)),
+    );
+    group.add(new THREE.Line(this.circle(0.3, 48), this.line(line, 0.95)));
     this.fan = new THREE.Group();
-    mount.add(this.fan);
-    const blade = this.standard(p.blade, {
-      ...MATTE,
-      side: THREE.DoubleSide,
-    });
-    const shape = bladeGeometry(0.32, 1.27);
-    for (let index = 0; index < 20; index += 1) {
-      const mesh = new THREE.Mesh(shape, blade);
-      mesh.rotation.z = (index * pi * 2) / 20;
-      this.fan.add(mesh);
+    group.add(this.fan);
+    const spokes = 18;
+    const reach = T.fanRadius - 0.1;
+    for (let i = 0; i < spokes; i += 1) {
+      const points: THREE.Vector3[] = [];
+      const start = (i / spokes) * Math.PI * 2;
+      for (let j = 0; j <= 10; j += 1) {
+        const r = 0.28 + (j * (reach - 0.28)) / 10;
+        const angle = start + j * 0.045;
+        points.push(
+          new THREE.Vector3(0, Math.cos(angle) * r, Math.sin(angle) * r),
+        );
+      }
+      this.fan.add(
+        new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(points),
+          this.line(line, 0.7),
+        ),
+      );
     }
-    // Fixed stator vanes behind the fan, straightening the air.
-    const vane = this.standard(p.frame, { ...MATTE, side: THREE.DoubleSide });
-    for (let index = 0; index < 13; index += 1) {
-      const geometry = new THREE.BoxGeometry(0.035, 0.94, 0.16);
-      geometry.translate(0, 0.8, 0);
-      const mesh = new THREE.Mesh(geometry, vane);
-      mesh.rotation.z = (index * pi * 2) / 13 + 0.12;
-      mesh.position.z = -0.3;
-      mount.add(mesh);
-    }
-    const hub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.33, 0.33, 0.18, 32),
-      this.standard(p.blade, MATTE),
-    );
-    hub.rotation.x = pi / 2;
-    this.fan.add(hub);
-    const cone = new THREE.Mesh(
-      new THREE.SphereGeometry(0.33, 32, 16),
-      this.standard(p.metal, MATTE),
-    );
-    cone.scale.set(1, 1, 1.8);
-    cone.position.z = 0.06;
-    this.fan.add(cone);
-    // At speed the blades blur into a disc, in front of them and still.
-    this.fanBlur = this.basic(this.color(p.blade), {
+    this.fanGlow = new THREE.SpriteMaterial({
+      map: glowTexture(),
+      color: this.color(p.brand),
+      transparent: true,
       opacity: 0,
       depthWrite: false,
-      toneMapped: true,
+      blending: this.blend(),
+      toneMapped: false,
     });
-    const blur = new THREE.Mesh(
-      new THREE.RingGeometry(0.34, 1.26, 64),
-      this.fanBlur,
-    );
-    blur.position.z = 0.04;
-    mount.add(blur);
+    const glow = new THREE.Sprite(this.fanGlow);
+    glow.scale.set(3.8, 3.8, 1);
+    glow.position.set(T.fan + 0.1, 0, 0);
+    this.root.add(glow);
   }
 
   // ── The cast: what one input builds ─────────────────────────────────────
@@ -1026,48 +596,28 @@ export class Tunnel3D {
     const group = new THREE.Group();
     group.position.x = x;
     this.stage.add(group);
-    const table = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.0 * scale, 1.0 * scale, 0.03, 64),
-      // A machined turntable, set in the floor.
-      this.standard(p.plate, { roughness: 0.38, metalness: 0.55 }),
-    );
-    table.position.y = T.floor + 0.02;
-    group.add(table);
+    const line = this.color(p.line);
+    // The turntable: one ring, where the floor would be.
+    const turn = new THREE.TorusGeometry(1.0 * scale, 0.012, 8, 96);
+    turn.rotateX(Math.PI / 2);
     const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(1.0 * scale, 0.01, 8, 96),
-      this.basic(this.tone("brand"), { opacity: 0.45 }),
+      turn,
+      this.basic(line, { opacity: 0.6, blending: this.blend() }),
     );
-    rim.rotation.x = Math.PI / 2;
-    rim.position.y = T.floor + 0.038;
+    rim.position.y = T.floor + 0.01;
     group.add(rim);
-    // A soft contact shadow under the plates: smooth at any size, where a
-    // shadow map's edges stepped.
-    const shade = new THREE.Mesh(
-      new THREE.PlaneGeometry(
-        T.plate.w * scale * 1.45,
-        T.plate.d * scale * 1.6,
+    // The stand: a single line from the ring up to the model.
+    group.add(
+      new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, T.plateY.data, 0),
+          new THREE.Vector3(0, T.floor, 0),
+        ]),
+        this.line(line, 0.6),
       ),
-      new THREE.MeshBasicMaterial({
-        map: contactShadow(),
-        color: 0x000000,
-        transparent: true,
-        opacity: p.dark ? 0.7 : 0.22,
-        depthWrite: false,
-        toneMapped: false,
-      }),
     );
-    shade.rotation.x = -Math.PI / 2;
-    shade.position.y = T.floor + 0.042;
-    group.add(shade);
-    // A faired strut from the turntable up to the model.
-    const sting = new THREE.Mesh(
-      strutGeometry(0.18 * Math.max(scale, 0.7), 0.045, T.floor, T.plateY.data),
-      this.standard(p.metal, { metalness: 0.6, roughness: 0.35 }),
-    );
-    group.add(sting);
 
     const plates = {} as Model["plates"];
-    const plateMaterials: THREE.MeshStandardMaterial[] = [];
     const edges: THREE.LineBasicMaterial[] = [];
     for (const plate of PLATES) {
       const geometry = new THREE.BoxGeometry(
@@ -1075,40 +625,23 @@ export class Tunnel3D {
         0.045,
         T.plate.d * scale,
       );
-      // Acrylic: a clear coat over a satin face, the room's light on it.
-      const material = new THREE.MeshPhysicalMaterial({
-        color: this.color(p.plate),
-        transparent: true,
-        opacity: PLATE_OPACITY[plate],
-        roughness: 0.28,
-        metalness: 0.05,
-        clearcoat: 0.8,
-        clearcoatRoughness: 0.12,
-      });
-      const edge = new THREE.LineBasicMaterial({
-        color: this.tone("brand"),
-        transparent: true,
-        opacity: 0.75,
-      });
+      // A plate is only its outline: no face.
+      const edge = this.line(this.tone("brand"), EDGE);
       const holder = new THREE.Group();
       holder.position.y = T.plateY[plate];
-      const face = new THREE.Mesh(geometry, material);
-      holder.add(face);
       holder.add(
         new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edge),
       );
       group.add(holder);
       plates[plate] = holder;
-      plateMaterials.push(material);
       edges.push(edge);
     }
     // The interface plate: the application's name and a few quiet lines.
     if (subject && main) {
       const name = new THREE.Mesh(
         new THREE.PlaneGeometry(0.9, 0.18),
-        new THREE.MeshBasicMaterial({
-          map: this.label(subject, 512, 102, p.plate),
-          transparent: true,
+        this.basic(new THREE.Color(0xffffff), {
+          map: this.label(subject, 512, 102, null),
         }),
       );
       name.rotation.x = -Math.PI / 2;
@@ -1139,7 +672,6 @@ export class Tunnel3D {
     return {
       group,
       plates,
-      plateMaterials,
       edges,
       lift: 0,
       liftTarget: 0,
@@ -1156,35 +688,25 @@ export class Tunnel3D {
     for (const part of scene.parts) {
       const spot = spots.get(part.id);
       if (!spot) continue;
-      const side = this.standard(p.plate, {
-        roughness: 0.4,
-        emissive: this.tone("brand"),
-        emissiveIntensity: 0,
-        transparent: true,
-      });
-      const top = this.standard([1, 1, 1], {
-        map: this.label(part.name, 256, 176, p.tile),
-        roughness: 0.55,
-        emissive: this.tone("brand"),
-        emissiveIntensity: 0,
-        transparent: true,
-      });
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(T.tile.w, 0.05, T.tile.d),
-        [side, side, top, side, side, side],
-      );
+      // A tile: a faint fill, a fine outline and its name on top.
+      const geometry = new THREE.BoxGeometry(T.tile.w, 0.05, T.tile.d);
+      const fill = this.basic(this.tone("brand"), { opacity: 0.1 });
+      const mesh = new THREE.Mesh(geometry, fill);
       mesh.position.set(spot[0] - modelX, 0.05, spot[2]);
-      // A fine outline, so a tile reads on a plate of the same colour.
+      const outline = this.line(this.color(p.line), 0.75);
       mesh.add(
-        new THREE.LineSegments(
-          new THREE.EdgesGeometry(mesh.geometry),
-          new THREE.LineBasicMaterial({
-            color: this.tone("brand"),
-            transparent: true,
-            opacity: p.dark ? 0.3 : 0.45,
-          }),
-        ),
+        new THREE.LineSegments(new THREE.EdgesGeometry(geometry), outline),
       );
+      const name = this.basic(new THREE.Color(0xffffff), {
+        map: this.label(part.name, 256, 176, null),
+      });
+      const text = new THREE.Mesh(
+        new THREE.PlaneGeometry(T.tile.w * 0.94, T.tile.d * 0.94),
+        name,
+      );
+      text.rotation.x = -Math.PI / 2;
+      text.position.y = 0.0265;
+      mesh.add(text);
       model.plates[part.plate].add(mesh);
       this.picks.set(`part:${part.id}`, {
         object: mesh,
@@ -1193,6 +715,9 @@ export class Tunnel3D {
       });
       this.tiles.set(part.id, {
         mesh,
+        fill,
+        outline,
+        name,
         edges: null,
         glow: 0,
         glowTarget: 0,
@@ -1209,9 +734,12 @@ export class Tunnel3D {
   private buildCrosswind() {
     const p = this.palette;
     const x = T.model - 0.1;
-    const nozzle = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.09, 0.14, 0.28, 24),
-      this.standard(p.metal, { metalness: 0.85, roughness: 0.22 }),
+    const nozzle = new THREE.LineSegments(
+      new THREE.EdgesGeometry(
+        new THREE.CylinderGeometry(0.09, 0.14, 0.28, 24),
+        20,
+      ),
+      this.line(this.color(p.line), 0.8),
     );
     nozzle.rotation.x = Math.PI / 2;
     nozzle.position.set(x, 0.05, T.back + 0.15);
@@ -1247,9 +775,11 @@ export class Tunnel3D {
     const width = 0.15 + columns * 0.5;
     const x = T.model + T.board.x - (columns - 1) * 0.25;
     const top = T.board.y + 0.58;
-    const board = new THREE.Mesh(
-      new THREE.PlaneGeometry(width, 1.2),
-      this.standard(p.plate, { roughness: 0.6 }),
+    // The board is its outline: it hangs in the dark, a line round its
+    // lights.
+    const board = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.PlaneGeometry(width, 1.2)),
+      this.line(this.color(p.line), 0.6),
     );
     board.position.set(x, T.board.y, T.back + 0.03);
     this.stage.add(board);
@@ -1578,7 +1108,8 @@ export class Tunnel3D {
         tile.edges = edges;
       }
       const color = this.tone(tile.tone);
-      for (const material of tile.mesh.material) material.emissive.copy(color);
+      tile.fill.color.copy(lit ? color : this.tone("brand"));
+      tile.outline.color.copy(lit ? color : this.color(this.palette.line));
       if (!animate) {
         tile.glow = tile.glowTarget;
         tile.opacity = tile.opacityTarget;
@@ -1606,10 +1137,9 @@ export class Tunnel3D {
   }
 
   private paintTile(tile: Tile) {
-    for (const material of tile.mesh.material) {
-      material.emissiveIntensity = tile.glow;
-      material.opacity = tile.opacity;
-    }
+    tile.fill.opacity = (0.1 + tile.glow * 0.4) * tile.opacity;
+    tile.outline.opacity = Math.min(1, 0.75 + tile.glow * 0.25) * tile.opacity;
+    tile.name.opacity = tile.opacity;
   }
 
   private beaconSpot(part: string | null): THREE.Vector3 {
@@ -1817,10 +1347,7 @@ export class Tunnel3D {
 
   private paintModel(model: Model) {
     model.group.position.y = model.lift;
-    model.plateMaterials.forEach((material, index) => {
-      material.opacity = PLATE_OPACITY[PLATES[index]] * model.dim;
-    });
-    for (const edge of model.edges) edge.opacity = 0.75 * model.dim;
+    for (const edge of model.edges) edge.opacity = EDGE * model.dim;
   }
 
   // ── Time ────────────────────────────────────────────────────────────────
@@ -1854,15 +1381,13 @@ export class Tunnel3D {
     let moving = false;
 
     this.fanSpeed = approach(this.fanSpeed, this.fanTarget, dt, 1.2);
-    this.fan.rotation.z += this.fanSpeed * dt;
+    this.fan.rotation.x += this.fanSpeed * dt;
     const spin = Math.min(1, this.fanSpeed / 10);
-    this.fanLight.intensity =
-      (p.dark ? 1.0 : 0.3) * Math.PI * 2.2 * (0.25 + 0.75 * spin);
-    // The duct's light breathes, gently, while the fan idles.
-    const breath = this.reduced ? 0 : 0.18 * Math.sin(this.clock * 1.3);
-    this.ductGlow.opacity =
-      (p.dark ? 0.4 : 0.08) * (0.3 + 0.7 * spin) * (1 + breath * (1 - spin));
-    this.fanBlur.opacity = 0.32 * Math.max(0, (this.fanSpeed - 4) / 6);
+    // The glow behind the fan brightens at speed and breathes, gently,
+    // while it idles.
+    const breath = this.reduced ? 0 : 0.14 * Math.sin(this.clock * 1.4);
+    this.fanGlow.opacity =
+      (p.dark ? 0.2 : 0.08) * (0.45 + 0.55 * spin) * (1 + breath);
     if (this.fanSpeed > 0.01 || this.fanTarget > 0) moving = true;
 
     for (const stream of this.streams) {
@@ -2060,7 +1585,6 @@ export class Tunnel3D {
       for (const material of materials) material.dispose();
     });
     this.composer?.dispose();
-    this.environment?.dispose();
     this.renderer.dispose();
   }
 }
