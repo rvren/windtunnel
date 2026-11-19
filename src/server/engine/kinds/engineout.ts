@@ -39,7 +39,7 @@ import type { CodeAtHand, KindContext } from "./context";
  */
 
 const CUT_TURNS = 24;
-const HOPS_PER_AGENT = 10;
+export const HOPS_PER_AGENT = 10;
 const QUOTE_LINES = 20;
 
 /** The workers of the cut stage, as the scripted runs and prompts name them. */
@@ -195,8 +195,19 @@ export function reportHopTool(options: {
         input.startLine,
         input.endLine,
       );
+      // The model may file several hops at once: count again now that the
+      // lines are read, so each hop gets its own number and the cap holds.
+      // Nothing waits between this count and the push below.
+      const filed = options.filed.filter(
+        (hop) => hop.by === options.agentId,
+      ).length;
+      if (filed >= HOPS_PER_AGENT) {
+        throw new ToolFailure(
+          `You have filed ${HOPS_PER_AGENT} hops, the most one agent may file. Finish with your summary.`,
+        );
+      }
       const hop: OutageHop = {
-        id: `${options.agentId}-${mine.length + 1}`,
+        id: `${options.agentId}-${filed + 1}`,
         from: input.from,
         to: input.at,
         behaviour: input.behaviour,

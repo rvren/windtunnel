@@ -364,7 +364,10 @@ no step calls the model until the next version runs.
 
 Projects and workspaces: `src/server/projects/store.ts`. Older runs with no
 project are gathered under "Demo project" by `src/server/projects/adopt.ts`.
-Sample data: `src/server/projects/demo.ts`.
+Sample data: `src/server/projects/demo.ts`. A run saved before a fix is
+mended as the store reads it (`repairRun` in `src/server/engine/repair.ts`):
+an Engine Out run whose hops share an id gets one id per hop, and each
+finding takes its hop's new id. What is saved is left as it was.
 
 A requirement run's results are probable risks of an idea. One switch,
 `termsFor(probable)` in `src/lib/labels.ts`, gives the words everywhere

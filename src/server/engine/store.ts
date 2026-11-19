@@ -14,6 +14,7 @@ import {
   type Severity,
   type StoredEvent,
 } from "./schema";
+import { repairRun } from "./repair";
 
 /*
  * Where runs live. The engine only knows this interface. Postgres is the real
@@ -198,7 +199,8 @@ export class PgRunStore implements RunStore {
     const agents = reports
       .map((report) => report.data as AgentRun)
       .sort((a, b) => order.indexOf(a.agentId) - order.indexOf(b.agentId));
-    return {
+    // A run saved before a fix comes back mended (repair.ts).
+    return repairRun({
       ...(row.data as RunData),
       // The columns are the truth for what they hold.
       projectId: row.projectId ?? undefined,
@@ -210,7 +212,7 @@ export class PgRunStore implements RunStore {
       stage: row.stage as RunRecord["stage"],
       error: row.error,
       agents,
-    };
+    });
   }
 
   async remove(ids: string[]) {

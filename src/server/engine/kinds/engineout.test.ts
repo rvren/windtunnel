@@ -7,6 +7,7 @@ import { ENGINE_OUT_SCENARIOS } from "../sample-engineout";
 import type { Architecture, OutageHop } from "../schema";
 
 import {
+  HOPS_PER_AGENT,
   distances,
   findPart,
   orderCascade,
@@ -109,6 +110,24 @@ describe("report_hop", () => {
       behaviour: "retries",
       location: { path: "orders/client.py", startLine: 3, quote: "code" },
     });
+  });
+
+  it("numbers hops filed at the same time apart, and holds the cap", async () => {
+    // The model can call the tool several times at once: each call waits
+    // for its lines, so a count taken before that wait would be the same
+    // for all of them.
+    const filed: OutageHop[] = [];
+    const calls = Array.from({ length: HOPS_PER_AGENT + 2 }, (_, index) =>
+      runTool(tool(filed), input({ startLine: 1 + index, endLine: 2 + index })),
+    );
+    const results = await Promise.all(calls);
+    expect(filed.map((hop) => hop.id)).toEqual(
+      Array.from(
+        { length: HOPS_PER_AGENT },
+        (_, index) => `outage-${index + 1}`,
+      ),
+    );
+    expect(results.filter((result) => result.failed)).toHaveLength(2);
   });
 
   it.each([
