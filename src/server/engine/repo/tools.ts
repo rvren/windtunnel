@@ -52,6 +52,24 @@ export class RepoReader {
     return reader;
   }
 
+  /**
+   * The same repository with some files' lines replaced in memory: the
+   * code as a fix would leave it, for an agent to attack. Every tool reads
+   * through it, so reads, searches and checked citations all see the
+   * patched text. Nothing is written. Only surveyed files can be replaced.
+   */
+  withOverlay(files: Record<string, string[]>): RepoReader {
+    const reader = this.fork();
+    for (const [file, lines] of Object.entries(files)) {
+      const relative = this.clean(file);
+      if (!this.byPath.get(relative)?.readable) {
+        throw new ToolFailure(`There is no readable file "${relative}".`);
+      }
+      reader.cache.set(relative, lines);
+    }
+    return reader;
+  }
+
   private clean(input: string): string {
     const normal = path.posix
       .normalize(input.replace(/\\/g, "/"))

@@ -35,6 +35,7 @@ import { LocalTime } from "@/components/local-time";
 import { LiveMap } from "@/components/project/live-map";
 import { agentStates, applyEvent, emptyFeed, type Feed } from "@/lib/run-feed";
 import { crewOf } from "@/lib/viz/crew";
+import { nextRunsOf } from "@/lib/viz/next";
 import { resultOf } from "@/lib/viz/result";
 import { storyOf } from "@/lib/viz/story";
 import { applyTime, emptyTimes, type RunTimes } from "@/lib/viz/times";
@@ -595,7 +596,11 @@ export function RunView({
           <TabsContent value="summary">
             <div className="space-y-5">
               {ended ? (
-                <ResultCard result={resultOf(run)} onOpen={openTab} />
+                <ResultCard
+                  result={resultOf(run)}
+                  onOpen={openTab}
+                  next={nextRunsOf(run)}
+                />
               ) : null}
               {/* One panel, with no lines across it: what is happening, the
                   wind tunnel, the newest finding, and the stages as a rail

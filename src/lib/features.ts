@@ -32,6 +32,10 @@ export interface Feature {
   example: string;
   /** Who works during the run, as shown while it is live. */
   actors: Actor[];
+  /** Marked New on the launcher. */
+  fresh?: boolean;
+  /** One line on the launcher about what it does now that it did not. */
+  news?: string;
 }
 
 /** A change to try Crosswind with, on the Storefront sample. */

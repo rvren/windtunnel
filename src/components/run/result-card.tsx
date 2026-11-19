@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+import { FEATURE_ICON } from "@/components/feature-icon";
 import { Panel } from "@/components/panel";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SEVERITY_TONE } from "@/lib/viz/cockpit-views";
+import type { NextRun } from "@/lib/viz/next";
 import type { RunResult } from "@/lib/viz/result";
 
 /**
@@ -15,9 +18,12 @@ import type { RunResult } from "@/lib/viz/result";
 export function ResultCard({
   result,
   onOpen,
+  next = [],
 }: {
   result: RunResult;
   onOpen: (tab: string) => void;
+  /** The runs that follow from this one, filled in from it. */
+  next?: NextRun[];
 }) {
   return (
     <Panel className="p-6 md:p-7" data-testid="run-result">
@@ -76,6 +82,43 @@ export function ResultCard({
           {result.action.label}
           <ArrowRight />
         </Button>
+      ) : null}
+      {next.length > 0 ? (
+        <div className="mt-7" data-testid="run-next">
+          <p className="font-mono text-[0.6875rem] tracking-wide text-muted-foreground uppercase">
+            Next
+          </p>
+          <ul className="mt-2.5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {next.map((item) => {
+              const Icon = FEATURE_ICON[item.kind];
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    data-testid={`run-next-${item.kind}`}
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      "h-auto w-full items-start justify-start gap-3 px-3.5 py-3 text-left font-normal whitespace-normal",
+                    )}
+                  >
+                    <Icon
+                      className="mt-0.5 size-4 shrink-0 text-brand"
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-[0.8125rem] font-medium">
+                        {item.label}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {item.why}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ) : null}
     </Panel>
   );

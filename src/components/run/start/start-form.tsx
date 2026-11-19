@@ -94,8 +94,15 @@ export function StartForm({
   initialProjectId,
   sampleMode,
   blocked,
+  prefill,
 }: {
   kind: RunKind;
+  /** Filled in from an earlier run's "Next", with a line saying so. */
+  prefill?: {
+    text?: string;
+    subject?: "requirement" | "code";
+    note?: string;
+  };
   projects: StartFormProject[];
   initialProjectId: string | null;
   sampleMode: boolean;
@@ -121,11 +128,12 @@ export function StartForm({
   const project = projects.find((item) => item.id === projectId) ?? null;
   const github = (project?.workspaces ?? []).filter((item) => item.github);
   const [subject, setSubject] = useState<"requirement" | "code">(
-    project && project.workspaces.length > 0 ? "code" : "requirement",
+    prefill?.subject ??
+      (project && project.workspaces.length > 0 ? "code" : "requirement"),
   );
   const [skipped, setSkipped] = useState<string[]>([]);
   const [text, setText] = useState(
-    kind === "flyoff" ? (project?.description ?? "") : "",
+    prefill?.text ?? (kind === "flyoff" ? (project?.description ?? "") : ""),
   );
   const [documents, setDocuments] = useState<StartInput["documents"]>([]);
   const [change, setChange] = useState<StartInput["change"]>({
@@ -329,6 +337,14 @@ export function StartForm({
       </Step>
 
       <Step n={2} title={STEP_TITLE[kind]}>
+        {prefill?.note ? (
+          <p
+            className="text-xs text-muted-foreground"
+            data-testid="start-prefill"
+          >
+            {prefill.note}
+          </p>
+        ) : null}
         {kind === "audit" ? (
           <div className="space-y-4">
             <Tabs

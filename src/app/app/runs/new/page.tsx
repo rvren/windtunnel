@@ -4,11 +4,13 @@ import Link from "next/link";
 
 import { PageLoading } from "@/components/app/page-header";
 import { pillClass } from "@/components/pill";
-import { FEATURE_ICON } from "@/components/home/launcher";
+import { FEATURE_ICON } from "@/components/feature-icon";
 import { SampleBadge } from "@/components/run/badges";
 import { StartForm } from "@/components/run/start/start-form";
 import { buttonVariants } from "@/components/ui/button";
 import { FEATURES, featureOf } from "@/lib/features";
+import { prefillFrom, prefillNote } from "@/lib/viz/next";
+import { runStore } from "@/server/engine/registry";
 import { RUN_KINDS, type RunKind } from "@/server/engine/schema";
 import { listProjects } from "@/server/projects/store";
 import { engineStatus } from "@/server/status";
@@ -62,6 +64,11 @@ async function Start({
   const query = await searchParams;
   const kind = kindOf(query.kind);
   const project = typeof query.project === "string" ? query.project : null;
+  const from = typeof query.from === "string" ? query.from : null;
+  const subject: "code" | "requirement" | undefined =
+    query.subject === "code" || query.subject === "requirement"
+      ? query.subject
+      : undefined;
   const feature = featureOf(kind);
   const Icon = FEATURE_ICON[kind];
   const status = await engineStatus();
@@ -74,6 +81,17 @@ async function Start({
     );
   }
   const projects = await listProjects();
+  // Opened from an earlier run's "Next": fill in what that run holds.
+  const earlier = from
+    ? await runStore()
+        .get(from)
+        .catch(() => null)
+    : null;
+  const prefill = earlier
+    ? { ...prefillFrom(earlier, kind, subject), note: prefillNote(earlier) }
+    : subject
+      ? { subject }
+      : undefined;
   return (
     <>
       <KindSwitch kind={kind} project={project} />
@@ -120,8 +138,9 @@ async function Start({
         </div>
       ) : (
         <StartForm
-          key={kind}
+          key={`${kind}-${from ?? ""}`}
           kind={kind}
+          prefill={prefill}
           sampleMode={status.sampleMode}
           blocked={
             !status.apiKey && !status.sampleMode

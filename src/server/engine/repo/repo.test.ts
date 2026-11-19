@@ -99,6 +99,39 @@ describe("RepoReader", () => {
       /does not exist/,
     );
   });
+
+  it("reads, searches and checks the patched text through an overlay", async () => {
+    const repo = await reader();
+    const patched = repo.withOverlay({
+      "api/invite.py": [
+        "def invite(email):",
+        "    check(email)",
+        "    send(email)",
+      ],
+    });
+    expect(await patched.readFile("api/invite.py")).toContain(
+      "2      check(email)",
+    );
+    expect(await patched.search("check(")).toContain("api/invite.py:2");
+    expect((await patched.slice("api/invite.py", 2, 2)).text).toBe(
+      "    check(email)",
+    );
+    // The original is untouched, and other files read as before.
+    expect((await repo.slice("api/invite.py", 2, 2)).text).toBe(
+      "    send(email)",
+    );
+    expect(await patched.readFile("web/index.ts")).toContain("INVITE");
+  });
+
+  it("refuses to overlay a file the survey does not list", async () => {
+    const repo = await reader();
+    expect(() => repo.withOverlay({ "api/new.py": ["x"] })).toThrow(
+      /no readable file/,
+    );
+    expect(() => repo.withOverlay({ "../secret.txt": ["x"] })).toThrow(
+      /outside the repository/,
+    );
+  });
 });
 
 describe("report_finding", () => {

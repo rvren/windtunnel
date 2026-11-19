@@ -1,34 +1,20 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  GitCompareArrows,
-  LoaderCircle,
-  Siren,
-  Trophy,
-  Wind,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, LoaderCircle } from "lucide-react";
 
+import { FEATURE_ICON } from "@/components/feature-icon";
 import { LocalTime } from "@/components/local-time";
 import { Panel } from "@/components/panel";
 import { StatusBadge } from "@/components/run/badges";
 import { buttonVariants } from "@/components/ui/button";
 import { FEATURES, featureOf, plainTitle, type Feature } from "@/lib/features";
 import { cn } from "@/lib/utils";
-import type { RunKind, RunSummary } from "@/server/engine/schema";
+import type { RunSummary } from "@/server/engine/schema";
 
 /*
- * The first screen of the app: what Windtunnel can do, as four cards, and
+ * The first screen of the app: what Windtunnel can do, one card per kind, and
  * the three steps every run takes. Each card starts its kind of run. Under
  * them, the runs going now and the latest ones, to carry on.
  */
-
-export const FEATURE_ICON: Record<RunKind, LucideIcon> = {
-  audit: Wind,
-  crosswind: GitCompareArrows,
-  flyoff: Trophy,
-  blackbox: Siren,
-};
 
 const STEPS = [
   "Choose what to test",
@@ -38,43 +24,92 @@ const STEPS = [
 
 function FeatureCard({ feature, main }: { feature: Feature; main: boolean }) {
   const Icon = FEATURE_ICON[feature.kind];
+  const start = (
+    <span
+      className={cn(
+        buttonVariants({ variant: main ? "default" : "outline" }),
+        "mt-auto self-start",
+      )}
+    >
+      {feature.start}
+      <ArrowRight
+        className="transition-transform duration-200 group-hover:translate-x-0.5"
+        aria-hidden="true"
+      />
+    </span>
+  );
+  const facts = (
+    <dl
+      className={cn(
+        "grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1.5 text-[0.8125rem]",
+        !main && "mt-5 mb-6",
+      )}
+    >
+      <dt className="text-muted-foreground">You give</dt>
+      <dd>{feature.input}</dd>
+      <dt className="text-muted-foreground">You get</dt>
+      <dd>{feature.output}</dd>
+    </dl>
+  );
   return (
     <Link
       href={`/app/runs/new?kind=${feature.kind}`}
       data-testid={`launcher-${feature.kind}`}
-      className="group flex flex-col rounded-card border bg-card p-6 transition-colors duration-200 outline-none hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        "group flex flex-col rounded-card border bg-card p-6 transition-colors duration-200 outline-none hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring",
+        // The main kind spans the row, its facts beside its words.
+        main &&
+          "md:col-span-2 lg:col-span-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-x-10",
+      )}
     >
-      <div className="flex items-center gap-3">
-        <span
-          className={cn(
-            "grid size-10 shrink-0 place-items-center rounded-tile border",
-            main && "border-brand/40 text-brand",
-          )}
-        >
-          <Icon className="size-5" aria-hidden="true" />
-        </span>
-        <h2 className="text-xl font-medium">{feature.name}</h2>
-      </div>
-      <p className="mt-5 text-lg leading-snug">{feature.question}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{feature.promise}</p>
-      <dl className="mt-5 mb-6 grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1.5 text-[0.8125rem]">
-        <dt className="text-muted-foreground">You give</dt>
-        <dd>{feature.input}</dd>
-        <dt className="text-muted-foreground">You get</dt>
-        <dd>{feature.output}</dd>
-      </dl>
-      <span
-        className={cn(
-          buttonVariants({ variant: main ? "default" : "outline" }),
-          "mt-auto self-start",
+      <div className="flex flex-col">
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              "grid size-10 shrink-0 place-items-center rounded-tile border",
+              (main || feature.fresh) && "border-brand/40 text-brand",
+            )}
+          >
+            <Icon className="size-5" aria-hidden="true" />
+          </span>
+          <h2 className="text-xl font-medium">{feature.name}</h2>
+          {feature.fresh ? (
+            <span
+              className="rounded-full border border-brand/40 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-brand uppercase"
+              data-testid={`launcher-new-${feature.kind}`}
+            >
+              New
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-5 text-lg leading-snug">{feature.question}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{feature.promise}</p>
+        {feature.news ? (
+          <p className="mt-3 flex items-center gap-2 text-[0.8125rem]">
+            <span
+              aria-hidden="true"
+              className="size-1.5 shrink-0 rounded-full bg-brand"
+            />
+            {feature.news}
+          </p>
+        ) : null}
+        {main ? (
+          <>
+            <div className="mt-5 lg:hidden">{facts}</div>
+            <div className="mt-6">{start}</div>
+          </>
+        ) : (
+          <>
+            {facts}
+            {start}
+          </>
         )}
-      >
-        {feature.start}
-        <ArrowRight
-          className="transition-transform duration-200 group-hover:translate-x-0.5"
-          aria-hidden="true"
-        />
-      </span>
+      </div>
+      {main ? (
+        <div className="hidden self-center border-l pl-10 lg:block">
+          {facts}
+        </div>
+      ) : null}
     </Link>
   );
 }
@@ -134,7 +169,7 @@ function Recent({ runs }: { runs: RunSummary[] }) {
 
 export function Launcher({ runs }: { runs: RunSummary[] }) {
   return (
-    <div className="mx-auto max-w-5xl space-y-10" data-testid="launcher">
+    <div className="mx-auto max-w-6xl space-y-10" data-testid="launcher">
       <header className="space-y-4">
         <h1 className="text-4xl leading-tight font-semibold tracking-[-0.03em] text-balance">
           What do you want to test?
@@ -163,7 +198,7 @@ export function Launcher({ runs }: { runs: RunSummary[] }) {
         </ol>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((feature, index) => (
           <FeatureCard
             key={feature.kind}

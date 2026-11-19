@@ -213,6 +213,86 @@ export function DrawLine({
 }
 
 /**
+ * A light that travels a line once, then waits and goes again: a flight
+ * path's hops lit one after another. Hidden before it starts and between
+ * trips (its dash sits off both ends of the line), and not drawn at all
+ * under reduced motion.
+ */
+export function TravelDash({
+  d,
+  stroke,
+  duration,
+  delay = 0,
+  every,
+  width = 3,
+  dash = 120,
+}: {
+  d: string;
+  stroke: string;
+  /** Seconds for one trip along the line. */
+  duration: number;
+  delay?: number;
+  /** Seconds from the start of one trip to the start of the next. */
+  every: number;
+  width?: number;
+  /** The length of the light, out of 1000 for the whole line. */
+  dash?: number;
+}) {
+  if (useReducedMotion()) return null;
+  return (
+    <motion.path
+      d={d}
+      fill="none"
+      strokeLinecap="round"
+      className="glow"
+      pathLength={1000}
+      stroke={stroke}
+      strokeWidth={width}
+      strokeDasharray={`${dash} 2000`}
+      initial={{ strokeDashoffset: dash }}
+      animate={{ strokeDashoffset: -1000 }}
+      transition={{
+        duration,
+        ease: "easeInOut",
+        delay,
+        repeat: Infinity,
+        repeatDelay: Math.max(every - duration, 0),
+      }}
+    />
+  );
+}
+
+/**
+ * An element of the page that grows into place once, from part size, after
+ * a delay: a flight path's numbered stop arriving. Starts visible, so a
+ * paused frame still shows it.
+ */
+export function PopIn({
+  delay = 0,
+  className,
+  style,
+  children,
+}: {
+  delay?: number;
+  className?: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.span
+      className={className}
+      style={style}
+      initial={reduced ? false : { scale: 0.6 }}
+      animate={{ scale: 1 }}
+      transition={{ duration: 0.45, ease: EASE, delay }}
+    >
+      {children}
+    </motion.span>
+  );
+}
+
+/**
  * Something that grows into place once, from part size: the head of an
  * arrow arriving. Starts visible (at part size), so a paused frame still
  * shows it; under reduced motion it is simply there.
