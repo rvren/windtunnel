@@ -170,6 +170,9 @@ describe("tunnelScene", () => {
         part: "cmp-catalog",
         plate: "services",
         tone: "danger",
+        title: "SQL in search",
+        severity: "critical",
+        at: "catalog/search.py:4",
       },
       {
         uid: "f2",
@@ -177,6 +180,9 @@ describe("tunnelScene", () => {
         part: null,
         plate: "services",
         tone: "warning",
+        title: "No paging",
+        severity: "medium",
+        at: "nowhere/x.ts:1",
       },
     ]);
   });
@@ -392,11 +398,12 @@ describe("tunnelScene", () => {
       }),
       emptyFeed(),
     );
-    expect(scene.spec).toEqual([
+    expect(scene.spec?.map(({ id, status }) => ({ id, status }))).toEqual([
       { id: "line-1", status: "implemented" },
       { id: "line-2", status: "contradicted" },
       { id: "line-3", status: "missing" },
     ]);
+    expect(scene.spec?.[1]).toMatchObject({ text: "line-2", note: "" });
     expect(scene.lit).toEqual([
       { part: "cmp-gateway", tone: "danger", strength: 0.8 },
     ]);

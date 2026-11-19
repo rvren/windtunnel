@@ -49,6 +49,19 @@ export interface ScenePin {
   part: string | null;
   plate: PlateId;
   tone: SceneTone;
+  /** What the finding says, for its card. */
+  title: string;
+  severity: Severity;
+  /** Where it is: "path:line", or null. */
+  at: string | null;
+}
+
+/** One line of Preflight's spec, with what the code does about it. */
+export interface SceneLine {
+  id: string;
+  status: LineStatus;
+  text: string;
+  note: string;
 }
 
 export interface SceneArc {
@@ -89,7 +102,7 @@ export interface TunnelScene {
   beacon: { part: string | null; tone: SceneTone; label: string } | null;
   duel: SceneDuel | null;
   /** Preflight's lines in order. */
-  spec: { id: string; status: LineStatus }[] | null;
+  spec: SceneLine[] | null;
   /** Fly-off's three designs, each on its own turntable. */
   designs: SceneDesign[] | null;
   /** Fly-off: who critiqued whose design, as arcs between designs. */
@@ -288,6 +301,11 @@ export function tunnelScene(run: RunRecord, feed: Feed): TunnelScene {
           part,
           plate: part ? plateOf(part, parts) : "services",
           tone: SEVERITY_TONE[finding.severity],
+          title: finding.title,
+          severity: finding.severity,
+          at: finding.path
+            ? `${finding.path}${finding.startLine ? `:${finding.startLine}` : ""}`
+            : null,
         };
       });
   }
@@ -378,7 +396,12 @@ export function tunnelScene(run: RunRecord, feed: Feed): TunnelScene {
   }
 
   if (kind === "preflight" && run.preflight) {
-    scene.spec = run.preflight.lines.map(({ id, status }) => ({ id, status }));
+    scene.spec = run.preflight.lines.map(({ id, status, text, note }) => ({
+      id,
+      status,
+      text,
+      note,
+    }));
     for (const line of run.preflight.lines) {
       const tone = LINE_TONE[line.status];
       const part = at(line.locations[0]);

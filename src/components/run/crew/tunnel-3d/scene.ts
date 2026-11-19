@@ -223,6 +223,20 @@ export class Tunnel3D {
     phase: number;
   }[] = [];
   private flown = new Set<string>();
+  /**
+   * What the pointer can find, by key (`kind:id`, src/lib/viz/tunnel-tips.ts):
+   * its object, how near on screen the pointer must come, and whether it
+   * is small (a ball), which wins over a large thing (a tile, a design).
+   */
+  private picks = new Map<
+    string,
+    { object: THREE.Object3D; radius: number; small: boolean }
+  >();
+  private hovered: {
+    key: string;
+    object: THREE.Object3D;
+    grow: number;
+  } | null = null;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -544,6 +558,8 @@ export class Tunnel3D {
     this.scan = null;
     this.jets = [];
     this.flown.clear();
+    this.picks.clear();
+    this.hovered = null;
   }
 
   private build(input: TunnelInput) {
@@ -614,6 +630,11 @@ export class Tunnel3D {
       );
       dot.position.set(T.end, y, 0);
       this.stage.add(core, glow, nozzle, dot);
+      this.picks.set(`worker:${worker.id}`, {
+        object: dot,
+        radius: 16,
+        small: true,
+      });
       this.streams.push({
         id: worker.id,
         y,
@@ -780,6 +801,11 @@ export class Tunnel3D {
         ),
       );
       model.plates[part.plate].add(mesh);
+      this.picks.set(`part:${part.id}`, {
+        object: mesh,
+        radius: 26,
+        small: false,
+      });
       this.tiles.set(part.id, {
         mesh,
         edges: null,
@@ -1105,6 +1131,11 @@ export class Tunnel3D {
           (Math.floor(k / 3) % 2 === 0 ? -0.05 : 0.07) - 0.01,
         );
         tile.mesh.add(mesh);
+        this.picks.set(`finding:${pin.uid}`, {
+          object: mesh,
+          radius: 12,
+          small: true,
+        });
       } else {
         // On the plate, away from the tiles, spread by its id.
         let hash = 0;
@@ -1115,6 +1146,11 @@ export class Tunnel3D {
           ((((hash >>> 5) % 13) / 12) * 2 - 1) * 0.66,
         );
         model.plates[pin.plate].add(mesh);
+        this.picks.set(`finding:${pin.uid}`, {
+          object: mesh,
+          radius: 12,
+          small: true,
+        });
       }
       const stream = this.streamOf(pin.by);
       if (animate && stream) {
@@ -1205,6 +1241,7 @@ export class Tunnel3D {
       );
       this.stage.add(core, halo);
       this.beacon = { core, halo, settled: false };
+      this.picks.set("beacon:", { object: core, radius: 16, small: true });
     }
     const at = this.beaconSpot(beacon.part);
     this.beacon.core.position.copy(at);
@@ -1312,6 +1349,11 @@ export class Tunnel3D {
     spec.forEach((line, index) => {
       const light = this.lights[index];
       if (!light) return;
+      this.picks.set(`line:${line.id}`, {
+        object: light,
+        radius: 9,
+        small: true,
+      });
       light.material.color.copy(this.tone(tone[line.status]));
       light.material.opacity =
         line.status === "unclear" ? 0.3 : line.status === "missing" ? 0.55 : 1;
@@ -1324,6 +1366,11 @@ export class Tunnel3D {
     designs.forEach((design, index) => {
       const model = this.models[index];
       if (!model) return;
+      this.picks.set(`design:${design.id}`, {
+        object: model.plates.services,
+        radius: 70,
+        small: false,
+      });
       const shown = design.state !== "pending";
       for (const plate of PLATES) model.plates[plate].visible = shown;
       const failed = design.state === "failed";
@@ -1519,6 +1566,54 @@ export class Tunnel3D {
   }
 
   // ── The page ────────────────────────────────────────────────────────────
+
+  /**
+   * The thing under the pointer, at (x, y) in a drawing `width` by
+   * `height` pixels: the nearest ball within its reach, else the nearest
+   * large thing. Its key, and where it is in the drawing as fractions, for
+   * a card to point at.
+   */
+  pick(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): { key: string; x: number; y: number } | null {
+    const at = new THREE.Vector3();
+    let best: { key: string; x: number; y: number; d: number } | null = null;
+    let bestSmall = false;
+    for (const [key, item] of this.picks) {
+      if (!item.object.visible || !item.object.parent?.visible) continue;
+      item.object.getWorldPosition(at).project(this.camera);
+      const sx = ((at.x + 1) / 2) * width;
+      const sy = ((1 - at.y) / 2) * height;
+      const d = Math.hypot(sx - x, sy - y);
+      if (d > item.radius) continue;
+      // A ball always wins over a tile or a design.
+      if (bestSmall && !item.small) continue;
+      if (!best || (item.small && !bestSmall) || d < best.d) {
+        best = { key, x: sx / width, y: sy / height, d };
+        bestSmall = item.small;
+      }
+    }
+    return best ? { key: best.key, x: best.x, y: best.y } : null;
+  }
+
+  /** Grows the thing the pointer is on, and lets the last one go. */
+  highlight(key: string | null) {
+    if (this.hovered?.key === key) return;
+    if (this.hovered) {
+      this.hovered.object.scale.divideScalar(this.hovered.grow);
+      this.hovered = null;
+    }
+    const item = key ? this.picks.get(key) : undefined;
+    if (key && item) {
+      const grow = item.small ? 1.8 : 1.08;
+      item.object.scale.multiplyScalar(grow);
+      this.hovered = { key, object: item.object, grow };
+    }
+    this.wake();
+  }
 
   resize(width: number, height: number) {
     if (width <= 0 || height <= 0) return;

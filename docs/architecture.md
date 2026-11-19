@@ -517,7 +517,9 @@ and what the run's kind adds (findings as pins, chains, a ripple, three
 designs, a failing route, a cut and its hops, duel rounds, the spec's
 lines). Engine Out's hops and Preflight's lines are saved mid-stage and
 announced with a `run.progress` event, so the page fetches the run again
-(at most once every 750ms) and the tunnel shows them as they come. `blackbox.ts`). The result card is `resultOf` in `src/lib/viz/result.ts`; a project page is the same pattern, its tabs (`?tab=`) rendered
+(at most once every 750ms) and the tunnel shows them as they come.
+Every ball in it answers the pointer with a card (`tipOf` in
+`src/lib/viz/tunnel-tips.ts`); a click keeps the card. `blackbox.ts`). The result card is `resultOf` in `src/lib/viz/result.ts`; a project page is the same pattern, its tabs (`?tab=`) rendered
 on the server, with `Cockpit`'s `section` prop choosing the stage, the
 issues or security. The project page's kind buttons open the start page;
 `src/components/project/kind-dialogs.tsx` holds the schedule dialog. The

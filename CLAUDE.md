@@ -116,6 +116,13 @@ take something away.
     sweeping the model. Engine Out's hops and Preflight's lines arrive mid
     stage through the `run.progress` event, which makes the page fetch
     the run again (at most once every 750ms, `src/lib/throttle.ts`).
+  - **Every ball answers the pointer**: a finding's pin, a worker's dot
+    (or name), the beacon, a line of the spec, a part's tile, a design.
+    Hover grows it and shows a card of what it is (`tipOf` in
+    `src/lib/viz/tunnel-tips.ts`, from the same scene and crew); a click
+    keeps the card, and a click elsewhere or Escape lets it go. The scene
+    finds what is under the pointer on screen (`pick`), a ball winning
+    over a tile, so a small pin is easy to reach.
   - Its render loop is the one animation outside Motion: it runs only
     while something moves and the panel is on screen; with reduced motion
     nothing turns or travels. Where WebGL cannot draw, the 2D tunnel
