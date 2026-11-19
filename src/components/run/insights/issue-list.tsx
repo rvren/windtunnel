@@ -1,5 +1,7 @@
 "use client";
 
+import { Pager } from "@/components/pager";
+import { usePage } from "@/hooks/use-page";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { Search } from "lucide-react";
@@ -95,6 +97,8 @@ export function IssueList({
     ),
     sort,
   );
+  // A page at a time; a new filter, sort or search starts at page 1.
+  const page = usePage(shown, `${agent?.id ?? ""}|${kind}|${query}|${sort}`);
   const act = (row: IssueRow, action: RowAction) =>
     setOpen({
       row,
@@ -208,7 +212,7 @@ export function IssueList({
       {shown.length > 0 ? (
         <ul className="divide-y">
           <AnimatePresence initial={false}>
-            {shown.map((row) => (
+            {page.items.map((row) => (
               <FadeInItem key={row.id}>
                 <IssueRowView
                   row={row}
@@ -220,6 +224,14 @@ export function IssueList({
             ))}
           </AnimatePresence>
         </ul>
+      ) : null}
+      {shown.length > 0 ? (
+        <Pager
+          page={page}
+          noun={[terms.issue, terms.issues]}
+          onPage={page.setPage}
+          testId="insights-pager"
+        />
       ) : (
         <p className="px-5 py-12 text-center text-sm text-muted-foreground">
           {rows.length === 0

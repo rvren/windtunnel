@@ -114,10 +114,11 @@ export function homeNumbers(input: {
     };
   });
 
+  // Every fix pull request, newest first: the board shows them a page at a
+  // time.
   const recentPrs = issues
     .filter((issue) => issue.pr)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, 5)
     .map((issue) => ({
       ...issue,
       projectName: name.get(issue.projectId) ?? "",

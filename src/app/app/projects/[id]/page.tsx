@@ -22,7 +22,11 @@ import {
 } from "lucide-react";
 
 import { PageLoading } from "@/components/app/page-header";
+import { FEATURE_ICON } from "@/components/feature-icon";
 import { LocalTime } from "@/components/local-time";
+import { Pager } from "@/components/pager";
+import { pageOf } from "@/lib/paging";
+import { runRow } from "@/lib/viz/runs-list";
 import { Panel } from "@/components/panel";
 import { Cockpit } from "@/components/project/cockpit";
 import { ScheduleDialog } from "@/components/project/kind-dialogs";
@@ -594,100 +598,14 @@ async function ProjectPage({
       ) : null}
 
       {runs.length > 0 && tab === "runs" ? (
-        <section id="runs" className="scroll-mt-16">
-          <RunFilters
-            workspaces={project.workspaces.map((item) => item.name)}
-          />
-          <RunSelection
-            ids={shownRuns
-              .filter((run) => run.status !== "running")
-              .map((run) => run.id)}
-          >
-            <Panel className="overflow-hidden">
-              <Table data-testid="project-runs">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <RunCheckAll
-                        ids={shownRuns
-                          .filter((run) => run.status !== "running")
-                          .map((run) => run.id)}
-                      />
-                    </TableHead>
-                    <TableHead>Started</TableHead>
-                    <TableHead>Workspaces</TableHead>
-                    <TableHead>State</TableHead>
-                    <TableHead className="text-right">Issues</TableHead>
-                    <TableHead className="text-right">Work orders</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {shownRuns.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="py-8 text-center text-muted-foreground"
-                        data-testid="project-runs-none-match"
-                      >
-                        No run read{" "}
-                        {picked.length === 1
-                          ? "that workspace"
-                          : "all of those workspaces"}
-                        .
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                  {shownRuns.map((run) => (
-                    <TableRow key={run.id}>
-                      <TableCell>
-                        <RunCheck
-                          id={run.id}
-                          title={run.title}
-                          disabled={run.status === "running"}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <LocalTime iso={run.createdAt} />
-                      </TableCell>
-                      <TableCell>
-                        <WorkspaceChips names={run.workspaces} />
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={run.status} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {run.findingCount}
-                        {run.workspaces.length === 0 ? (
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            {run.findingCount === 1 ? "risk" : "risks"}
-                          </span>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {run.workOrderCount}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Link
-                          href={`/app/runs/${run.id}`}
-                          data-testid="project-run-link"
-                          className={buttonVariants({
-                            variant: "link",
-                            size: "sm",
-                          })}
-                        >
-                          Open
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Panel>
-          </RunSelection>
-        </section>
+        <ProjectRuns
+          runs={shownRuns}
+          workspaces={project.workspaces.map((item) => item.name)}
+          picked={picked}
+          page={query.page}
+          projectId={project.id}
+        />
       ) : null}
-
       {/* Setup: what the project reads, what it is, and where work goes. */}
       {tab === "setup" ? (
         <section
@@ -755,5 +673,144 @@ export default function Page({
     <Suspense fallback={<PageLoading label="Reading the project" />}>
       <ProjectPage params={params} searchParams={searchParams} />
     </Suspense>
+  );
+}
+
+/**
+ * The project's runs, newest first, a page at a time (the page is in the
+ * address, with the tab and the workspace filter). Each row starts with
+ * its kind, as on the Runs page.
+ */
+function ProjectRuns({
+  runs,
+  workspaces,
+  picked,
+  page: asked,
+  projectId,
+}: {
+  runs: RunSummary[];
+  workspaces: string[];
+  picked: string[];
+  page: unknown;
+  projectId: string;
+}) {
+  const page = pageOf(runs, asked);
+  const ids = page.items
+    .filter((run) => run.status !== "running")
+    .map((run) => run.id);
+  const hrefFor = (n: number) => {
+    const params = new URLSearchParams({ tab: "runs" });
+    for (const name of picked) params.append("workspace", name);
+    if (n > 1) params.set("page", String(n));
+    return `/app/projects/${projectId}?${params}#runs`;
+  };
+  return (
+    <section id="runs" className="scroll-mt-16">
+      <RunFilters workspaces={workspaces} />
+      <RunSelection ids={ids}>
+        <Panel className="overflow-hidden">
+          <Table data-testid="project-runs">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
+                  <RunCheckAll ids={ids} />
+                </TableHead>
+                <TableHead>Kind</TableHead>
+                <TableHead>Started</TableHead>
+                <TableHead>Workspaces</TableHead>
+                <TableHead>State</TableHead>
+                <TableHead className="text-right">Issues</TableHead>
+                <TableHead className="text-right">Work orders</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runs.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="py-8 text-center text-muted-foreground"
+                    data-testid="project-runs-none-match"
+                  >
+                    No run read{" "}
+                    {picked.length === 1
+                      ? "that workspace"
+                      : "all of those workspaces"}
+                    .
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {page.items.map((run) => {
+                const { kind } = runRow(run);
+                const Icon = FEATURE_ICON[kind.id];
+                return (
+                  <TableRow key={run.id}>
+                    <TableCell>
+                      <RunCheck
+                        id={run.id}
+                        title={run.title}
+                        disabled={run.status === "running"}
+                      />
+                    </TableCell>
+                    <TableCell data-testid="project-run-kind">
+                      <span className="flex items-center gap-2 whitespace-nowrap">
+                        <Icon
+                          className="size-4 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        {kind.label}
+                        {kind.detail ? (
+                          <span className="text-xs text-muted-foreground">
+                            {kind.detail}
+                          </span>
+                        ) : null}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <LocalTime iso={run.createdAt} />
+                    </TableCell>
+                    <TableCell>
+                      <WorkspaceChips names={run.workspaces} />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={run.status} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {run.findingCount}
+                      {run.workspaces.length === 0 ? (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          {run.findingCount === 1 ? "risk" : "risks"}
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {run.workOrderCount}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link
+                        href={`/app/runs/${run.id}`}
+                        data-testid="project-run-link"
+                        className={buttonVariants({
+                          variant: "link",
+                          size: "sm",
+                        })}
+                      >
+                        Open
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          <Pager
+            page={page}
+            noun={["run", "runs"]}
+            href={hrefFor}
+            testId="project-runs-pager"
+          />
+        </Panel>
+      </RunSelection>
+    </section>
   );
 }

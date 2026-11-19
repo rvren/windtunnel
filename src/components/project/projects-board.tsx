@@ -16,6 +16,8 @@ import {
 import { InfoTip } from "@/components/info-tip";
 import { PullRequestRefresher } from "@/components/issues/pr-refresher";
 import { LocalTime } from "@/components/local-time";
+import { Pager } from "@/components/pager";
+import { usePage } from "@/hooks/use-page";
 import { Panel } from "@/components/panel";
 import { SeverityBar } from "@/components/severity-bar";
 import { DeleteProjectDialog } from "@/components/project/project-dialogs";
@@ -199,6 +201,8 @@ export function ProjectsBoard({
   numbers: HomeNumbers;
   meta: Record<string, BoardMeta>;
 }) {
+  const projects = usePage(numbers.projects, "", 20);
+  const prs = usePage(numbers.recentPrs, "", 10);
   return (
     <div className="space-y-5" data-testid="projects-board">
       <PullRequestRefresher />
@@ -230,7 +234,7 @@ export function ProjectsBoard({
               <span className="justify-self-end">Next</span>
               <span />
             </li>
-            {numbers.projects.map((project) => (
+            {projects.items.map((project) => (
               <ProjectRow
                 key={project.id}
                 project={project}
@@ -239,11 +243,17 @@ export function ProjectsBoard({
             ))}
           </ul>
         )}
+        <Pager
+          page={projects}
+          noun={["project", "projects"]}
+          onPage={projects.setPage}
+          testId="projects-pager"
+        />
       </Panel>
 
       <Panel data-testid="home-prs">
-        <SectionTitle about="recentPrs" label="Recent pull requests">
-          Recent pull requests
+        <SectionTitle about="recentPrs" label="Pull requests">
+          Pull requests
         </SectionTitle>
         {numbers.recentPrs.length === 0 ? (
           <p className="px-4 py-6 text-[0.8125rem] text-muted-foreground">
@@ -251,7 +261,7 @@ export function ProjectsBoard({
           </p>
         ) : (
           <ul className="divide-y">
-            {numbers.recentPrs.map((item) => (
+            {prs.items.map((item) => (
               <li key={item.id}>
                 <a
                   href={item.pr!.url}
@@ -271,6 +281,12 @@ export function ProjectsBoard({
             ))}
           </ul>
         )}
+        <Pager
+          page={prs}
+          noun={["pull request", "pull requests"]}
+          onPage={prs.setPage}
+          testId="prs-pager"
+        />
       </Panel>
     </div>
   );

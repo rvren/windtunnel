@@ -1,3 +1,7 @@
+"use client";
+
+import { Pager } from "@/components/pager";
+import { usePage } from "@/hooks/use-page";
 import { InfoTip } from "@/components/info-tip";
 import { KeyRound } from "lucide-react";
 
@@ -29,6 +33,7 @@ const SINK: Record<DataSink, string> = {
 };
 
 export function PrivacyView({ privacy }: { privacy: CockpitPrivacy }) {
+  const secrets = usePage(privacy.secrets, "", 10);
   if (privacy.categories.length === 0 && privacy.secrets.length === 0) {
     return null;
   }
@@ -55,12 +60,19 @@ export function PrivacyView({ privacy }: { privacy: CockpitPrivacy }) {
             the code
           </p>
           <ul className="mt-2 space-y-1 font-mono text-xs text-muted-foreground">
-            {privacy.secrets.map((secret) => (
+            {secrets.items.map((secret) => (
               <li key={`${secret.path}:${secret.line}`}>
                 {secret.kind} · {secret.path}:{secret.line}
               </li>
             ))}
           </ul>
+          <Pager
+            page={secrets}
+            noun={["secret", "secrets"]}
+            onPage={secrets.setPage}
+            className="-mx-4 mt-2"
+            testId="privacy-secrets-pager"
+          />
           <p className="mt-2 text-xs text-muted-foreground">
             Each is a critical security issue with its remediation above. The
             values are never stored or shown.

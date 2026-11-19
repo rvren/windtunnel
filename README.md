@@ -336,6 +336,12 @@ orders, what it cost and when it started. A row of pills filters the list
 by kind, with a count for each; the filter is in the address. The bar above
 the list adds up the runs shown.
 
+Every long list in the app shows a page at a time, with a pager under it:
+the runs, a project's runs, issues, fixed issues, security issues and
+secrets, a run's issues, work orders and rejected findings, the projects
+and their pull requests. On the Runs pages the page is in the address, so
+it can be shared; a new filter starts again at page 1.
+
 ## The live map
 
 While a project's code is being read, the run page and the project page show

@@ -37,6 +37,9 @@ export interface RunStore {
   markInterrupted(activeIds: string[]): Promise<number>;
 }
 
+/** The most run summaries one list reads. Far above any real project. */
+const LIST_BOUND = 10_000;
+
 export interface RunFilter {
   /** Only this project's runs. */
   projectId?: string;
@@ -244,7 +247,9 @@ export class PgRunStore implements RunStore {
         ),
       )
       .orderBy(desc(runs.createdAt))
-      .limit(200);
+      // Summaries are small: every run is listed, and the screens show
+      // them a page at a time. The bound only guards against a runaway.
+      .limit(LIST_BOUND);
     return rows.map((row) => ({
       ...row,
       createdAt: row.createdAt.toISOString(),

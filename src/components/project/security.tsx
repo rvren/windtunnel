@@ -1,5 +1,7 @@
 "use client";
 
+import { Pager } from "@/components/pager";
+import { usePage } from "@/hooks/use-page";
 import { InfoTip } from "@/components/info-tip";
 import { useState } from "react";
 
@@ -23,6 +25,13 @@ export function SecurityView({ issues }: { issues: CockpitIssue[] }) {
   );
   const [owasp, setOwasp] = useState<string | null>(null);
   const [severity, setSeverity] = useState<Severity | null>(null);
+  const shown = security.filter(
+    (issue) =>
+      (!owasp || issue.remediation?.owasp?.id === owasp) &&
+      (!severity || issue.severity === severity),
+  );
+  // A page at a time; a new filter starts at page 1.
+  const page = usePage(shown, `${owasp ?? ""}|${severity ?? ""}`, 20);
   if (security.length === 0) return null;
 
   const categories = [
@@ -34,11 +43,6 @@ export function SecurityView({ issues }: { issues: CockpitIssue[] }) {
       ),
     ).values(),
   ].sort((a, b) => a.id.localeCompare(b.id));
-  const shown = security.filter(
-    (issue) =>
-      (!owasp || issue.remediation?.owasp?.id === owasp) &&
-      (!severity || issue.severity === severity),
-  );
   const withPatch = security.filter(
     (issue) => (issue.remediation?.edits.length ?? 0) > 0,
   ).length;
@@ -104,7 +108,7 @@ export function SecurityView({ issues }: { issues: CockpitIssue[] }) {
       </div>
       <Panel>
         <ul className="divide-y" data-testid="security-issues">
-          {shown.map((issue) => (
+          {page.items.map((issue) => (
             <li key={issue.id}>
               <details className="group px-4 py-3" data-testid="security-issue">
                 <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 outline-none [&::-webkit-details-marker]:hidden">
@@ -143,6 +147,12 @@ export function SecurityView({ issues }: { issues: CockpitIssue[] }) {
             </li>
           ) : null}
         </ul>
+        <Pager
+          page={page}
+          noun={["security issue", "security issues"]}
+          onPage={page.setPage}
+          testId="security-pager"
+        />
       </Panel>
     </section>
   );

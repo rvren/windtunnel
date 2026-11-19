@@ -69,7 +69,7 @@ export const EXPLAIN = {
   projectsHealth:
     "Each project: the ring is the share of the issues found in its code that are confirmed fixed, the bar its open code issues by severity, then its open fix pull requests, its last run and the one thing to do next. Risks from requirement runs are probable, not built yet, so they get their own line and do not count here.",
   recentPrs:
-    "The latest fix pull requests Windtunnel opened, and where each is now.",
+    "Every fix pull request Windtunnel opened, newest first, and where each is now.",
   recentRuns: "The latest runs, newest first.",
   remediation:
     "A fix for this security issue: steps, its CWE and OWASP mapping, and a patch whose lines matched the real files. It is never applied.",

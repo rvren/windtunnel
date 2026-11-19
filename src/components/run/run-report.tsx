@@ -1,4 +1,6 @@
 import { InfoTip } from "@/components/info-tip";
+import { Pager } from "@/components/pager";
+import { usePage } from "@/hooks/use-page";
 import { RunTrace } from "@/components/tuff/run-trace";
 import {
   DeliveryStrip,
@@ -91,7 +93,24 @@ function lookups(run: RunRecord) {
 export function NotAccepted({ run }: { run: RunRecord }) {
   const { findings } = lookups(run);
   const dropped = run.agents.flatMap((agent) => agent.dropped);
-  if (run.rejected.length + dropped.length === 0) return null;
+  // The judge's rejections, then the citation check's drops, one list.
+  const rows = [
+    ...run.rejected.map((item) => {
+      const finding = findings.get(item.findingId);
+      return {
+        key: item.findingId,
+        title: finding?.title ?? item.findingId,
+        why: `${finding ? `${agentName(finding.agentId)}. ` : ""}Rejected by the judge: ${item.reason}`,
+      };
+    }),
+    ...dropped.map((item, index) => ({
+      key: `${item.agentId}-${index}`,
+      title: item.title,
+      why: `${agentName(item.agentId)}. Dropped by the citation check: ${item.reason}`,
+    })),
+  ];
+  const page = usePage(rows, "", 10);
+  if (rows.length === 0) return null;
   return (
     <section>
       <SectionTitle
@@ -101,28 +120,20 @@ export function NotAccepted({ run }: { run: RunRecord }) {
         Not accepted
       </SectionTitle>
       <ul className="mt-3 divide-y rounded-card border bg-card px-4 text-sm">
-        {run.rejected.map((item) => {
-          const finding = findings.get(item.findingId);
-          return (
-            <li key={item.findingId} className="py-3">
-              <p className="font-medium">{finding?.title ?? item.findingId}</p>
-              <p className="mt-0.5 text-muted-foreground">
-                {finding ? `${agentName(finding.agentId)}. ` : ""}
-                Rejected by the judge: {item.reason}
-              </p>
-            </li>
-          );
-        })}
-        {dropped.map((item, index) => (
-          <li key={`${item.agentId}-${index}`} className="py-3">
-            <p className="font-medium">{item.title}</p>
-            <p className="mt-0.5 text-muted-foreground">
-              {agentName(item.agentId)}. Dropped by the citation check:{" "}
-              {item.reason}
-            </p>
+        {page.items.map((row) => (
+          <li key={row.key} className="py-3">
+            <p className="font-medium">{row.title}</p>
+            <p className="mt-0.5 text-muted-foreground">{row.why}</p>
           </li>
         ))}
       </ul>
+      <Pager
+        page={page}
+        noun={["finding", "findings"]}
+        onPage={page.setPage}
+        className="mt-2 rounded-card border bg-card"
+        testId="not-accepted-pager"
+      />
     </section>
   );
 }
@@ -139,6 +150,8 @@ export function WorkOrdersTab({ run }: { run: RunRecord }) {
   const sentAs = new Map(
     deliveries.state?.deliveries.map((item) => [item.workOrderId, item]) ?? [],
   );
+  // Work orders are long cards: ten to a page.
+  const page = usePage(run.workOrders, "", 10);
 
   if (run.workOrders.length === 0) {
     return (
@@ -165,7 +178,7 @@ export function WorkOrdersTab({ run }: { run: RunRecord }) {
         sample={run.sample}
         deliveries={deliveries}
       />
-      {run.workOrders.map((workOrder) => (
+      {page.items.map((workOrder) => (
         <article
           key={workOrder.id}
           className="rounded-card border bg-card p-5"
@@ -203,6 +216,19 @@ export function WorkOrdersTab({ run }: { run: RunRecord }) {
           </p>
         </article>
       ))}
+      <Pager
+        page={page}
+        noun={["work order", "work orders"]}
+        onPage={(n) => {
+          page.setPage(n);
+          // Back to the top of the list, where the next page starts.
+          document
+            .querySelector("[data-testid=work-order]")
+            ?.scrollIntoView({ block: "start", behavior: "smooth" });
+        }}
+        className="rounded-card border bg-card"
+        testId="work-orders-pager"
+      />
       {run.unaddressedGroupIds.length > 0 ? (
         <p className="text-sm text-sev-high">
           No work order covers:{" "}

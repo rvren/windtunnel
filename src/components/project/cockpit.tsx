@@ -1,5 +1,7 @@
 "use client";
 
+import { Pager } from "@/components/pager";
+import { usePage } from "@/hooks/use-page";
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -291,6 +293,9 @@ export function Cockpit({
         (issue.type === "security_vulnerability" &&
           hasPatch(issue) === (filter.patched === "yes"))),
   );
+  // A page at a time; a new filter starts at page 1.
+  const issuesPage = usePage(shown, JSON.stringify(filter));
+  const fixedPage = usePage(fixed, "", 10);
 
   // The nodes on the canvas that match the filters, to light them.
   const selectedNodes = [
@@ -588,7 +593,7 @@ export function Cockpit({
             {shown.length > 0 ? (
               <ul className="divide-y" data-testid="cockpit-issues">
                 <AnimatePresence initial={false}>
-                  {shown.map((issue) => (
+                  {issuesPage.items.map((issue) => (
                     <FadeInItem key={issue.id}>
                       <Issue
                         issue={issue}
@@ -608,6 +613,16 @@ export function Cockpit({
                 No issue matches these filters.
               </p>
             )}
+            <Pager
+              page={issuesPage}
+              noun={
+                cockpit.fromRequirement
+                  ? ["risk", "risks"]
+                  : ["issue", "issues"]
+              }
+              onPage={issuesPage.setPage}
+              testId="cockpit-issues-pager"
+            />
           </Panel>
         </FadeIn>
       ) : null}
@@ -619,7 +634,7 @@ export function Cockpit({
           />
           <Panel>
             <ul className="divide-y">
-              {fixed.map((item) => (
+              {fixedPage.items.map((item) => (
                 <li
                   key={item.id}
                   className="flex items-center gap-3 px-4 py-3 text-sm"
@@ -643,6 +658,12 @@ export function Cockpit({
                 </li>
               ))}
             </ul>
+            <Pager
+              page={fixedPage}
+              noun={["fixed issue", "fixed issues"]}
+              onPage={fixedPage.setPage}
+              testId="cockpit-fixed-pager"
+            />
           </Panel>
         </section>
       ) : null}

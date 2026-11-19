@@ -12,6 +12,7 @@ import {
   RunCheckAll,
   RunSelection,
 } from "@/components/run/run-delete";
+import { Pager } from "@/components/pager";
 import { RunFilters } from "@/components/run/run-filters";
 import { SeverityBar } from "@/components/severity-bar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,6 +20,7 @@ import { pillClass } from "@/components/pill";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCost } from "@/lib/cost";
 import { RUN_STATUS_LABEL, SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/labels";
+import { pageOf } from "@/lib/paging";
 import { cn } from "@/lib/utils";
 import { SEVERITY_TONE } from "@/lib/viz/cockpit-views";
 import {
@@ -99,16 +101,20 @@ async function RunsTable({
   const kinds = kindCounts(runs);
   const everyKind = runs.length;
   if (kind) runs = runs.filter((run) => run.kind === kind);
-  const hrefFor = (next: RunKind | null) => {
+  /** The list's address with these filters; a new filter starts at page 1. */
+  const hrefFor = (next: RunKind | null, page = 1) => {
     const params = new URLSearchParams();
     if (projectId) params.set("project", projectId);
     for (const name of picked) params.append("workspace", name);
     if (next) params.set("kind", next);
+    if (page > 1) params.set("page", String(page));
     const text = params.toString();
     return text ? `/app/runs?${text}` : "/app/runs";
   };
+  const shown = pageOf(runs, query.page);
   const nameOf = new Map(projects.map((item) => [item.id, item.name]));
-  const deletable = runs
+  // Ticking "all" ticks the runs on this page: never runs out of sight.
+  const deletable = shown.items
     .filter((run) => run.status !== "running")
     .map((run) => run.id);
   const current = projects.find((item) => item.id === projectId);
@@ -206,7 +212,7 @@ async function RunsTable({
                 <span className="hidden text-right xl:block">Cost</span>
                 <span className="hidden text-right xl:block">Started</span>
               </li>
-              {runs.map((run) => (
+              {shown.items.map((run) => (
                 <RunRowItem
                   key={run.id}
                   run={run}
@@ -217,6 +223,12 @@ async function RunsTable({
               ))}
             </ul>
           )}
+          <Pager
+            page={shown}
+            noun={["run", "runs"]}
+            href={(page) => hrefFor(kind, page)}
+            testId="runs-pager"
+          />
         </Panel>
       </RunSelection>
     </>
