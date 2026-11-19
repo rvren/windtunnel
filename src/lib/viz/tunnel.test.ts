@@ -99,16 +99,24 @@ describe("the 3D tunnel", () => {
 
   it("shows the whole test section, near corners included", () => {
     const { floor, ceiling, back, open, fan, end } = TUNNEL_3D;
-    // The fan's wall stands 0.15 proud of the section all round; the
+    // The fan's wall stands 0.15 proud of the section (0.35 on its open
+    // side); the
     // floor and the ceiling run from it to just past the streams' end.
     const corners: Vec3[] = [];
     for (const y of [floor - 0.15, ceiling + 0.15]) {
-      for (const z of [back - 0.15, open + 0.15]) {
+      for (const z of [back - 0.15, open + 0.35]) {
         corners.push([fan + 0.3, y, z]);
       }
     }
     for (const y of [floor, ceiling]) {
       for (const z of [back, open]) corners.push([end + 0.3, y, z]);
+    }
+    // The floor's slab, below the floor and a little past the open side,
+    // and the back wall's, a little over the ceiling.
+    const { slab, lip } = TUNNEL_3D.slab;
+    for (const x of [fan + 0.3, end + 0.3]) {
+      corners.push([x, floor - slab, open + lip]);
+      corners.push([x, ceiling + lip, back - slab]);
     }
     for (const corner of corners) {
       const at = project(corner);

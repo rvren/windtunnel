@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { Reflector } from "three/addons/objects/Reflector.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
@@ -20,8 +19,8 @@ import { css, type Palette, type Rgb } from "./colors";
 /*
  * The 3D wind tunnel: a test section seen from downstream, looking back at
  * its fan. The fan turns in its duct behind a flared, matte inlet, with
- * stator vanes behind it; the section is a polished floor, a smoked-glass
- * back wall and a glass ceiling with two light strips, open on the side
+ * stator vanes behind it; the section is a matte floor, a matte back wall
+ * and a faint glass ceiling with two light strips, open on the side
  * that faces us, with no frames across it (the owner found them noisy). The application stands on a turntable in the
  * middle: three plates on a sting (its interface, its services, its data),
  * each part of it a tile. A rake lets out one fine stream per worker; a
@@ -92,6 +91,60 @@ function strutGeometry(chord: number, thick: number, from: number, to: number) {
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(0, from, 0);
   geometry.computeVertexNormals();
+  return geometry;
+}
+
+let shadowTexture: THREE.Texture | null = null;
+
+/**
+ * A soft shadow's shape: dark in the middle, fading out to nothing at the
+ * edges. Drawn once and shared.
+ */
+function contactShadow(): THREE.Texture {
+  if (shadowTexture) return shadowTexture;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const fade = context.createRadialGradient(
+      size / 2,
+      size / 2,
+      0,
+      size / 2,
+      size / 2,
+      size / 2,
+    );
+    fade.addColorStop(0, "rgba(255,255,255,0.9)");
+    fade.addColorStop(0.45, "rgba(255,255,255,0.55)");
+    fade.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = fade;
+    context.fillRect(0, 0, size, size);
+  }
+  shadowTexture = new THREE.CanvasTexture(canvas);
+  return shadowTexture;
+}
+
+/**
+ * A solid slab, `w` by `d` and `t` thick, its corners rounded by `r` and
+ * its edges softly bevelled: the floor and the back wall. Its face is the
+ * plane z = 0, facing +z; its body lies behind it.
+ */
+function slabGeometry(w: number, d: number, t: number, r: number) {
+  const bevel = 0.02;
+  const geometry = new THREE.ExtrudeGeometry(
+    rounded(new THREE.Shape(), w - bevel * 2, d - bevel * 2, r),
+    {
+      depth: t - bevel * 2,
+      bevelEnabled: true,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 3,
+      curveSegments: 16,
+    },
+  );
+  geometry.translate(0, 0, -t + bevel);
   return geometry;
 }
 
@@ -364,11 +417,6 @@ export class Tunnel3D {
       ? THREE.NoToneMapping
       : THREE.NeutralToneMapping;
     this.renderer.toneMappingExposure = 1;
-    // Soft shadows under the model and its stand.
-    this.renderer.shadowMap.enabled = true;
-    // Percentage-closer filtering, softened by the light's shadow radius
-    // (three.js folded its soft variant into this one).
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     const studio = new THREE.PMREMGenerator(this.renderer);
     this.environment = studio.fromScene(new RoomEnvironment(), 0.04).texture;
     studio.dispose();
@@ -487,18 +535,6 @@ export class Tunnel3D {
     room.add(new THREE.AmbientLight(0xffffff, (p.dark ? 0.12 : 0.35) * pi));
     const key = new THREE.DirectionalLight(0xffffff, (p.dark ? 0.9 : 0.8) * pi);
     key.position.set(3, 9, 6);
-    // The shadow covers the section, and is soft at its edges.
-    key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
-    key.shadow.camera.left = -7;
-    key.shadow.camera.right = 6;
-    key.shadow.camera.top = 5;
-    key.shadow.camera.bottom = -5;
-    key.shadow.camera.near = 1;
-    key.shadow.camera.far = 25;
-    key.shadow.bias = -0.0004;
-    key.shadow.normalBias = 0.02;
-    key.shadow.radius = 4;
     room.add(key);
     const fill = new THREE.DirectionalLight(
       0xffffff,
@@ -519,38 +555,26 @@ export class Tunnel3D {
     const cz = (T.back + T.open) / 2;
     const height = T.ceiling - T.floor;
 
-    // A polished floor: a mirror under a sheer layer of the floor's colour,
-    // so the model and the streams show faintly in it.
-    const mirror = new Reflector(new THREE.PlaneGeometry(length, width), {
-      clipBias: 0.003,
-      textureWidth: 1536,
-      textureHeight: 768,
-      color: p.dark ? 0xa8a8b4 : 0xc8c8d4,
-    });
-    mirror.rotation.x = -pi / 2;
-    mirror.position.set(cx, T.floor - 0.004, cz);
-    room.add(mirror);
+    // The floor and the back wall are solid slabs, as the wall the fan
+    // comes through is: a thickness you can see, softly bevelled edges, a
+    // little proud of the section. Matte: they take the light and the
+    // model's soft shade, and mirror nothing (the owner chose matte).
+    const { slab: thick, lip: proud } = T.slab;
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(length, width),
-      this.standard(p.floor, {
-        roughness: 0.3,
-        metalness: 0.15,
-        transparent: true,
-        opacity: p.dark ? 0.66 : 0.76,
-      }),
+      slabGeometry(length, width + proud * 2, thick, 0.16),
+      this.standard(p.floor, { roughness: 0.85, metalness: 0.05 }),
     );
-    floor.receiveShadow = true;
+    // Laid flat, its top face is the floor.
     floor.rotation.x = -pi / 2;
     floor.position.set(cx, T.floor, cz);
     room.add(floor);
     const back = new THREE.Mesh(
-      new THREE.PlaneGeometry(length, height),
-      // A soft matte wall: it takes the light, and mirrors nothing (the
-      // owner wanted the reflections on the floor, not on the walls).
+      slabGeometry(length, height + thick + proud, thick, 0.16),
       this.standard(p.wall, { roughness: 0.82, metalness: 0.05 }),
     );
-    back.receiveShadow = true;
-    back.position.set(cx, 0, T.back);
+    // Stood up behind the section, its face is the back wall; it runs
+    // from the bottom of the floor's slab to a little over the ceiling.
+    back.position.set(cx, (T.ceiling + proud + T.floor - thick) / 2, T.back);
     room.add(back);
     // Glass: clear and faint, with only a soft sheen.
     const glass = new THREE.Mesh(
@@ -582,12 +606,14 @@ export class Tunnel3D {
     // The wall the fan comes through.
     // Turned to face the air, its width runs along -z: its middle is at
     // -cz in its own plane, and the fan's hole stays on the axis.
+    // It reaches 0.35 past the open side (0.15 elsewhere), so the fan's
+    // lit duct never shows round its edge from the camera.
     const wall = rounded(
       new THREE.Shape(),
-      width + 0.3,
+      width + 0.5,
       height + 0.3,
       0.36,
-      -cz,
+      -(cz + 0.1),
     );
     wall.holes.push(
       new THREE.Path().absarc(0, 0, T.fanRadius - 0.02, 0, pi * 2, true),
@@ -601,9 +627,8 @@ export class Tunnel3D {
     wallGeometry.rotateY(pi / 2);
     const endWall = new THREE.Mesh(
       wallGeometry,
-      this.standard(p.wall, { metalness: 0.25, roughness: 0.6 }),
+      this.standard(p.wall, { metalness: 0.05, roughness: 0.85 }),
     );
-    endWall.receiveShadow = true;
     endWall.position.x = x0;
     room.add(endWall);
 
@@ -648,7 +673,6 @@ export class Tunnel3D {
       this.standard(p.metal, { ...MATTE, side: THREE.DoubleSide }),
     );
     lip.position.x = x0 - 0.1;
-    lip.receiveShadow = true;
     room.add(lip);
 
     // Wide, swept, overlapping blades round a rounded nose cone.
@@ -766,7 +790,6 @@ export class Tunnel3D {
       this.standard(p.metal, { metalness: 0.3, roughness: 0.6 }),
     );
     rake.position.set(T.rake, 0, 0);
-    rake.castShadow = true;
     this.stage.add(rake);
     input.streams.forEach((worker, index) => {
       const y = rows[index];
@@ -852,26 +875,43 @@ export class Tunnel3D {
     group.position.x = x;
     this.stage.add(group);
     const table = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.2 * scale, 1.2 * scale, 0.03, 64),
+      new THREE.CylinderGeometry(1.0 * scale, 1.0 * scale, 0.03, 64),
       // A machined turntable, set in the floor.
       this.standard(p.plate, { roughness: 0.38, metalness: 0.55 }),
     );
-    table.receiveShadow = true;
     table.position.y = T.floor + 0.02;
     group.add(table);
     const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(1.2 * scale, 0.01, 8, 96),
+      new THREE.TorusGeometry(1.0 * scale, 0.01, 8, 96),
       this.basic(this.tone("brand"), { opacity: 0.45 }),
     );
     rim.rotation.x = Math.PI / 2;
     rim.position.y = T.floor + 0.038;
     group.add(rim);
+    // A soft contact shadow under the plates: smooth at any size, where a
+    // shadow map's edges stepped.
+    const shade = new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        T.plate.w * scale * 1.45,
+        T.plate.d * scale * 1.6,
+      ),
+      new THREE.MeshBasicMaterial({
+        map: contactShadow(),
+        color: 0x000000,
+        transparent: true,
+        opacity: p.dark ? 0.7 : 0.22,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    );
+    shade.rotation.x = -Math.PI / 2;
+    shade.position.y = T.floor + 0.042;
+    group.add(shade);
     // A faired strut from the turntable up to the model.
     const sting = new THREE.Mesh(
       strutGeometry(0.18 * Math.max(scale, 0.7), 0.045, T.floor, T.plateY.data),
       this.standard(p.metal, { metalness: 0.6, roughness: 0.35 }),
     );
-    sting.castShadow = true;
     group.add(sting);
 
     const plates = {} as Model["plates"];
@@ -901,8 +941,6 @@ export class Tunnel3D {
       const holder = new THREE.Group();
       holder.position.y = T.plateY[plate];
       const face = new THREE.Mesh(geometry, material);
-      face.castShadow = true;
-      face.receiveShadow = true;
       holder.add(face);
       holder.add(
         new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edge),
@@ -984,7 +1022,6 @@ export class Tunnel3D {
         [side, side, top, side, side, side],
       );
       mesh.position.set(spot[0] - modelX, 0.05, spot[2]);
-      mesh.castShadow = true;
       // A fine outline, so a tile reads on a plate of the same colour.
       mesh.add(
         new THREE.LineSegments(

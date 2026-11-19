@@ -131,7 +131,12 @@ export const TUNNEL_3D = {
   fanRadius: 1.12,
   back: -2,
   /** Where the section ends on the side that faces the camera. */
-  open: 1.2,
+  open: 1.05,
+  /**
+   * The floor and back wall are slabs: how thick, and how far they stand
+   * proud of the section at their free edges.
+   */
+  slab: { slab: 0.12, lip: 0.06 },
   /** Each plate's height, from the top. */
   plateY: { interface: 0.5, services: 0, data: -0.5 },
   plate: { w: 2.1, d: 1.5 },
