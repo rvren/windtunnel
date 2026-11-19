@@ -389,7 +389,9 @@ export class Tunnel3D {
     for (const x of T.frames) room.add(this.rib(x, metal));
     // The wall the fan comes through.
     const wall = rounded(new THREE.Shape(), width + 0.3, height + 0.3, 0.36);
-    wall.holes.push(new THREE.Path().absarc(0, 0, 1.3, 0, pi * 2, true));
+    wall.holes.push(
+      new THREE.Path().absarc(0, 0, T.fanRadius - 0.02, 0, pi * 2, true),
+    );
     const wallGeometry = new THREE.ExtrudeGeometry(wall, {
       depth: 0.22,
       bevelEnabled: false,
@@ -406,7 +408,7 @@ export class Tunnel3D {
 
     // The fan: its duct, lit from deep inside while it turns; the lip.
     const duct = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.32, 1.32, 1.5, 64, 1, true),
+      new THREE.CylinderGeometry(T.fanRadius, T.fanRadius, 1.5, 64, 1, true),
       this.standard(p.wall, {
         side: THREE.BackSide,
         metalness: 0.6,
@@ -418,14 +420,14 @@ export class Tunnel3D {
     room.add(duct);
     this.ductGlow = this.basic(this.color(p.brand), { opacity: 0 });
     const deep = new THREE.Mesh(
-      new THREE.CircleGeometry(1.32, 64),
+      new THREE.CircleGeometry(T.fanRadius, 64),
       this.ductGlow,
     );
     deep.rotation.y = pi / 2;
     deep.position.x = T.fan - 1.1;
     room.add(deep);
     const lip = new THREE.Mesh(
-      new THREE.TorusGeometry(1.34, 0.075, 16, 96),
+      new THREE.TorusGeometry(T.fanRadius + 0.02, 0.07, 16, 96),
       this.standard(p.metal, { metalness: 0.9, roughness: 0.18 }),
     );
     lip.rotation.y = pi / 2;
@@ -435,6 +437,8 @@ export class Tunnel3D {
     // Wide, swept, overlapping blades round a rounded nose cone.
     const mount = new THREE.Group();
     mount.rotation.y = pi / 2;
+    // Drawn for a fan of radius 1.32, then scaled to the one here.
+    mount.scale.setScalar(T.fanRadius / 1.32);
     mount.position.x = T.fan - 0.1;
     room.add(mount);
     this.fan = new THREE.Group();

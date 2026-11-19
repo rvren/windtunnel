@@ -97,6 +97,24 @@ describe("the 3D tunnel", () => {
     }
   });
 
+  it("shows the whole test section, near corners included", () => {
+    const { floor, ceiling, back, near, fan, frames } = TUNNEL_3D;
+    // The fan's wall (it stands a little proud of the section), every
+    // frame, and the floor and ceiling at both ends.
+    const xs = [fan + 0.15, fan + 0.3, ...frames];
+    for (const x of xs) {
+      for (const y of [floor - 0.15, ceiling + 0.15]) {
+        for (const z of [back - 0.15, near + 0.15]) {
+          const at = project([x, y, z]);
+          expect(at.x).toBeGreaterThan(0.01);
+          expect(at.x).toBeLessThan(0.99);
+          expect(at.y).toBeGreaterThan(0.01);
+          expect(at.y).toBeLessThan(0.99);
+        }
+      }
+    }
+  });
+
   it("keeps every worker's name inside the drawing, and apart", () => {
     for (const count of [1, 2, 3, 4, 5]) {
       const labels = rows3d(count).map((y) =>

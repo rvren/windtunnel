@@ -105,22 +105,30 @@ export function crossing(
 
 export type Vec3 = [number, number, number];
 
+/*
+ * The camera stands well back with a long lens (a narrow field of view):
+ * the whole section fits a short, wide drawing, near corners included,
+ * and it still looks down on the model by about 10 degrees, so the
+ * plates and their parts read.
+ */
 export const TUNNEL_3D = {
   /** The drawing's width over its height. */
-  aspect: 2.2,
+  aspect: 2.75,
   camera: {
-    position: [6.3, 1.75, 6.6] as Vec3,
-    target: [-0.5, -0.3, -0.45] as Vec3,
+    position: [5.11, 2.39, 11.72] as Vec3,
+    target: [-0.24, -0.53, -0.55] as Vec3,
     /** The vertical field of view, in degrees. */
-    fov: 33,
+    fov: 20.6,
   },
   /** Where the fan turns, the rake stands, the model sits, streams end. */
   fan: -5.7,
   rake: -4.1,
   model: 0.2,
   end: 3.2,
-  floor: -1.5,
-  ceiling: 1.5,
+  floor: -1.3,
+  ceiling: 1.3,
+  /** The fan's radius, inside the wall it comes through. */
+  fanRadius: 1.12,
   back: -2,
   near: 2,
   /** The frames along the test section, clear of the model. */
@@ -138,7 +146,7 @@ export const TUNNEL_3D = {
    * Preflight's board, high on the back wall past the model, where the
    * camera sees it clear of the plates and the names: from the model's x.
    */
-  board: { x: 1.35, y: 0.78 },
+  board: { x: 1.35, y: 0.62 },
 } as const;
 
 /** The height of each worker's stream, top first, for 1 to 5 workers. */
