@@ -87,7 +87,11 @@ take something away.
   one panel that fits a screen:
   - A **test section seen from downstream**, looking back at its fan: the
     floor and the back wall are solid matte slabs with softly bevelled
-    edges, like the wall the fan comes through; a faint glass ceiling with
+    edges, like the wall the fan comes through, in neutral greys with no
+    tint (concrete-grey floor and off-white wall in the light theme,
+    charcoal and graphite in the dark), their faces textured like sealed
+    concrete (fine grain, soft mottle) and darker in the corners the light
+    does not reach; a soft overhead light pools around the model; a faint glass ceiling with
     no strips or bars along it (the owner had them taken off); open on the
     side that faces us. Nothing in the room
     mirrors: the owner tried a polished floor and chose matte. **No

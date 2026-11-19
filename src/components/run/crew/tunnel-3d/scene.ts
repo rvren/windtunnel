@@ -522,6 +522,92 @@ export class Tunnel3D {
     return texture;
   }
 
+  /**
+   * A surface as a real one looks: its colour with a fine grain and a soft
+   * mottle, like sealed concrete, and darker along the edges that meet
+   * another surface, where the light does not reach. `shade` names those
+   * edges in the texture's own terms. Made for a slab's face `w` by `h`
+   * (its UVs are its shape's own coordinates, centred on its middle).
+   */
+  private surface(
+    base: Rgb,
+    w: number,
+    h: number,
+    shade: ("left" | "right" | "top" | "bottom")[],
+  ): THREE.CanvasTexture {
+    const height = 512;
+    const width = Math.min(2048, Math.round((height * w) / h));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (context) {
+      context.fillStyle = css(base);
+      context.fillRect(0, 0, width, height);
+      // A soft mottle: broad patches a shade lighter or darker.
+      for (let i = 0; i < 90; i += 1) {
+        const x = Math.random() * width;
+        const y = Math.random() * height;
+        const r = height * (0.12 + Math.random() * 0.4);
+        const patch = context.createRadialGradient(x, y, 0, x, y, r);
+        const tone = Math.random() < 0.5 ? "0,0,0" : "255,255,255";
+        const strength = this.palette.dark ? 0.6 : 1;
+        patch.addColorStop(
+          0,
+          `rgba(${tone},${(0.025 + Math.random() * 0.03) * strength})`,
+        );
+        patch.addColorStop(1, `rgba(${tone},0)`);
+        context.fillStyle = patch;
+        context.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      // A fine grain, pixel by pixel.
+      const image = context.getImageData(0, 0, width, height);
+      const grain = this.palette.dark ? 7 : 9;
+      for (let i = 0; i < image.data.length; i += 4) {
+        const n = (Math.random() - 0.5) * grain;
+        image.data[i] += n;
+        image.data[i + 1] += n;
+        image.data[i + 2] += n;
+      }
+      context.putImageData(image, 0, 0);
+      // The corners the light does not reach.
+      const depth = this.palette.dark ? 0.4 : 0.22;
+      for (const edge of shade) {
+        const across = edge === "left" || edge === "right";
+        const reach = across ? width * 0.07 : height * 0.2;
+        const [x0, y0, x1, y1] =
+          edge === "left"
+            ? [0, 0, reach, 0]
+            : edge === "right"
+              ? [width, 0, width - reach, 0]
+              : edge === "top"
+                ? [0, 0, 0, reach]
+                : [0, height, 0, height - reach];
+        const fall = context.createLinearGradient(x0, y0, x1, y1);
+        fall.addColorStop(0, `rgba(0,0,0,${depth})`);
+        fall.addColorStop(1, "rgba(0,0,0,0)");
+        context.fillStyle = fall;
+        context.fillRect(0, 0, width, height);
+      }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 8;
+    // The slab's face has UVs in its own units, from -w/2 to w/2.
+    texture.repeat.set(1 / w, 1 / h);
+    texture.offset.set(0.5, 0.5);
+    return texture;
+  }
+
+  /** A slab's materials: its face with the surface on it, plain sides. */
+  private slabMaterials(base: Rgb, map: THREE.Texture) {
+    const darker: Rgb = [base[0] * 0.86, base[1] * 0.86, base[2] * 0.86];
+    return [
+      this.standard([1, 1, 1], { map, roughness: 0.88, metalness: 0.02 }),
+      this.standard(darker, { roughness: 0.88, metalness: 0.02 }),
+    ];
+  }
+
   // ── The room: everything that stays for every run ───────────────────────
 
   private buildRoom() {
@@ -542,6 +628,19 @@ export class Tunnel3D {
     );
     fill.position.set(-6, 3, 4);
     room.add(fill);
+    // A soft pool of light over the model, as a test section is lit: the
+    // light falls off towards the tunnel's ends.
+    const pool = new THREE.SpotLight(
+      0xffffff,
+      p.dark ? 46 : 26,
+      10,
+      0.62,
+      0.9,
+      2,
+    );
+    pool.position.set(T.model + 0.4, T.ceiling + 2.4, 0.2);
+    pool.target.position.set(T.model, T.floor, -0.4);
+    room.add(pool, pool.target);
     this.fanLight = new THREE.PointLight(this.color(p.brand), 0, 7.5, 2);
     this.fanLight.position.set(T.fan + 1.3, 0, 0.4);
     room.add(this.fanLight);
@@ -560,17 +659,27 @@ export class Tunnel3D {
     // little proud of the section. Matte: they take the light and the
     // model's soft shade, and mirror nothing (the owner chose matte).
     const { slab: thick, lip: proud } = T.slab;
+    // Its far edge meets the back wall and its left end the fan's wall:
+    // the texture darkens there.
+    const floorDepth = width + proud * 2;
     const floor = new THREE.Mesh(
-      slabGeometry(length, width + proud * 2, thick, 0.16),
-      this.standard(p.floor, { roughness: 0.85, metalness: 0.05 }),
+      slabGeometry(length, floorDepth, thick, 0.16),
+      this.slabMaterials(
+        p.floor,
+        this.surface(p.floor, length, floorDepth, ["top", "left"]),
+      ),
     );
     // Laid flat, its top face is the floor.
     floor.rotation.x = -pi / 2;
     floor.position.set(cx, T.floor, cz);
     room.add(floor);
+    const wallHeight = height + thick + proud;
     const back = new THREE.Mesh(
-      slabGeometry(length, height + thick + proud, thick, 0.16),
-      this.standard(p.wall, { roughness: 0.82, metalness: 0.05 }),
+      slabGeometry(length, wallHeight, thick, 0.16),
+      this.slabMaterials(
+        p.wall,
+        this.surface(p.wall, length, wallHeight, ["bottom", "left"]),
+      ),
     );
     // Stood up behind the section, its face is the back wall; it runs
     // from the bottom of the floor's slab to a little over the ceiling.

@@ -311,11 +311,12 @@ export function WindTunnel3D({
       ref={box}
       className={cn(
         "@container",
-        // The tunnel's room and metal: pale in the light theme, dark in the
-        // dark one. The rest are the app's own tokens.
+        // The tunnel's room and metal: neutral greys, as a real test section
+        // is painted (no tint); concrete-light in the light theme, charcoal
+        // in the dark one. The rest are the app's own tokens.
         "[--wt-bg:var(--card)] [--wt-ink:var(--foreground)]",
-        "[--wt-floor:#e4e4ee] dark:[--wt-floor:#111118]",
-        "[--wt-wall:#e2e2ec] dark:[--wt-wall:#14141c]",
+        "[--wt-floor:#9c9da1] dark:[--wt-floor:#25262a]",
+        "[--wt-wall:#ecedee] dark:[--wt-wall:#2c2d31]",
         "[--wt-frame:#cfcfdc] dark:[--wt-frame:#5a5a70]",
         "[--wt-metal:#ffffff] dark:[--wt-metal:#8e8ea2]",
         "[--wt-blade:#dcdce8] dark:[--wt-blade:#5e5e72]",
