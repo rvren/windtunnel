@@ -116,6 +116,16 @@ take something away.
     sweeping the model. Engine Out's hops and Preflight's lines arrive mid
     stage through the `run.progress` event, which makes the page fetch
     the run again (at most once every 750ms, `src/lib/throttle.ts`).
+  - **Lit as a real room**: a soft studio environment that the metal and
+    glass reflect, soft shadows from the key light (the model, its stand
+    and the frames onto the floor and the turntable), acrylic plates with
+    a clear coat, brushed-steel frames, and a **matte turbine** (the owner
+    asked for no reflections on it). The dark theme blooms its lights,
+    with no tone mapping there (it would press the panel's near-black to
+    black) and the drawing's edge faded into the panel; the light theme
+    uses the Khronos neutral tone mapping. The coloured marks (pins, dots,
+    arcs) are never tone-mapped, so they keep the app's colours. At speed
+    the blades blur into a disc.
   - **Every ball answers the pointer**: a finding's pin, a worker's dot
     (or name), the beacon, a line of the spec, a part's tile, a design.
     Hover grows it and shows a card of what it is (`tipOf` in

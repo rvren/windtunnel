@@ -317,8 +317,8 @@ export function WindTunnel3D({
         "[--wt-floor:#e4e4ee] dark:[--wt-floor:#111118]",
         "[--wt-wall:#e2e2ec] dark:[--wt-wall:#14141c]",
         "[--wt-frame:#cfcfdc] dark:[--wt-frame:#5a5a70]",
-        "[--wt-metal:#ffffff] dark:[--wt-metal:#c8c8d8]",
-        "[--wt-blade:#dcdce8] dark:[--wt-blade:#9a9ab0]",
+        "[--wt-metal:#ffffff] dark:[--wt-metal:#8e8ea2]",
+        "[--wt-blade:#dcdce8] dark:[--wt-blade:#5e5e72]",
         "[--wt-plate:#ffffff] dark:[--wt-plate:#1b1b27]",
         "[--wt-tile:#f1effa] dark:[--wt-tile:#262638]",
         "[--wt-line:var(--brand)] dark:[--wt-line:#c9c2ff]",
@@ -347,7 +347,13 @@ export function WindTunnel3D({
       >
         <canvas
           ref={canvas}
-          className={cn("absolute inset-0 size-full", !ready && "invisible")}
+          className={cn(
+            "absolute inset-0 size-full",
+            !ready && "invisible",
+            // The dark theme's glow spreads to the drawing's edge: fade the
+            // edge into the panel, so it never shows as a box.
+            "dark:[mask-composite:intersect] dark:[mask-image:linear-gradient(to_bottom,transparent,#000_4%,#000_96%,transparent),linear-gradient(to_right,transparent,#000_2%,#000_98%,transparent)]",
+          )}
           aria-hidden="true"
         />
         <div aria-hidden="true" className="absolute inset-0 @max-lg:hidden">

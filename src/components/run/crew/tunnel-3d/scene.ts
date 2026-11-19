@@ -1,4 +1,9 @@
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 
 import { TUNNEL_3D, modelSpots, rows3d } from "@/lib/viz/tunnel";
 import {
@@ -33,6 +38,12 @@ import { css, type Palette, type Rgb } from "./colors";
 
 const T = TUNNEL_3D;
 const PLATES: PlateId[] = ["interface", "services", "data"];
+/**
+ * The turbine's finish: matte, like anodised or painted metal, so the fan,
+ * its nose and its lip hold their shape without bright reflections.
+ */
+const MATTE = { metalness: 0.35, roughness: 0.72 } as const;
+
 const PLATE_OPACITY: Record<PlateId, number> = {
   interface: 0.82,
   services: 0.9,
@@ -191,6 +202,13 @@ export class Tunnel3D {
   private fanSpeed = 0;
   private fanTarget = 0;
   private fanLight!: THREE.PointLight;
+  /** The blades blurred into a disc at speed, as a real fan looks. */
+  private fanBlur!: THREE.MeshBasicMaterial;
+  /** The light the metal and glass reflect: a soft studio room. */
+  private environment: THREE.Texture | null = null;
+  /** The dark theme's glow: lights that bloom. Null in the light theme. */
+  private composer: EffectComposer | null = null;
+  private bloom: UnrealBloomPass | null = null;
   private ductGlow!: THREE.MeshBasicMaterial;
   private key = "";
   private first = true;
@@ -251,11 +269,51 @@ export class Tunnel3D {
       alpha: false,
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // In the light theme, a camera's response to light that rolls off the
+    // highlights (Khronos PBR Neutral), so pale metal and glass do not
+    // clip; the coloured marks (pins, dots, arcs) opt out. In the dark
+    // theme the picture goes through the bloom, where tone mapping would
+    // apply to the whole frame and press the panel's near-black to black:
+    // there it is left off, and the panel and the marks keep their colours.
+    this.renderer.toneMapping = palette.dark
+      ? THREE.NoToneMapping
+      : THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = 1;
+    // Soft shadows under the model, its stand and the frames.
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const studio = new THREE.PMREMGenerator(this.renderer);
+    this.environment = studio.fromScene(new RoomEnvironment(), 0.04).texture;
+    studio.dispose();
     this.camera = new THREE.PerspectiveCamera(T.camera.fov, T.aspect, 0.1, 80);
     this.camera.position.set(...T.camera.position);
     this.camera.lookAt(...T.camera.target);
     this.buildRoom();
     this.root.add(this.stage);
+    if (palette.dark) {
+      // Rendered through a target with its own multisampling, so the edges
+      // stay smooth; then the bright parts bloom, then the output pass
+      // applies the tone mapping and the screen's colour space.
+      const target = new THREE.WebGLRenderTarget(1, 1, {
+        type: THREE.HalfFloatType,
+        samples: 4,
+      });
+      this.composer = new EffectComposer(this.renderer, target);
+      this.composer.addPass(new RenderPass(this.root, this.camera));
+      this.bloom = new UnrealBloomPass(
+        new THREE.Vector2(1, 1),
+        0.38,
+        0.2,
+        0.88,
+      );
+      this.composer.addPass(this.bloom);
+      this.composer.addPass(new OutputPass());
+    }
+  }
+
+  private draw() {
+    if (this.composer) this.composer.render();
+    else this.renderer.render(this.root, this.camera);
   }
 
   // ── Colours and materials ───────────────────────────────────────────────
@@ -293,6 +351,8 @@ export class Tunnel3D {
     return new THREE.MeshBasicMaterial({
       color,
       transparent: true,
+      // The app's colours, as they are: never through the film response.
+      toneMapped: false,
       ...options,
     });
   }
@@ -335,12 +395,23 @@ export class Tunnel3D {
     room.background = this.color(p.bg);
     room.fog = new THREE.Fog(this.color(p.bg), 18, 32);
     const pi = Math.PI;
-    room.add(new THREE.AmbientLight(0xffffff, (p.dark ? 0.35 : 0.85) * pi));
-    const key = new THREE.DirectionalLight(
-      0xffffff,
-      (p.dark ? 0.85 : 0.7) * pi,
-    );
-    key.position.set(4, 9, 7);
+    room.environment = this.environment;
+    room.environmentIntensity = p.dark ? 0.32 : 0.75;
+    room.add(new THREE.AmbientLight(0xffffff, (p.dark ? 0.12 : 0.35) * pi));
+    const key = new THREE.DirectionalLight(0xffffff, (p.dark ? 0.9 : 0.8) * pi);
+    key.position.set(3, 9, 6);
+    // The shadow covers the section, and is soft at its edges.
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.left = -7;
+    key.shadow.camera.right = 6;
+    key.shadow.camera.top = 5;
+    key.shadow.camera.bottom = -5;
+    key.shadow.camera.near = 1;
+    key.shadow.camera.far = 25;
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.02;
+    key.shadow.radius = 4;
     room.add(key);
     const fill = new THREE.DirectionalLight(
       0xffffff,
@@ -363,22 +434,30 @@ export class Tunnel3D {
 
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(length, width),
-      this.standard(p.floor, { roughness: 0.55, metalness: 0.35 }),
+      this.standard(p.floor, { roughness: 0.34, metalness: 0.2 }),
     );
+    floor.receiveShadow = true;
     floor.rotation.x = -pi / 2;
     floor.position.set(cx, T.floor, cz);
     room.add(floor);
     const back = new THREE.Mesh(
       new THREE.PlaneGeometry(length, height),
-      this.standard(p.wall, { roughness: 0.85 }),
+      this.standard(p.wall, { roughness: 0.7, metalness: 0.1 }),
     );
+    back.receiveShadow = true;
     back.position.set(cx, 0, T.back);
     room.add(back);
+    // Glass: clear, with the room's light on it.
     const glass = new THREE.Mesh(
       new THREE.PlaneGeometry(length, width),
-      this.standard(p.wall, {
+      new THREE.MeshPhysicalMaterial({
+        color: this.color(p.wall),
         transparent: true,
-        opacity: p.dark ? 0.06 : 0.22,
+        opacity: p.dark ? 0.08 : 0.24,
+        roughness: 0.05,
+        metalness: 0,
+        clearcoat: 1,
+        clearcoatRoughness: 0.05,
         side: THREE.DoubleSide,
         depthWrite: false,
       }),
@@ -398,13 +477,16 @@ export class Tunnel3D {
       room.add(strip);
     }
 
-    // Polished in the dark, satin in the light: with nothing to reflect,
-    // high metalness reads as dark grey on a pale room.
+    // Brushed steel, reflecting the room.
     const metal = this.standard(p.frame, {
-      metalness: p.dark ? 0.75 : 0.3,
-      roughness: p.dark ? 0.28 : 0.45,
+      metalness: 0.85,
+      roughness: 0.32,
     });
-    for (const x of T.frames) room.add(this.rib(x, metal));
+    for (const x of T.frames) {
+      const rib = this.rib(x, metal);
+      rib.castShadow = true;
+      room.add(rib);
+    }
     // The wall the fan comes through.
     // Turned to face the air, its width runs along -z: its middle is at
     // -cz in its own plane, and the fan's hole stays on the axis.
@@ -427,8 +509,9 @@ export class Tunnel3D {
     wallGeometry.rotateY(pi / 2);
     const endWall = new THREE.Mesh(
       wallGeometry,
-      this.standard(p.wall, { metalness: 0.5, roughness: 0.35 }),
+      this.standard(p.wall, { metalness: 0.6, roughness: 0.3 }),
     );
+    endWall.receiveShadow = true;
     endWall.position.x = x0;
     room.add(endWall);
 
@@ -455,7 +538,7 @@ export class Tunnel3D {
     room.add(deep);
     const lip = new THREE.Mesh(
       new THREE.TorusGeometry(T.fanRadius + 0.02, 0.07, 16, 96),
-      this.standard(p.metal, { metalness: 0.9, roughness: 0.18 }),
+      this.standard(p.metal, MATTE),
     );
     lip.rotation.y = pi / 2;
     lip.position.x = x0 + 0.12;
@@ -471,8 +554,7 @@ export class Tunnel3D {
     this.fan = new THREE.Group();
     mount.add(this.fan);
     const blade = this.standard(p.blade, {
-      metalness: 0.85,
-      roughness: 0.3,
+      ...MATTE,
       side: THREE.DoubleSide,
     });
     for (let index = 0; index < 22; index += 1) {
@@ -485,17 +567,29 @@ export class Tunnel3D {
     }
     const hub = new THREE.Mesh(
       new THREE.CylinderGeometry(0.33, 0.33, 0.18, 32),
-      this.standard(p.blade, { metalness: 0.8, roughness: 0.3 }),
+      this.standard(p.blade, MATTE),
     );
     hub.rotation.x = pi / 2;
     this.fan.add(hub);
     const cone = new THREE.Mesh(
       new THREE.SphereGeometry(0.33, 32, 16),
-      this.standard(p.metal, { metalness: 0.85, roughness: 0.2 }),
+      this.standard(p.metal, MATTE),
     );
     cone.scale.set(1, 1, 1.8);
     cone.position.z = 0.06;
     this.fan.add(cone);
+    // At speed the blades blur into a disc, in front of them and still.
+    this.fanBlur = this.basic(this.color(p.blade), {
+      opacity: 0,
+      depthWrite: false,
+      toneMapped: true,
+    });
+    const blur = new THREE.Mesh(
+      new THREE.RingGeometry(0.34, 1.26, 64),
+      this.fanBlur,
+    );
+    blur.position.z = 0.04;
+    mount.add(blur);
   }
 
   /** A frame of the test section, open on the side that faces us. */
@@ -668,8 +762,10 @@ export class Tunnel3D {
     this.stage.add(group);
     const table = new THREE.Mesh(
       new THREE.CylinderGeometry(1.2 * scale, 1.2 * scale, 0.03, 64),
-      this.standard(p.plate, { roughness: 0.7 }),
+      // A machined turntable, set in the floor.
+      this.standard(p.plate, { roughness: 0.38, metalness: 0.55 }),
     );
+    table.receiveShadow = true;
     table.position.y = T.floor + 0.02;
     group.add(table);
     const rim = new THREE.Mesh(
@@ -684,6 +780,7 @@ export class Tunnel3D {
       this.standard(p.metal, { metalness: 0.85, roughness: 0.22 }),
     );
     sting.position.y = (T.plateY.data + T.floor) / 2;
+    sting.castShadow = true;
     group.add(sting);
 
     const plates = {} as Model["plates"];
@@ -695,11 +792,15 @@ export class Tunnel3D {
         0.045,
         T.plate.d * scale,
       );
-      const material = this.standard(p.plate, {
+      // Acrylic: a clear coat over a satin face, the room's light on it.
+      const material = new THREE.MeshPhysicalMaterial({
+        color: this.color(p.plate),
         transparent: true,
         opacity: PLATE_OPACITY[plate],
-        roughness: 0.3,
-        metalness: 0.1,
+        roughness: 0.28,
+        metalness: 0.05,
+        clearcoat: 0.8,
+        clearcoatRoughness: 0.12,
       });
       const edge = new THREE.LineBasicMaterial({
         color: this.tone("brand"),
@@ -708,7 +809,10 @@ export class Tunnel3D {
       });
       const holder = new THREE.Group();
       holder.position.y = T.plateY[plate];
-      holder.add(new THREE.Mesh(geometry, material));
+      const face = new THREE.Mesh(geometry, material);
+      face.castShadow = true;
+      face.receiveShadow = true;
+      holder.add(face);
       holder.add(
         new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edge),
       );
@@ -789,6 +893,7 @@ export class Tunnel3D {
         [side, side, top, side, side, side],
       );
       mesh.position.set(spot[0] - modelX, 0.05, spot[2]);
+      mesh.castShadow = true;
       // A fine outline, so a tile reads on a plate of the same colour.
       mesh.add(
         new THREE.LineSegments(
@@ -1444,7 +1549,7 @@ export class Tunnel3D {
     this.last = ms;
     this.clock = ms / 1000;
     const moving = this.step(dt);
-    this.renderer.render(this.root, this.camera);
+    this.draw();
     if (moving && this.visible) this.wake();
     else this.last = 0;
   };
@@ -1459,8 +1564,9 @@ export class Tunnel3D {
     this.fan.rotation.z += this.fanSpeed * dt;
     const spin = Math.min(1, this.fanSpeed / 10);
     this.fanLight.intensity =
-      (p.dark ? 3 : 1.1) * Math.PI * 2.2 * (0.25 + 0.75 * spin);
+      (p.dark ? 1.0 : 0.8) * Math.PI * 2.2 * (0.25 + 0.75 * spin);
     this.ductGlow.opacity = (p.dark ? 0.4 : 0.18) * (0.3 + 0.7 * spin);
+    this.fanBlur.opacity = 0.32 * Math.max(0, (this.fanSpeed - 4) / 6);
     if (this.fanSpeed > 0.01 || this.fanTarget > 0) moving = true;
 
     for (const stream of this.streams) {
@@ -1618,9 +1724,11 @@ export class Tunnel3D {
   resize(width: number, height: number) {
     if (width <= 0 || height <= 0) return;
     this.renderer.setSize(width, height, false);
+    this.composer?.setPixelRatio(this.renderer.getPixelRatio());
+    this.composer?.setSize(width, height);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.render(this.root, this.camera);
+    this.draw();
   }
 
   setVisible(visible: boolean) {
@@ -1642,6 +1750,8 @@ export class Tunnel3D {
           : [];
       for (const material of materials) material.dispose();
     });
+    this.composer?.dispose();
+    this.environment?.dispose();
     this.renderer.dispose();
   }
 }
