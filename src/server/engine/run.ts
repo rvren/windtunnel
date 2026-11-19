@@ -64,10 +64,12 @@ import {
   type Scenario,
   type Stage,
   type StoredEvent,
+  type OutageMode,
 } from "./schema";
 import { runBlackbox } from "./kinds/blackbox";
 import type { KindContext } from "./kinds/context";
 import { chainsStage } from "./kinds/chains";
+import { runEngineOut } from "./kinds/engineout";
 import { impactStage, readChange } from "./kinds/crosswind";
 import { runFlyoff } from "./kinds/flyoff";
 import { changeContext } from "./kinds/prompts";
@@ -127,6 +129,11 @@ export interface RunInput {
   change?: ChangeInput;
   /** Black box: the production feedback, as text. */
   incident?: string;
+  /**
+   * Engine Out: the part to cut, by id or name, how it fails, and the
+   * part's name for the run's title when the part is given by id.
+   */
+  outage?: { part: string; mode: OutageMode; label?: string };
   /** A code run's requirement run: the idea this code implements. */
   requirementRunId?: string;
 }
@@ -182,9 +189,13 @@ export function newRun(
         )
       : kind === "blackbox" && input.incident
         ? titleOf(`Black box: ${input.incident}`)
-        : kind === "flyoff"
-          ? titleOf(`Fly-off: ${base}`)
-          : base;
+        : kind === "engineout" && input.outage
+          ? titleOf(
+              `Engine out: ${input.outage.label ?? input.outage.part} ${input.outage.mode === "slow" ? "slowed down" : "down"}`,
+            )
+          : kind === "flyoff"
+            ? titleOf(`Fly-off: ${base}`)
+            : base;
   return {
     id,
     createdAt: at,
@@ -209,6 +220,21 @@ export function newRun(
       : {}),
     ...(kind === "blackbox" && input.incident
       ? { incident: input.incident.trim() }
+      : {}),
+    ...(kind === "engineout" && input.outage
+      ? {
+          outage: {
+            part: {
+              id: input.outage.part,
+              name: input.outage.label ?? input.outage.part,
+            },
+            mode: input.outage.mode,
+            mapFrom: null,
+            headline: "",
+            hops: [],
+            journeys: [],
+          },
+        }
       : {}),
     ...(project && input.requirementRunId
       ? { requirementRunId: input.requirementRunId }
@@ -416,7 +442,11 @@ export async function executeRun(
       outline: string;
     } | null;
 
-    if (kind === "blackbox") {
+    if (kind === "engineout") {
+      if (!code)
+        throw new RunError("An Engine Out run reads a project's code.");
+      await runEngineOut(ctx, code, expertise);
+    } else if (kind === "blackbox") {
       if (!code) throw new RunError("A black box run reads a project's code.");
       await runBlackbox(ctx, code, () => secretValues);
     } else {

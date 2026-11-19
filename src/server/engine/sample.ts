@@ -11,9 +11,11 @@ import {
 import {
   Architecture,
   Blueprint,
+  CascadeAnswer,
   ChainAnswer,
   Critique,
   FlyoffVerdict,
+  HopReport,
   ImpactAnswer,
   TriageAnswer,
   type AgentReport,
@@ -57,7 +59,7 @@ export interface Script {
    * answers, keyed by "model" or an agent id.
    */
   tools?: Partial<
-    Record<"model" | AgentId, { tool: string; input: unknown }[]>
+    Record<"model" | AgentId | string, { tool: string; input: unknown }[]>
   >;
   /** Remediations for security findings, by group id. */
   remediations?: Record<string, Scripted<RemediationAnswer>>;
@@ -71,6 +73,8 @@ export interface Script {
     triage?: TriageAnswer;
     /** Flutter's attack chains. None when left out. */
     chains?: ChainAnswer;
+    /** Engine Out's judge, by scenario ("part:mode"). */
+    cascades?: Record<string, CascadeAnswer>;
   };
 }
 
@@ -133,6 +137,43 @@ export class ScriptedLlm implements LlmClient {
     if (request.schema === FlyoffVerdict) {
       return ["judge", { kind: "ok", value: SAMPLE_FLYOFF_VERDICT }];
     }
+    // Engine Out: the scenario is the cut part and mode named in the prompt.
+    const cut = /<cut part="([^"]+)" mode="(down|slow)"/.exec(request.prompt);
+    const scenario = cut ? `${cut[1]}:${cut[2]}` : "";
+    if (request.schema === HopReport) {
+      const actor = request.system.includes('You are the agent "Outage tester"')
+        ? "outage"
+        : "journeys";
+      return [
+        `engineout:${scenario}:${actor}`,
+        { kind: "ok", value: { summary: "Followed the failure outward." } },
+      ];
+    }
+    if (request.schema === CascadeAnswer) {
+      const answer = kinds.cascades?.[scenario];
+      return [
+        `engineout:${scenario}:cascade`,
+        answer
+          ? { kind: "ok", value: answer }
+          : {
+              kind: "error",
+              message:
+                "This part is not scripted in the sample. Try billing, auth or the payment gateway.",
+            },
+      ];
+    }
+    if (request.schema === Architecture && stage === "map") {
+      return [
+        "map",
+        {
+          kind: "ok",
+          value: this.script.architecture ?? {
+            components: [],
+            connections: [],
+          },
+        },
+      ];
+    }
     if (request.schema === ChainAnswer) {
       return ["chains", { kind: "ok", value: kinds.chains ?? { chains: [] } }];
     }
@@ -187,7 +228,7 @@ export class ScriptedLlm implements LlmClient {
     const stepDelay = this.options.delayMs ?? 0;
     // Make the scripted tool calls first, as a model would, then answer.
     const answer = async () => {
-      for (const step of this.script.tools?.[key as "model" | AgentId] ?? []) {
+      for (const step of this.script.tools?.[key] ?? []) {
         if (stepDelay) await pause(stepDelay);
         const result = await runTool(byName.get(step.tool), step.input);
         this.toolResults.push({ key, tool: step.tool, ...result });

@@ -197,6 +197,77 @@ export const Challenges = z.object({
 });
 export type Challenges = z.infer<typeof Challenges>;
 
+// ── Engine Out: one part cut on purpose, and what fails with it ───────────
+
+/** How the part fails: gone (refused at once) or slow (answers late). */
+export const OUTAGE_MODES = ["down", "slow"] as const;
+export type OutageMode = (typeof OUTAGE_MODES)[number];
+
+/** What the code at one hop does when the failure reaches it. */
+export const HopBehaviour = z.enum([
+  "hangs",
+  "errors",
+  "retries",
+  "wrong_data",
+  "silent",
+  "holds",
+]);
+export type HopBehaviour = z.infer<typeof HopBehaviour>;
+
+/** What a cut-stage agent says when it has filed its hops. */
+export const HopReport = z.object({ summary: z.string() });
+export type HopReport = z.infer<typeof HopReport>;
+
+/** The judge's ordering of the hops, and what each journey comes to. */
+export const CascadeAnswer = z.object({
+  headline: z.string(),
+  hops: z.array(
+    z.object({
+      id: z.string(),
+      depth: z.number().int(),
+      severity: Severity,
+    }),
+  ),
+  journeys: z.array(
+    z.object({
+      name: z.string(),
+      effect: z.string(),
+      broken: z.boolean(),
+    }),
+  ),
+});
+export type CascadeAnswer = z.infer<typeof CascadeAnswer>;
+
+/** One step of the failure, at the lines that decide it. */
+export interface OutageHop {
+  id: string;
+  /** The part the failure comes from, nearer the cut. */
+  from: string;
+  /** The part whose code is cited: where this step happens. */
+  to: string;
+  behaviour: HopBehaviour;
+  /** What happens, in one line. */
+  effect: string;
+  severity: Severity;
+  /** Steps from the cut: 1 for a part that calls it. */
+  depth: number;
+  location: CodeLocation;
+  /** The worker that filed it. */
+  by: string;
+}
+
+export interface RunOutage {
+  /** The part cut, as a component of the run's map. */
+  part: { id: string; name: string };
+  mode: OutageMode;
+  /** Where the map came from: an earlier run's id, or drawn by this run. */
+  mapFrom: string | null;
+  headline: string;
+  /** Ordered from the cut outward. */
+  hops: OutageHop[];
+  journeys: CascadeAnswer["journeys"];
+}
+
 // ── Flutter: accepted issues that add up to a breach ──────────────────────
 
 /**
@@ -304,6 +375,9 @@ export const STAGES = [
   "remediation",
   "impact",
   "work_orders",
+  "map",
+  "cut",
+  "cascade",
 ] as const;
 export type Stage = (typeof STAGES)[number];
 
@@ -313,7 +387,13 @@ export type Stage = (typeof STAGES)[number];
  * fly-off has rival agents design a requirement and a judge pick one. A
  * black box takes production feedback to its cause and a fix.
  */
-export const RUN_KINDS = ["audit", "crosswind", "flyoff", "blackbox"] as const;
+export const RUN_KINDS = [
+  "audit",
+  "crosswind",
+  "flyoff",
+  "blackbox",
+  "engineout",
+] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
 /** Each kind's stages, in order. An audit of a requirement has no survey. */
@@ -342,6 +422,7 @@ export const STAGES_OF: Record<RunKind, readonly Stage[]> = {
   ],
   flyoff: ["model", "proposals", "critique", "judge"],
   blackbox: ["survey", "triage", "remediation"],
+  engineout: ["survey", "map", "cut", "cascade"],
 };
 
 /** A run's kind; runs made before kinds existed are audits. */
@@ -711,6 +792,8 @@ export interface RunRecord {
   usage: Partial<Record<Stage, Usage>>;
   /** Security findings' remediations, by group id. Absent on older runs. */
   remediations?: Record<string, RemediationRecord>;
+  /** Engine Out: the part cut and the failure that spread from it. */
+  outage?: RunOutage;
   /** Flutter: accepted issues that add up to a breach. Code runs only. */
   chains?: AttackChain[];
   /** Chains the model gave that failed a check, and were left out. */

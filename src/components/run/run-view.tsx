@@ -54,6 +54,7 @@ import { CrewHeader } from "./crew/parts";
 import { WindTunnel } from "./crew/wind-tunnel";
 import { LatestFinding, LiveFindings } from "./live-findings";
 import { ChainsReport } from "./kinds/chains-report";
+import { EngineOutReport } from "./kinds/engineout-report";
 import { ResultCard } from "./result-card";
 import { RunHeader } from "./run-header";
 import { DeleteRunButton } from "./run-delete";
@@ -270,7 +271,9 @@ export function RunView({
       ? Boolean(run.flyoff?.verdict)
       : kind === "blackbox"
         ? Boolean(run.triage)
-        : run.designModel !== null;
+        : kind === "engineout"
+          ? Boolean(run.outage?.headline)
+          : run.designModel !== null;
   // The report waits for the end of the run; until then the story is it.
   const ended = !running;
   const chapters = storyOf(run, feed, times);
@@ -360,10 +363,18 @@ export function RunView({
   if (reportReady && kind === "crosswind") {
     details.push({ id: "impact", label: "Impact", icon: Wind });
   }
-  if (reportReady && (kind === "flyoff" || kind === "blackbox")) {
+  if (
+    reportReady &&
+    (kind === "flyoff" || kind === "blackbox" || kind === "engineout")
+  ) {
     details.push({
       id: "report",
-      label: kind === "flyoff" ? "Blueprints" : "Incident",
+      label:
+        kind === "flyoff"
+          ? "Blueprints"
+          : kind === "engineout"
+            ? "Cascade"
+            : "Incident",
       icon: FileText,
     });
   }
@@ -765,6 +776,11 @@ export function RunView({
           {reportReady && kind === "blackbox" ? (
             <TabsContent value="report">
               <BlackboxReport run={run} tracked={context.tracked} />
+            </TabsContent>
+          ) : null}
+          {reportReady && kind === "engineout" ? (
+            <TabsContent value="report">
+              <EngineOutReport run={run} />
             </TabsContent>
           ) : null}
           {reportReady && (kind === "audit" || kind === "crosswind") ? (

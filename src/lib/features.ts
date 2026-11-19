@@ -42,6 +42,13 @@ export interface Feature {
 export const EXAMPLE_CHANGE =
   "Move sessions from cookies to a shared Redis, and let the gateway check them.";
 
+/** A part to cut to try Engine Out with, on the Storefront sample. */
+export const EXAMPLE_OUTAGE = {
+  part: "cmp-billing",
+  mode: "slow" as const,
+  label: "Billing service, slowed down",
+};
+
 /** Production feedback to try Black box with, on the Storefront sample. */
 export const EXAMPLE_INCIDENT =
   '500 Internal Server Error on GET /catalog/search?q=men\'s shoes. Logs: sqlite3.OperationalError: near "s": syntax error, in search().';
@@ -126,6 +133,41 @@ export const FEATURES: Feature[] = [
       },
     ],
   },
+  {
+    kind: "engineout",
+    name: "Engine Out",
+    start: "Start Engine Out",
+    promise:
+      "Cut one part of your system on purpose, and see what fails with it, hop by hop, before it happens for real.",
+    question: "What fails if this part goes down?",
+    input: "The part to cut: a service, a database or an outside system",
+    output:
+      "The failure as it spreads to your customers, each step cited to the code",
+    example: EXAMPLE_OUTAGE.label,
+    fresh: true,
+    actors: [
+      {
+        id: "mapper",
+        name: "Mapper",
+        role: "Draws the parts and their calls.",
+      },
+      {
+        id: "outage",
+        name: "Outage tester",
+        role: "Follows every call into the part that was cut.",
+      },
+      {
+        id: "journeys",
+        name: "Everyday user",
+        role: "Walks each journey that touches it.",
+      },
+      {
+        id: "judge",
+        name: "Judge",
+        role: "Orders the failure and checks every line.",
+      },
+    ],
+  },
 ];
 
 export function featureOf(kind: RunKind): Feature {
@@ -137,5 +179,5 @@ export function featureOf(kind: RunKind): Feature {
  * for lists that already show the kind.
  */
 export function plainTitle(title: string): string {
-  return title.replace(/^(crosswind|fly-off|black box):\s*/i, "");
+  return title.replace(/^(crosswind|fly-off|black box|engine out):\s*/i, "");
 }

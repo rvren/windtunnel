@@ -1,6 +1,8 @@
 import { SEVERITY_LABEL, SEVERITY_ORDER, termsFor } from "@/lib/labels";
 import type { RunRecord, Severity } from "@/server/engine/schema";
 
+import { cutLabel, outageNumbers, worstHops } from "./outage";
+
 /*
  * What a finished run came to, said plainly: one headline, a line under
  * it, three numbers, the top three items and the one way into the detail.
@@ -129,6 +131,33 @@ export function resultOf(run: RunRecord): RunResult {
         label: fix?.status === "made" ? "Review The Fix" : "See The Incident",
         tab: "report",
       },
+    };
+  }
+
+  if (kind === "engineout" && run.outage) {
+    const outage = run.outage;
+    const numbers = outageNumbers(outage);
+    return {
+      headline: outage.headline || `Nothing fails with ${outage.part.name}.`,
+      detail: `${cutLabel(outage)}.`,
+      numbers: [
+        {
+          label: numbers.broken === 1 ? "Journey broken" : "Journeys broken",
+          value: String(numbers.broken),
+        },
+        { label: "Parts on the path", value: String(numbers.reached) },
+        {
+          label: numbers.holds === 1 ? "Fallback holds" : "Fallbacks hold",
+          value: String(numbers.holds),
+        },
+      ],
+      items: worstHops(outage).map((hop) => ({
+        id: hop.id,
+        title: hop.effect,
+        note: `${hop.location.path}:${hop.location.startLine}`,
+        severity: hop.severity,
+      })),
+      action: { label: "See The Cascade", tab: "report" },
     };
   }
 

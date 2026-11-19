@@ -11,6 +11,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { FEATURES, featureOf } from "@/lib/features";
 import { prefillFrom, prefillNote } from "@/lib/viz/next";
 import { runStore } from "@/server/engine/registry";
+import { ENGINE_OUT_SCENARIOS } from "@/server/engine/sample-engineout";
+import { latestMap } from "@/server/projects/latest-map";
 import { RUN_KINDS, type RunKind } from "@/server/engine/schema";
 import { listProjects } from "@/server/projects/store";
 import { engineStatus } from "@/server/status";
@@ -81,6 +83,23 @@ async function Start({
     );
   }
   const projects = await listProjects();
+  // Engine Out picks a part from each project's latest map.
+  const maps =
+    kind === "engineout"
+      ? new Map(
+          await Promise.all(
+            projects
+              .filter((item) => item.workspaces.length > 0)
+              .map(
+                async (item) =>
+                  [
+                    item.id,
+                    await latestMap(item.id).catch(() => null),
+                  ] as const,
+              ),
+          ),
+        )
+      : null;
   // Opened from an earlier run's "Next": fill in what that run holds.
   const earlier = from
     ? await runStore()
@@ -88,7 +107,14 @@ async function Start({
         .catch(() => null)
     : null;
   const prefill = earlier
-    ? { ...prefillFrom(earlier, kind, subject), note: prefillNote(earlier) }
+    ? {
+        ...prefillFrom(earlier, kind, subject, {
+          part: typeof query.part === "string" ? query.part : undefined,
+          mode: typeof query.mode === "string" ? query.mode : undefined,
+          hop: typeof query.hop === "string" ? query.hop : undefined,
+        }),
+        note: prefillNote(earlier),
+      }
     : subject
       ? { subject }
       : undefined;
@@ -157,6 +183,17 @@ async function Start({
               label,
               github: origin.kind === "github",
             })),
+            ...(maps
+              ? {
+                  parts:
+                    maps.get(item.id)?.components.map(({ id, name, kind }) => ({
+                      id,
+                      name,
+                      kind,
+                    })) ?? null,
+                  scripted: ENGINE_OUT_SCENARIOS,
+                }
+              : {}),
           }))}
           initialProjectId={project}
         />

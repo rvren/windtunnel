@@ -20,6 +20,9 @@ export const STAGE_ORDER = [
   "remediation",
   "impact",
   "work_orders",
+  "map",
+  "cut",
+  "cascade",
 ] as const;
 
 /** What each kind of run is called (as in lib/features.ts). */
@@ -28,6 +31,7 @@ export const KIND_LABEL = {
   crosswind: "Crosswind",
   flyoff: "Fly-off",
   blackbox: "Black Box",
+  engineout: "Engine Out",
 } as const;
 
 export const STAGE_LABEL = {
@@ -45,6 +49,9 @@ export const STAGE_LABEL = {
   chains: "Chains",
   remediation: "Remediation",
   work_orders: "Work orders",
+  map: "Map",
+  cut: "Cut",
+  cascade: "Cascade",
 } as const;
 
 export const STAGE_DESCRIPTION = {
@@ -62,6 +69,9 @@ export const STAGE_DESCRIPTION = {
   chains: "Finding the issues that add up to a breach",
   remediation: "Writing fixes for the security findings",
   work_orders: "Writing work orders with acceptance criteria",
+  map: "Drawing the parts and what calls what",
+  cut: "Following every call into the part that was cut",
+  cascade: "Ordering the failure and checking every line",
 } as const;
 
 export const FINDING_TYPE_LABEL = {

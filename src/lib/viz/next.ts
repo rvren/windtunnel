@@ -1,5 +1,13 @@
 import { featureOf, plainTitle } from "@/lib/features";
-import { kindOf, type RunKind, type RunRecord } from "@/server/engine/schema";
+import { componentOf, groupLocation } from "@/server/engine/architecture";
+import {
+  kindOf,
+  type OutageMode,
+  type RunKind,
+  type RunRecord,
+} from "@/server/engine/schema";
+
+import { cutLabel, worstHops } from "./outage";
 
 /*
  * One run leads to the next. A finished run offers up to three runs that
@@ -21,6 +29,36 @@ export interface NextRun {
 export interface Prefill {
   text?: string;
   subject?: "requirement" | "code";
+  /** Engine Out: the part to cut, as a map id, and how it fails. */
+  outage?: { part: string; mode: OutageMode; label: string };
+}
+
+/**
+ * The part a code run's outage findings gather on: the one to cut first.
+ * A weakness in how a part calls others (no time limit, an unsafe retry)
+ * counts for each part it calls; the part counted most is the one.
+ */
+export function weakestPart(
+  run: RunRecord,
+): { id: string; name: string } | null {
+  const architecture = run.source?.architecture;
+  if (!architecture) return null;
+  const callees = new Map<string, number>();
+  for (const group of run.groups) {
+    if (group.type !== "architecture_weakness") continue;
+    const location = groupLocation(group, run);
+    const at = location ? componentOf(location.path, architecture) : null;
+    if (!at) continue;
+    for (const call of architecture.connections) {
+      if (call.from === at) {
+        callees.set(call.to, (callees.get(call.to) ?? 0) + 1);
+      }
+    }
+  }
+  const [best] = [...callees.entries()].sort((a, b) => b[1] - a[1]);
+  if (!best) return null;
+  const part = architecture.components.find((item) => item.id === best[0]);
+  return part ? { id: part.id, name: part.name } : null;
 }
 
 const MAX = 3;
@@ -73,6 +111,28 @@ export function nextRunsOf(run: RunRecord): NextRun[] {
       href: link(run, "audit", { subject: "requirement" }),
     });
   }
+  if (kind === "audit" && readCode(run)) {
+    const part = weakestPart(run);
+    if (part) {
+      add({
+        kind: "engineout",
+        label: `Cut The ${part.name}`,
+        why: "Most outage issues depend on it: see what fails when it slows down.",
+        href: link(run, "engineout", { part: part.id, mode: "slow" }),
+      });
+    }
+  }
+  if (kind === "engineout" && run.outage) {
+    const [worst] = worstHops(run.outage, 1);
+    if (worst) {
+      add({
+        kind: "blackbox",
+        label: "Investigate The Worst Step",
+        why: "Black Box traces it in the code and writes a fix.",
+        href: link(run, "blackbox", { hop: worst.id }),
+      });
+    }
+  }
   if (kind === "blackbox" && readCode(run)) {
     add({
       kind: "audit",
@@ -118,11 +178,30 @@ export function prefillFrom(
   run: RunRecord,
   kind: RunKind,
   subject: string | undefined,
+  query: { part?: string; mode?: string; hop?: string } = {},
 ): Prefill {
   const from = kindOf(run);
   const prefill: Prefill = {};
   if (subject === "requirement" || subject === "code")
     prefill.subject = subject;
+  if (kind === "engineout" && query.part) {
+    const part = run.source?.architecture?.components.find(
+      (item) => item.id === query.part,
+    );
+    if (part) {
+      prefill.outage = {
+        part: part.id,
+        mode: query.mode === "down" ? "down" : "slow",
+        label: part.name,
+      };
+    }
+  }
+  if (kind === "blackbox" && from === "engineout" && run.outage && query.hop) {
+    const hop = run.outage.hops.find((item) => item.id === query.hop);
+    if (hop) {
+      prefill.text = `Engine Out (${cutLabel(run.outage)}): ${hop.effect} At ${hop.location.path}:${hop.location.startLine}-${hop.location.endLine}.`;
+    }
+  }
   if (kind === "flyoff" && run.requirement.trim()) {
     prefill.text = run.requirement;
   }

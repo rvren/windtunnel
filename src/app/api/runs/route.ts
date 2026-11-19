@@ -128,6 +128,7 @@ export async function POST(request: Request) {
       kind: kind.kind,
       ...(kind.change ? { change: kind.change } : {}),
       ...(kind.incident ? { incident: kind.incident } : {}),
+      ...(kind.outage ? { outage: kind.outage } : {}),
       ...(implementing ? { requirementRunId: implementing } : {}),
       ...(names
         ? {

@@ -1,4 +1,4 @@
-import type { RunKind } from "@/server/engine/schema";
+import type { OutageMode, RunKind } from "@/server/engine/schema";
 
 /*
  * What the start page sends to POST /api/runs for each kind of run, and
@@ -30,6 +30,8 @@ export interface StartInput {
     base: string;
     head: string;
   };
+  /** Engine Out: the part to cut (a map id, or a name) and how it fails. */
+  outage: { part: string; mode: OutageMode; label: string };
 }
 
 /** Why the run cannot start yet, in one sentence, or null. */
@@ -63,6 +65,10 @@ export function startProblem(
       if (!code)
         return "Black Box reads code. Add a workspace to this project first.";
       return text ? null : "Paste the error or the incident note.";
+    case "engineout":
+      if (!code)
+        return "Engine Out reads code. Add a workspace to this project first.";
+      return input.outage.part.trim() ? null : "Choose the part to cut.";
   }
 }
 
@@ -111,6 +117,19 @@ export function startBody(
         incident: input.text,
         requirement: "",
         documents: [],
+      };
+    case "engineout":
+      return {
+        projectId: project.id,
+        kind: "engineout",
+        workspaces: all,
+        requirement: "",
+        documents: [],
+        outage: {
+          part: input.outage.part.trim(),
+          mode: input.outage.mode,
+          label: input.outage.label.trim() || input.outage.part.trim(),
+        },
       };
   }
 }

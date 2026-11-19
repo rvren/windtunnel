@@ -1,4 +1,10 @@
-import { RUN_KINDS, type ChangeInput, type RunKind } from "../schema";
+import {
+  OUTAGE_MODES,
+  RUN_KINDS,
+  type ChangeInput,
+  type OutageMode,
+  type RunKind,
+} from "../schema";
 
 /*
  * What a request to start a run of a newer kind must carry, checked before
@@ -8,7 +14,13 @@ import { RUN_KINDS, type ChangeInput, type RunKind } from "../schema";
 export const KIND_LIMITS = { changeChars: 4_000, incidentChars: 8_000 };
 
 export type KindInput =
-  | { ok: true; kind: RunKind; change?: ChangeInput; incident?: string }
+  | {
+      ok: true;
+      kind: RunKind;
+      change?: ChangeInput;
+      incident?: string;
+      outage?: { part: string; mode: OutageMode; label?: string };
+    }
   | { ok: false; error: string };
 
 const text = (value: unknown) =>
@@ -45,7 +57,31 @@ export function parseKind(
       error:
         kind === "crosswind"
           ? "Crosswind reads a project's code: choose its workspaces."
-          : "A black box run reads a project's code: choose its workspaces.",
+          : kind === "engineout"
+            ? "Engine Out reads a project's code: choose its workspaces."
+            : "A black box run reads a project's code: choose its workspaces.",
+    };
+  }
+
+  if (kind === "engineout") {
+    const outage = (body.outage ?? null) as Record<string, unknown> | null;
+    const part = text(outage?.part);
+    const mode = outage?.mode;
+    if (!part || part.length > 120) {
+      return { ok: false, error: "Choose the part to cut." };
+    }
+    if (!OUTAGE_MODES.includes(mode as OutageMode)) {
+      return { ok: false, error: "Say whether the part is down or slow." };
+    }
+    const label = text(outage?.label).slice(0, 120);
+    return {
+      ok: true,
+      kind,
+      outage: {
+        part,
+        mode: mode as OutageMode,
+        ...(label ? { label } : {}),
+      },
     };
   }
 

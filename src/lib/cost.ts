@@ -45,6 +45,7 @@ const AGENT_STAGES = new Set<Stage>([
   "challenge",
   "proposals",
   "critique",
+  "cut",
 ]);
 
 /** A run's cost in dollars: 0 for a replayed sample, null when unknown. */

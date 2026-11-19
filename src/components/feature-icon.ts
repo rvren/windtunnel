@@ -2,6 +2,7 @@ import {
   GitCompareArrows,
   Siren,
   Trophy,
+  Unplug,
   Wind,
   type LucideIcon,
 } from "lucide-react";
@@ -14,4 +15,5 @@ export const FEATURE_ICON: Record<RunKind, LucideIcon> = {
   crosswind: GitCompareArrows,
   flyoff: Trophy,
   blackbox: Siren,
+  engineout: Unplug,
 };

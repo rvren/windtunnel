@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { featureOf } from "@/lib/features";
+import { EXAMPLE_OUTAGE, featureOf } from "@/lib/features";
 import { DOCUMENT_EXTENSIONS, LIMITS } from "@/lib/limits";
 import {
   startBody,
@@ -28,6 +28,8 @@ import {
 } from "@/lib/start-run";
 import { cn } from "@/lib/utils";
 import type { RunKind } from "@/server/engine/schema";
+
+import { PartPicker, type PickPart } from "./part-picker";
 
 /*
  * The one way to start a run, for every kind: three steps, each with one
@@ -43,6 +45,10 @@ export interface StartFormProject {
   /** A sample project: its runs replay a script and cost nothing. */
   demo: boolean;
   workspaces: { name: string; label: string; github: boolean }[];
+  /** Engine Out: the parts of the project's latest map, if it has one. */
+  parts?: PickPart[] | null;
+  /** Engine Out on a sample: the "part:mode" pairs that are scripted. */
+  scripted?: string[] | null;
 }
 
 const STEP_TITLE: Record<RunKind, string> = {
@@ -50,6 +56,7 @@ const STEP_TITLE: Record<RunKind, string> = {
   crosswind: "The change",
   flyoff: "The feature to design",
   blackbox: "What went wrong",
+  engineout: "What to cut",
 };
 
 const CONFIRM_TITLE: Record<RunKind, string> = {
@@ -57,6 +64,7 @@ const CONFIRM_TITLE: Record<RunKind, string> = {
   crosswind: "Trace this change?",
   flyoff: "Start the fly-off?",
   blackbox: "Investigate this incident?",
+  engineout: "Cut this part?",
 };
 
 const count = (n: number) => n.toLocaleString("en");
@@ -101,6 +109,7 @@ export function StartForm({
   prefill?: {
     text?: string;
     subject?: "requirement" | "code";
+    outage?: StartInput["outage"];
     note?: string;
   };
   projects: StartFormProject[];
@@ -143,6 +152,9 @@ export function StartForm({
     base: "main",
     head: "",
   });
+  const [outage, setOutage] = useState<StartInput["outage"]>(
+    prefill?.outage ?? { part: "", mode: "down", label: "" },
+  );
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -157,6 +169,7 @@ export function StartForm({
     text,
     documents,
     change,
+    outage,
   };
   const stopped = project?.demo ? null : blocked;
   const cost = project?.demo
@@ -320,6 +333,7 @@ export function StartForm({
                 workspace:
                   next?.workspaces.find((item) => item.github)?.name ?? "",
               });
+              setOutage({ ...outage, part: "", label: "" });
               if (kind === "flyoff" && !text.trim()) {
                 setText(next?.description ?? "");
               }
@@ -567,6 +581,41 @@ export function StartForm({
               </p>
             ) : null}
           </div>
+        ) : kind === "engineout" ? (
+          <PartPicker
+            parts={project?.parts ?? null}
+            scripted={
+              project?.demo || sampleMode ? (project?.scripted ?? null) : null
+            }
+            value={outage}
+            onChange={edit(setOutage)}
+            example={
+              (project?.parts ?? []).some(
+                (part) => part.id === EXAMPLE_OUTAGE.part,
+              ) ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  data-testid="start-use-example"
+                  onClick={() => {
+                    const part = project?.parts?.find(
+                      (item) => item.id === EXAMPLE_OUTAGE.part,
+                    );
+                    setOutage({
+                      part: EXAMPLE_OUTAGE.part,
+                      mode: EXAMPLE_OUTAGE.mode,
+                      label: part?.name ?? EXAMPLE_OUTAGE.label,
+                    });
+                    setError(null);
+                  }}
+                >
+                  Use The Example
+                </Button>
+              ) : null
+            }
+          />
         ) : kind === "flyoff" ? (
           textBox(feature.example)
         ) : (

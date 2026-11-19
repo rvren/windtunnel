@@ -1,4 +1,5 @@
 import type { AgentId } from "@/lib/agents";
+import { engineOutScripts } from "./sample-engineout";
 
 import type { Script } from "./sample";
 import type {
@@ -1713,6 +1714,7 @@ export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
         : null,
     })),
   }));
+  const engineOut = engineOutScripts(has, pathOf, single);
   const firstPath = present[0] ? pathOf(present[0], "README.md") : "README.md";
   return {
     model: ok(MODEL),
@@ -1733,10 +1735,11 @@ export function sampleProjectScript(workspaces: SampleWorkspace[]): Script {
         },
       ],
       ...tools,
+      ...engineOut.tools,
     },
     challenges: {},
     remediations,
-    kinds: { chains: { chains } },
+    kinds: { chains: { chains }, cascades: engineOut.cascades },
     judge: ok({ groups, rejected }),
     work_orders: ok({
       workOrders: WORK_ORDERS.map((order) => ({

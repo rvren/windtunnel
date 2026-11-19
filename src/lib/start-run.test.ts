@@ -24,6 +24,7 @@ const input = (over: Partial<StartInput> = {}): StartInput => ({
     base: "main",
     head: "",
   },
+  outage: { part: "", mode: "down", label: "" },
   ...over,
 });
 
@@ -114,6 +115,33 @@ describe("startBody", () => {
       kind: "flyoff",
       requirement: "Design it",
       documents: [],
+    });
+  });
+});
+
+describe("Engine Out", () => {
+  it("needs code and a part to cut", () => {
+    expect(startProblem(input({ kind: "engineout" }), bare)).toBe(
+      "Engine Out reads code. Add a workspace to this project first.",
+    );
+    expect(startProblem(input({ kind: "engineout" }), project)).toBe(
+      "Choose the part to cut.",
+    );
+  });
+
+  it("sends the part, its name and the mode, over every workspace", () => {
+    const body = startBody(
+      input({
+        kind: "engineout",
+        outage: { part: "cmp-billing", mode: "slow", label: "Billing service" },
+      }),
+      project,
+    );
+    expect(body).toMatchObject({
+      projectId: "p1",
+      kind: "engineout",
+      workspaces: ["web", "api"],
+      outage: { part: "cmp-billing", mode: "slow", label: "Billing service" },
     });
   });
 });

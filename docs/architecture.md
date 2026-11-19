@@ -380,12 +380,13 @@ kind has its own stages (`STAGES_OF` in `src/server/engine/schema.ts`);
 have and hands the rest to an executor in `src/server/engine/kinds/`. Only
 audits update tracked issues and send work orders to 8090.
 
-| Kind      | Stages                                                                              | Executor                               |
-| --------- | ----------------------------------------------------------------------------------- | -------------------------------------- |
-| Audit     | survey, model, coverage, agents, challenge, judge, chains, remediation, work_orders | `src/server/engine/run.ts`             |
-| Crosswind | change, survey, model, coverage, agents, challenge, judge, impact, work_orders      | `src/server/engine/kinds/crosswind.ts` |
-| Fly-off   | model, proposals, critique, judge                                                   | `src/server/engine/kinds/flyoff.ts`    |
-| Black box | survey, triage, remediation                                                         | `src/server/engine/kinds/blackbox.ts`  |
+| Kind       | Stages                                                                              | Executor                               |
+| ---------- | ----------------------------------------------------------------------------------- | -------------------------------------- |
+| Audit      | survey, model, coverage, agents, challenge, judge, chains, remediation, work_orders | `src/server/engine/run.ts`             |
+| Crosswind  | change, survey, model, coverage, agents, challenge, judge, impact, work_orders      | `src/server/engine/kinds/crosswind.ts` |
+| Fly-off    | model, proposals, critique, judge                                                   | `src/server/engine/kinds/flyoff.ts`    |
+| Black box  | survey, triage, remediation                                                         | `src/server/engine/kinds/blackbox.ts`  |
+| Engine Out | survey, map, cut, cascade                                                           | `src/server/engine/kinds/engineout.ts` |
 
 ```mermaid
 flowchart LR
@@ -418,6 +419,19 @@ stage writes a fix for it whatever its kind (`anyKind`). The defect is
 tracked as a code issue (`trackIncident` in `src/server/issues/store.ts`;
 an open issue at the same place is reused), so its fix opens a pull request
 through the same flow as any issue.
+
+**Engine Out** cuts one part of the application on purpose, down or slow
+(`runs.data.outage`). The map stage takes the map of the project's latest
+code run of the same workspaces, or draws one (`ARCHITECTURE_SYSTEM`), and
+finds the part by id or name (`findPart`). In the cut stage the Outage
+tester and the Everyday user read the code of everything that calls it and
+file each step of the failure through `report_hop` (`reportHopTool`): the
+part whose code is cited, the part the failure comes from, what the code
+does, and lines that are checked when filed. The cascade stage has the
+judge order the hops by distance from the cut and say what each journey
+comes to (`orderCascade` keeps every filed hop; a hop that holds is never
+above low). Hops that need fixing become findings (`outageGroups`). Nothing
+is run, and project issues are not changed by a what-if run.
 
 Every kind has a free scripted path: `src/server/engine/sample-kinds.ts`
 holds sample answers, and `ScriptedLlm` tells the kinds apart by the answer
