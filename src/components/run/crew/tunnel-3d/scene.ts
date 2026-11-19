@@ -523,9 +523,9 @@ export class Tunnel3D {
     // so the model and the streams show faintly in it.
     const mirror = new Reflector(new THREE.PlaneGeometry(length, width), {
       clipBias: 0.003,
-      textureWidth: 1024,
-      textureHeight: 512,
-      color: p.dark ? 0x8a8a96 : 0xb4b4c0,
+      textureWidth: 1536,
+      textureHeight: 768,
+      color: p.dark ? 0xa8a8b4 : 0xc8c8d4,
     });
     mirror.rotation.x = -pi / 2;
     mirror.position.set(cx, T.floor - 0.004, cz);
@@ -536,7 +536,7 @@ export class Tunnel3D {
         roughness: 0.3,
         metalness: 0.15,
         transparent: true,
-        opacity: p.dark ? 0.84 : 0.9,
+        opacity: p.dark ? 0.66 : 0.76,
       }),
     );
     floor.receiveShadow = true;
@@ -545,30 +545,21 @@ export class Tunnel3D {
     room.add(floor);
     const back = new THREE.Mesh(
       new THREE.PlaneGeometry(length, height),
-      // Smoked glass: dark and smooth, the room's light on it.
-      new THREE.MeshPhysicalMaterial({
-        color: this.color(p.wall),
-        // Satin enough that a small light leaves a soft sheen, not a glint.
-        roughness: 0.34,
-        metalness: 0.15,
-        clearcoat: 0.6,
-        clearcoatRoughness: 0.35,
-      }),
+      // A soft matte wall: it takes the light, and mirrors nothing (the
+      // owner wanted the reflections on the floor, not on the walls).
+      this.standard(p.wall, { roughness: 0.82, metalness: 0.05 }),
     );
     back.receiveShadow = true;
     back.position.set(cx, 0, T.back);
     room.add(back);
-    // Glass: clear, with the room's light on it.
+    // Glass: clear and faint, with only a soft sheen.
     const glass = new THREE.Mesh(
       new THREE.PlaneGeometry(length, width),
-      new THREE.MeshPhysicalMaterial({
-        color: this.color(p.wall),
+      this.standard(p.wall, {
         transparent: true,
-        opacity: p.dark ? 0.08 : 0.24,
-        roughness: 0.05,
+        opacity: p.dark ? 0.05 : 0.16,
+        roughness: 0.6,
         metalness: 0,
-        clearcoat: 1,
-        clearcoatRoughness: 0.05,
         side: THREE.DoubleSide,
         depthWrite: false,
       }),
@@ -610,7 +601,7 @@ export class Tunnel3D {
     wallGeometry.rotateY(pi / 2);
     const endWall = new THREE.Mesh(
       wallGeometry,
-      this.standard(p.wall, { metalness: 0.6, roughness: 0.3 }),
+      this.standard(p.wall, { metalness: 0.25, roughness: 0.6 }),
     );
     endWall.receiveShadow = true;
     endWall.position.x = x0;

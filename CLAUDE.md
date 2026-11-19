@@ -86,9 +86,10 @@ take something away.
   `src/lib/viz/tunnel.ts`), drawn as a real one at the owner's request, in
   one panel that fits a screen:
   - A **test section seen from downstream**, looking back at its fan: a
-    polished floor that faintly mirrors the model and the streams, a
-    smoked-glass back wall, a glass ceiling with two light strips, open on
-    the side that faces us. **No
+    polished floor that mirrors the model and the streams, a matte back
+    wall, a faint glass ceiling with two light strips, open on the side
+    that faces us. Reflections belong to the floor only: the owner asked
+    for less on the walls and the glass. **No
     frames or bars across it**: the owner found them noisy. At the far
     end the **turbofan** turns in a flared, matte bell-mouth inlet, its
     twisted blades over fixed stator vanes, its duct lit while it turns.
