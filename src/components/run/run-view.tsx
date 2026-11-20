@@ -52,7 +52,7 @@ import {
 } from "@/server/engine/schema";
 
 import { ConfirmRunDialog, type RunCost } from "./confirm-run";
-import { CrewHeader } from "./crew/parts";
+import { CrewHeader, CrewHeadline } from "./crew/parts";
 import { WindTunnel } from "./crew/wind-tunnel";
 import { LatestFinding, LiveFindings } from "./live-findings";
 import { ChainsReport } from "./kinds/chains-report";
@@ -658,27 +658,25 @@ export function RunView({
                   along its foot. */}
               <Panel className="overflow-hidden" data-testid="run-crew">
                 {running ? (
-                  // While the run goes on: one large sentence, and nothing
-                  // else to read above the tunnel.
-                  <p
-                    className="relative z-10 px-6 pt-9 text-center text-2xl leading-snug font-semibold tracking-[-0.02em] text-balance md:text-3xl"
-                    aria-live="polite"
-                    data-testid="run-now"
-                  >
-                    {crew.sentence}
-                  </p>
+                  // While the run goes on: one large sentence and a quiet
+                  // line of what each worker is on, above the tunnel.
+                  <CrewHeadline crew={crew} />
                 ) : (
                   <div className="relative z-10 px-5 pt-5 pb-3 md:px-6 md:pt-6">
                     <CrewHeader crew={crew} />
                   </div>
                 )}
-                <WindTunnel
-                  crew={crew}
-                  subject={context.projectName ?? run.title}
-                  workspaces={run.workspaces ?? []}
-                  run={run}
-                  feed={feed}
-                />
+                {/* While the run goes on, room under the drawing before the
+                    newest finding and the stages. */}
+                <div className={running ? "pb-5" : undefined}>
+                  <WindTunnel
+                    crew={crew}
+                    subject={context.projectName ?? run.title}
+                    workspaces={run.workspaces ?? []}
+                    run={run}
+                    feed={feed}
+                  />
+                </div>
                 {running ? (
                   <>
                     <LatestFinding feed={feed} />

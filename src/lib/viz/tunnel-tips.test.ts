@@ -21,6 +21,8 @@ const crew = (members: CrewMember[], ended = true): Crew => ({
   members,
   stage: null,
   sentence: "",
+  words: [],
+  now: [],
   findings: 0,
   found: [],
   outcome: ended ? "completed" : null,

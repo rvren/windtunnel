@@ -42,6 +42,13 @@ export interface Crew {
   stage: { id: Stage; label: string; index: number; count: number } | null;
   /** One plain sentence: what is happening now. */
   sentence: string;
+  /**
+   * The same sentence in parts, so the view can set who is at work and on
+   * what apart from the words that join them (`soft`).
+   */
+  words: { text: string; soft?: boolean }[];
+  /** Up to two workers at work, and what each is on this moment. */
+  now: { name: string; doing: string }[];
   /** Findings filed so far, by the agents. */
   findings: number;
   /** Every finding filed so far, oldest first. */
@@ -127,6 +134,51 @@ function listOf(names: string[]): string {
     : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
 
+type Words = Crew["words"];
+
+/**
+ * What the workers are doing, by the stage under way: the words after
+ * "are", with the subject (the project) set apart where it is named.
+ */
+const WORKING: Partial<Record<Stage, (subject: string) => Words>> = {
+  agents: (subject) => [
+    { text: "testing", soft: true },
+    { text: ` ${subject}` },
+  ],
+  challenge: () => [{ text: "reviewing each other's findings", soft: true }],
+  proposals: (subject) => [
+    { text: "designing the feature for", soft: true },
+    { text: ` ${subject}` },
+  ],
+  critique: () => [{ text: "critiquing each other's blueprints", soft: true }],
+  split: () => [{ text: "reading the spec line by line", soft: true }],
+  trace: () => [{ text: "tracing each line to the code", soft: true }],
+  flight: () => [{ text: "attacking each blueprint", soft: true }],
+  duel: () => [{ text: "trying to get past each fix", soft: true }],
+};
+
+/** The words for a sentence: who or what, then what they are doing. */
+function say(
+  who: string,
+  plural: boolean,
+  stage: Stage | undefined,
+  subject: string,
+): Words {
+  const doing = (stage && WORKING[stage]?.(subject)) || [
+    { text: "at work on", soft: true },
+    { text: ` ${subject}` },
+  ];
+  const [first, ...rest] = doing;
+  return [
+    { text: who },
+    { text: ` ${plural ? "are" : "is"} `, soft: true },
+    // The first words of the doing carry their own tone.
+    first,
+    ...rest,
+    { text: ".", soft: first.soft && rest.length === 0 },
+  ];
+}
+
 export function crewOf(
   feed: Feed,
   run: {
@@ -163,22 +215,59 @@ export function crewOf(
     ? []
     : members.filter((member) => member.status === "running");
   const findings = members.reduce((sum, m) => sum + (m.findings ?? 0), 0);
-  const sentence = failed
-    ? `The run stopped${stage ? ` at ${stage.label}` : ""}.`
+  const words: Words = failed
+    ? [
+        { text: "The run stopped", soft: true },
+        ...(stage ? [{ text: ` at ${stage.label}` }] : []),
+        { text: "." },
+      ]
     : ended
       ? agents
-        ? `The agents filed ${findings} ${findings === 1 ? "finding" : "findings"} before the judge merged them.`
-        : `${featureOf(run.kind).name} is done.`
+        ? [
+            { text: "The agents filed", soft: true },
+            { text: ` ${findings} ${findings === 1 ? "finding" : "findings"}` },
+            { text: " before the judge merged them.", soft: true },
+          ]
+        : [
+            { text: featureOf(run.kind).name },
+            { text: " is done.", soft: true },
+          ]
       : working.length > 0
-        ? agents
-          ? `${working.length} ${working.length === 1 ? "agent is" : "agents are"} testing ${run.subject}.`
-          : `${listOf(working.map((m) => m.name))} ${working.length === 1 ? "is" : "are"} at work on ${run.subject}.`
+        ? say(
+            agents
+              ? `${working.length} ${working.length === 1 ? "agent" : "agents"}`
+              : listOf(working.map((m) => m.name)),
+            working.length > 1,
+            stage?.id,
+            run.subject,
+          )
         : stage
-          ? `${STAGE_DESCRIPTION[stage.id]}.`
-          : `Starting the run on ${run.subject}.`;
+          ? agents && WORKING[stage.id]
+            ? // Between two of the agents' turns: still them, still at it.
+              say("The agents", true, stage.id, run.subject)
+            : [{ text: `${STAGE_DESCRIPTION[stage.id]}.` }]
+          : [
+              { text: "Starting the run on", soft: true },
+              { text: ` ${run.subject}.` },
+            ];
+  const sentence = words.map((word) => word.text).join("");
+  const now = working
+    .filter((member) => member.doing)
+    .slice(0, 2)
+    .map((member) => ({ name: member.name, doing: member.doing! }));
 
   const found = feed.live
     .map(({ uid, agentId, severity }) => ({ uid, agentId, severity }))
     .reverse();
-  return { members, stage, sentence, findings, found, outcome, ended };
+  return {
+    members,
+    stage,
+    sentence,
+    words,
+    now,
+    findings,
+    found,
+    outcome,
+    ended,
+  };
 }

@@ -24,7 +24,7 @@ export function LatestFinding({ feed }: { feed: Feed }) {
   if (!latest) return null;
   return (
     <div
-      className="flex items-center gap-4 px-5 pb-3 text-[0.8125rem] md:px-6"
+      className="flex items-center gap-4 px-5 pb-4 text-[0.8125rem] md:px-6"
       data-testid="run-latest-finding"
     >
       <ul className="min-w-0 flex-1">

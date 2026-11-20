@@ -52,6 +52,51 @@ describe("crewOf", () => {
     expect(chaos.progress).toBeGreaterThan(0);
     expect(chaos.progress).toBeLessThan(1);
     expect(crew.sentence).toBe("2 agents are testing Storefront.");
+    // The line under it: who is on what, for the ones that have a file.
+    expect(crew.now).toEqual([{ name: "Outage tester", doing: "api/mail.go" }]);
+    // Who and what in full colour, the words between them softer.
+    expect(crew.words.map((word) => [word.text, !!word.soft])).toEqual([
+      ["2 agents", false],
+      [" are ", true],
+      ["testing", true],
+      [" Storefront", false],
+      [".", false],
+    ]);
+  });
+
+  it("names what the workers do in the stage that is on", () => {
+    const stages: Stage[] = ["survey", "agents", "challenge", "judge"];
+    const crew = crewOf(
+      play([
+        { type: "stage.started", stage: "challenge" },
+        { type: "agent.started", agentId: "chaos" },
+      ]),
+      { ...run, stages },
+    );
+    expect(crew.sentence).toBe("1 agent is reviewing each other's findings.");
+    expect(crew.words.at(-1)).toEqual({ text: ".", soft: true });
+    expect(crew.words.map((word) => word.text).join("")).toBe(crew.sentence);
+  });
+
+  it("keeps the agents as the subject while none is mid-task", () => {
+    const crew = crewOf(play([{ type: "stage.started", stage: "challenge" }]), {
+      ...run,
+      stages: ["survey", "agents", "challenge", "judge"],
+    });
+    expect(crew.sentence).toBe(
+      "The agents are reviewing each other's findings.",
+    );
+  });
+
+  it("shows no line under the sentence while nobody has a file or step", () => {
+    const crew = crewOf(
+      play([
+        { type: "stage.started", stage: "survey" },
+        { type: "agent.started", agentId: "chaos" },
+      ]),
+      run,
+    );
+    expect(crew.now).toEqual([]);
   });
 
   it("settles when the run ends", () => {
@@ -107,7 +152,7 @@ describe("crewOf", () => {
       progress: 1,
     });
     expect(crew.members[3].status).toBe("pending");
-    expect(crew.sentence).toBe("Pragmatist is at work on Shop.");
+    expect(crew.sentence).toBe("Pragmatist is designing the feature for Shop.");
   });
 
   it("says where a failed run stopped", () => {
