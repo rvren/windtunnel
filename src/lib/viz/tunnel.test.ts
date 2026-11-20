@@ -121,11 +121,12 @@ describe("the 3D tunnel", () => {
       ]);
     }
     // The plates' corners, one design or Fly-off's three side by side.
+    const reach = designs.offset + (plate.w / 2) * designs.scale;
     for (const x of [
-      model - 2.7,
+      model - reach,
       model - plate.w / 2,
       model + plate.w / 2,
-      2.9,
+      model + reach,
     ]) {
       for (const y of [plateY.interface + 0.03, plateY.data - 0.03]) {
         for (const z of [-plate.d / 2, plate.d / 2]) points.push([x, y, z]);
@@ -160,6 +161,20 @@ describe("the 3D tunnel", () => {
       expect(at.y).toBeGreaterThan(0.03);
       expect(at.y).toBeLessThan(0.97);
     }
+  });
+
+  it("puts the application in the middle of the drawing", () => {
+    // The fan is on its left and the names on its right: the application
+    // itself stands at the centre (within 2% of the drawing's width).
+    expect(Math.abs(project([TUNNEL_3D.model, 0, 0]).x - 0.5)).toBeLessThan(
+      0.02,
+    );
+  });
+
+  it("stops Fly-off's three designs short of the ends of the streams", () => {
+    const { model, end, designs, plate } = TUNNEL_3D;
+    const right = model + designs.offset + (plate.w / 2) * designs.scale;
+    expect(right).toBeLessThan(end);
   });
 
   it("keeps every worker's name inside the drawing, and apart", () => {

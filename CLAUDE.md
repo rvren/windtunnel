@@ -96,6 +96,11 @@ take something away.
     with a soft glow, level, fading in as it leaves the fan and fading
     inside the model. A light travels it while its worker works; a
     finding leaves the model as a spark.
+  - **The application stands in the middle of the panel** (the owner asked
+    for it centred, not left-aligned): the fan on its left, the stream
+    names on its right. A test holds it within 2% of the centre, and the
+    fan ring, the plates, the turntables, the stream ends and Preflight's
+    board inside the drawing.
   - The **application** is three plates drawn as outlines only (its
     interface, its services, its data) on one ring, with a single line for
     the stand. Each part of the run's map is an outlined tile with a faint

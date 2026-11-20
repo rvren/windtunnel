@@ -106,28 +106,30 @@ export function crossing(
 export type Vec3 = [number, number, number];
 
 /*
- * The camera is fitted to a short, wide drawing: the fan ring at the left
- * edge, the stream names at about three quarters of its width, the plates,
- * the turntable and Preflight's board inside it with a margin over and
- * under. The test in tunnel.test.ts holds every one of them in frame.
+ * The camera is fitted to a short, wide drawing with the application dead
+ * in the middle of it: the fan on its left, the stream names at about
+ * three quarters of its width, and the plates, the turntables and
+ * Preflight's board inside it with a margin over and under. The test in
+ * tunnel.test.ts holds every one of them in frame, and the application
+ * in the middle.
  */
 export const TUNNEL_3D = {
   /** The drawing's width over its height. */
   aspect: 3.0,
   camera: {
     position: [6.3, 1.75, 6.6] as Vec3,
-    target: [0.04, -0.36, -1.37] as Vec3,
+    target: [-0.59, -0.33, -0.85] as Vec3,
     /** The vertical field of view, in degrees. */
-    fov: 20.6,
+    fov: 20.3,
   },
   /** Where the fan turns, the streams start, the model sits, they end. */
-  fan: -5.6,
+  fan: -6.4,
   /** The drawn fan's radius. */
   fanRadius: 1.18,
   /** The streams start just downstream of the fan's ring. */
-  source: -5.45,
+  source: -6.25,
   model: 0.2,
-  end: 3.2,
+  end: 2.7,
   /** The level of the turntable's ring: where a floor would be. */
   floor: -1.0,
   /** The depth Preflight's board and Crosswind's nozzle hang at. */
@@ -138,14 +140,14 @@ export const TUNNEL_3D = {
   /** A part's tile on its plate, and the space between tiles. */
   tile: { w: 0.42, d: 0.3, gapX: 0.48, gapZ: 0.66 },
   /** Fly-off's three designs: how far apart, and how big. */
-  designs: { offset: 2.15, scale: 0.52 },
+  designs: { offset: 1.85, scale: 0.5 },
   /** Dogfight's shield, in front of the model. */
   shield: -1.35,
   /**
    * Preflight's board, hung past the model where the camera sees it clear
    * of the plates and the names: from the model's x.
    */
-  board: { x: 1.35, y: 0.62 },
+  board: { x: 0.8, y: 0.62 },
 } as const;
 
 /** The height of each worker's stream, top first, for 1 to 5 workers. */
