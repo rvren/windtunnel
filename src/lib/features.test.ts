@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { RUN_KINDS } from "@/server/engine/schema";
 
-import { FEATURES, featureOf, plainTitle } from "./features";
+import { FEATURES, JOBS, featureOf, plainTitle } from "./features";
 
 describe("FEATURES", () => {
   it("describes every kind of run once, with every field filled", () => {
@@ -17,11 +17,22 @@ describe("FEATURES", () => {
         "question",
         "input",
         "output",
+        "team",
         "example",
       ] as const) {
         expect(feature[field].trim(), `${feature.kind}.${field}`).not.toBe("");
       }
       expect(feature.actors.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("groups every kind under exactly one job, with its words", () => {
+    const grouped = JOBS.flatMap((job) => job.kinds);
+    expect([...grouped].sort()).toEqual([...RUN_KINDS].sort());
+    for (const job of JOBS) {
+      expect(job.title.trim(), job.id).not.toBe("");
+      expect(job.lead.trim(), job.id).not.toBe("");
+      expect(job.kinds.length, job.id).toBeGreaterThan(0);
     }
   });
 

@@ -70,11 +70,19 @@ take something away.
 
 - **The product is three steps: Choose → Watch → Result.** The home page
   (`/app`, `components/home/launcher.tsx`) is a launcher: one card per kind
-  of run (Tunnel Run spans the top row, the rest sit three across, a new
-  kind is marked `fresh`), and the three steps. Flutter is a stage of
-  Tunnel Run, not a card. Every word about a kind (its name, question,
-  input, result, workers, example) lives in `src/lib/features.ts`; never
-  write a kind's description anywhere else. Every run starts from the one
+  of run, **grouped by the job you came to do** (`JOBS` in
+  `src/lib/features.ts`: Find what is wrong, Plan a change, Fix a problem;
+  the owner chose this over a list and a side by side table), and the
+  three steps. A new kind is marked `fresh`. Each card is a **drawing of
+  what the kind does** (`components/home/illustrations.tsx`: fine violet
+  lines on the tunnel's own faint tint, red where it fails and green where
+  it holds, flat and still), its question, what it does, **You give / You
+  get / Who works**, and its button. A new kind needs a drawing, a `team`
+  line and a place in `JOBS` (a test holds every kind in exactly one
+  group). Flutter is a stage of Tunnel Run, not a card. Every word about a
+  kind (its name, question, input, result, team, workers, example) lives
+  in `src/lib/features.ts`; never write a kind's description anywhere
+  else. Every run starts from the one
   start page (`/app/runs/new?kind=…`, `components/run/start/`), whose
   request body and checks are `src/lib/start-run.ts`. The kind is called
   **Tunnel Run** in the UI (`audit` in the code).

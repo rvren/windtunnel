@@ -28,6 +28,8 @@ export interface Feature {
   input: string;
   /** What you get back. */
   output: string;
+  /** Who does the work, in a phrase, for the launcher's card. */
+  team: string;
   /** A ready input to try it with. */
   example: string;
   /** Who works during the run, as shown while it is live. */
@@ -83,6 +85,7 @@ export const FEATURES: Feature[] = [
     question: "What breaks when real people use this?",
     input: "A requirement in plain words, or a project's code",
     output: "Issues ranked by severity, and work orders to fix them",
+    team: "Five agents, each attacking from its own angle",
     example: EXAMPLE_REQUIREMENT,
     actors: FIVE_AGENTS,
   },
@@ -96,6 +99,7 @@ export const FEATURES: Feature[] = [
     input: "A pull request, two branches, or a change in plain words",
     output:
       "The parts it touches, what breaks, and the architecture before and after",
+    team: "Five agents, tracing the change through every service",
     example: EXAMPLE_CHANGE,
     actors: FIVE_AGENTS,
   },
@@ -108,6 +112,7 @@ export const FEATURES: Feature[] = [
     question: "What is the best way to build this?",
     input: "The feature to design, in plain words",
     output: "The winning blueprint, the reasons, and work orders",
+    team: "Three designers who critique each other, and a judge",
     example: EXAMPLE_REQUIREMENT,
     actors: [
       {
@@ -133,6 +138,7 @@ export const FEATURES: Feature[] = [
     question: "Why did this fail, and how do we fix it?",
     input: "An error message or an incident note",
     output: "The cause, cited to lines in the code, and a checked fix",
+    team: "An investigator, a fixer and an attacker",
     example: EXAMPLE_INCIDENT,
     actors: [
       {
@@ -162,6 +168,7 @@ export const FEATURES: Feature[] = [
     input: "The part to cut: a service, a database or an outside system",
     output:
       "The failure as it spreads to your customers, each step cited to the code",
+    team: "A mapper, an outage tester, an everyday user and a judge",
     example: EXAMPLE_OUTAGE.label,
     fresh: true,
     actors: [
@@ -196,6 +203,7 @@ export const FEATURES: Feature[] = [
     question: "Does the code do what the spec says?",
     input: "A spec or requirement, and the project's code",
     output: "Each line of the spec marked, with the code that proves it",
+    team: "Five agents, each checking the lines that fit its lens",
     example: EXAMPLE_SPEC,
     fresh: true,
     actors: FIVE_AGENTS,
@@ -209,6 +217,7 @@ export const FEATURES: Feature[] = [
     question: "Will this fix hold against an attacker?",
     input: "A security issue from a run of the project's code",
     output: "A hardened fix, round by round, ready as a pull request",
+    team: "A defender and an attacker, round after round",
     example: "The search box can run SQL",
     fresh: true,
     actors: [
@@ -223,6 +232,37 @@ export const FEATURES: Feature[] = [
         role: "Reads the fixed code and looks for a way past it.",
       },
     ],
+  },
+];
+
+/**
+ * The launcher groups the kinds by the job you came to do, so you start
+ * from your situation, not from a name. Every kind is in exactly one group.
+ */
+export const JOBS: {
+  id: string;
+  title: string;
+  /** One line: when you would be here. */
+  lead: string;
+  kinds: RunKind[];
+}[] = [
+  {
+    id: "find",
+    title: "Find what is wrong",
+    lead: "Test what you have, before your users do.",
+    kinds: ["audit", "preflight", "engineout"],
+  },
+  {
+    id: "plan",
+    title: "Plan a change",
+    lead: "Decide how to build it, and what it will touch.",
+    kinds: ["flyoff", "crosswind"],
+  },
+  {
+    id: "fix",
+    title: "Fix a problem",
+    lead: "Something broke, or a fix needs proving.",
+    kinds: ["blackbox", "dogfight"],
   },
 ];
 

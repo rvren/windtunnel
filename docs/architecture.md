@@ -489,8 +489,9 @@ says that a schedule is the owner's standing permission for those runs.
 
 **Screens.** The home page (`src/app/app/page.tsx`,
 `src/components/home/launcher.tsx`) is a launcher: one card per kind of run,
-from `src/lib/features.ts`, which names each kind, its question, its input,
-its result and its workers. A card opens the one start page
+grouped by job (`JOBS`), from `src/lib/features.ts`, which names each kind,
+its question, its input, its result, its team and its workers. Each card
+carries a drawing of the kind (`src/components/home/illustrations.tsx`). A card opens the one start page
 (`src/app/app/runs/new/page.tsx`, `src/components/run/start/start-form.tsx`);
 what it sends to `POST /api/runs` for each kind, and what is missing first,
 is `src/lib/start-run.ts`. Every page sits in the side navigation

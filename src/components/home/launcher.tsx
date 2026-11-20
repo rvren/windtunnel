@@ -6,14 +6,18 @@ import { LocalTime } from "@/components/local-time";
 import { Panel } from "@/components/panel";
 import { StatusBadge } from "@/components/run/badges";
 import { buttonVariants } from "@/components/ui/button";
-import { FEATURES, featureOf, plainTitle, type Feature } from "@/lib/features";
+import { JOBS, featureOf, plainTitle, type Feature } from "@/lib/features";
 import { cn } from "@/lib/utils";
+
+import { FeatureArt } from "./illustrations";
 import type { RunSummary } from "@/server/engine/schema";
 
 /*
- * The first screen of the app: what Windtunnel can do, one card per kind, and
- * the three steps every run takes. Each card starts its kind of run. Under
- * them, the runs going now and the latest ones, to carry on.
+ * The first screen of the app: what Windtunnel can do, grouped by the job
+ * you came to do, and the three steps every run takes. Each kind has a
+ * card: a drawing of what it does, its question, what you give it, what
+ * you get back and who does the work. A card starts its kind of run.
+ * Under them, the runs going now and the latest ones, to carry on.
  */
 
 const STEPS = [
@@ -23,101 +27,82 @@ const STEPS = [
 ];
 
 const CARD =
-  "group rounded-card border bg-card p-6 transition-colors duration-200 outline-none hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring";
+  "group rounded-card border bg-card p-3 transition-colors duration-200 outline-none hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring";
+
+/** The columns a group of this many cards sits in on a wide screen. */
+const COLUMNS: Record<number, string> = {
+  1: "lg:grid-cols-1",
+  2: "lg:grid-cols-2",
+  3: "lg:grid-cols-3",
+};
 
 function FeatureCard({ feature, main }: { feature: Feature; main: boolean }) {
   const Icon = FEATURE_ICON[feature.kind];
-  const href = `/app/runs/new?kind=${feature.kind}`;
-  const start = (
-    <span
-      className={cn(
-        buttonVariants({ variant: main ? "default" : "outline" }),
-        "self-start justify-self-start",
-      )}
-      data-testid={`launcher-start-${feature.kind}`}
-    >
-      {feature.start}
-      <ArrowRight
-        className="transition-transform duration-200 group-hover:translate-x-0.5"
-        aria-hidden="true"
-      />
-    </span>
-  );
-  const facts = (
-    <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1.5 text-[0.8125rem]">
-      <dt className="text-muted-foreground">You give</dt>
-      <dd>{feature.input}</dd>
-      <dt className="text-muted-foreground">You get</dt>
-      <dd>{feature.output}</dd>
-    </dl>
-  );
-  const words = (
-    <div>
-      <div className="flex items-center gap-3">
-        <span
-          className={cn(
-            "grid size-10 shrink-0 place-items-center rounded-tile border",
-            (main || feature.fresh) && "border-brand/40 text-brand",
-          )}
-        >
-          <Icon className="size-5" aria-hidden="true" />
-        </span>
-        <h2 className="text-xl font-medium">{feature.name}</h2>
-        {feature.fresh ? (
-          <span
-            className="rounded-full border border-brand/40 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-brand uppercase"
-            data-testid={`launcher-new-${feature.kind}`}
-          >
-            New
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-5 text-lg leading-snug">{feature.question}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{feature.promise}</p>
-      {feature.news ? (
-        <p className="mt-3 flex items-center gap-2 text-[0.8125rem]">
-          <span
-            aria-hidden="true"
-            className="size-1.5 shrink-0 rounded-full bg-brand"
-          />
-          {feature.news}
-        </p>
-      ) : null}
-    </div>
-  );
-
-  if (!main) {
-    // Three rows shared with the cards beside it (subgrid): the words, the
-    // facts, the button. However long a card's words, its facts and its
-    // button sit level with its neighbours'.
-    return (
-      <Link
-        href={href}
-        data-testid={`launcher-${feature.kind}`}
-        className={cn(CARD, "row-span-3 grid grid-rows-subgrid gap-y-0")}
-      >
-        {words}
-        <div className="mt-5 mb-6">{facts}</div>
-        {start}
-      </Link>
-    );
-  }
-  // The main kind spans the row, its facts beside its words.
+  // Four rows shared with the cards beside it (subgrid): the drawing, the
+  // words, the facts, the button. However long a card's words, its facts
+  // and its button sit level with its neighbours'.
   return (
     <Link
-      href={href}
+      href={`/app/runs/new?kind=${feature.kind}`}
       data-testid={`launcher-${feature.kind}`}
-      className={cn(
-        CARD,
-        "flex flex-col md:col-span-2 lg:col-span-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-x-10",
-      )}
+      className={cn(CARD, "row-span-4 grid grid-rows-subgrid gap-y-0")}
     >
-      <div className="flex flex-col">
-        {words}
-        <div className="mt-5 lg:hidden">{facts}</div>
-        <div className="mt-6">{start}</div>
+      <FeatureArt
+        kind={feature.kind}
+        className="h-44 transition-shadow duration-200 group-hover:ring-brand/30"
+      />
+      <div className="px-3 pt-5">
+        <div className="flex items-center gap-2.5">
+          <Icon className="size-[1.125rem] text-brand" aria-hidden="true" />
+          <h3 className="text-lg font-medium">{feature.name}</h3>
+          {feature.fresh ? (
+            <span
+              className="rounded-full border border-brand/40 px-2 py-0.5 font-mono text-[0.625rem] tracking-wide text-brand uppercase"
+              data-testid={`launcher-new-${feature.kind}`}
+            >
+              New
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-3 text-[0.9375rem] leading-snug font-medium">
+          {feature.question}
+        </p>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          {feature.promise}
+        </p>
+        {feature.news ? (
+          <p className="mt-3 flex items-center gap-2 text-[0.8125rem]">
+            <span
+              aria-hidden="true"
+              className="size-1.5 shrink-0 rounded-full bg-brand"
+            />
+            {feature.news}
+          </p>
+        ) : null}
       </div>
-      <div className="hidden self-center border-l pl-10 lg:block">{facts}</div>
+      <dl className="mx-3 mt-5 mb-6 grid grid-cols-[4.75rem_1fr] gap-x-3 gap-y-2 border-t pt-4 text-[0.8125rem]">
+        <dt className="text-muted-foreground">You give</dt>
+        <dd>{feature.input}</dd>
+        <dt className="text-muted-foreground">You get</dt>
+        <dd>{feature.output}</dd>
+        <dt className="text-muted-foreground">Who works</dt>
+        <dd>{feature.team}</dd>
+      </dl>
+      <div className="px-3 pb-3">
+        <span
+          className={cn(
+            buttonVariants({ variant: main ? "default" : "outline" }),
+            "self-start justify-self-start",
+          )}
+          data-testid={`launcher-start-${feature.kind}`}
+        >
+          {feature.start}
+          <ArrowRight
+            className="transition-transform duration-200 group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
+        </span>
+      </div>
     </Link>
   );
 }
@@ -177,7 +162,7 @@ function Recent({ runs }: { runs: RunSummary[] }) {
 
 export function Launcher({ runs }: { runs: RunSummary[] }) {
   return (
-    <div className="mx-auto max-w-6xl space-y-10" data-testid="launcher">
+    <div className="mx-auto max-w-6xl space-y-12" data-testid="launcher">
       <header className="space-y-4">
         <h1 className="text-4xl leading-tight font-semibold tracking-[-0.03em] text-balance">
           What do you want to test?
@@ -206,15 +191,34 @@ export function Launcher({ runs }: { runs: RunSummary[] }) {
         </ol>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((feature, index) => (
-          <FeatureCard
-            key={feature.kind}
-            feature={feature}
-            main={index === 0}
-          />
-        ))}
-      </div>
+      {JOBS.map((job) => (
+        <section
+          key={job.id}
+          aria-labelledby={`launcher-job-${job.id}`}
+          data-testid={`launcher-job-${job.id}`}
+        >
+          <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 id={`launcher-job-${job.id}`} className="text-xl font-medium">
+              {job.title}
+            </h2>
+            <p className="text-sm text-muted-foreground">{job.lead}</p>
+          </div>
+          <div
+            className={cn(
+              "grid gap-4 sm:grid-cols-2",
+              COLUMNS[job.kinds.length] ?? "lg:grid-cols-3",
+            )}
+          >
+            {job.kinds.map((kind) => (
+              <FeatureCard
+                key={kind}
+                feature={featureOf(kind)}
+                main={kind === "audit"}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
 
       <Recent runs={runs} />
     </div>
