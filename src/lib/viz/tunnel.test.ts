@@ -101,6 +101,7 @@ describe("the 3D tunnel", () => {
     const {
       fan,
       fanRadius,
+      cowl,
       model,
       end,
       floor,
@@ -111,14 +112,17 @@ describe("the 3D tunnel", () => {
       designs,
     } = TUNNEL_3D;
     const points: Vec3[] = [];
-    // The fan's ring, all the way round.
+    // The turbine's cowl: its lip at the front and its outer wall at the
+    // back, all the way round.
     for (let step = 0; step < 48; step += 1) {
       const angle = (step / 48) * Math.PI * 2;
-      points.push([
-        fan,
-        Math.cos(angle) * fanRadius,
-        Math.sin(angle) * fanRadius,
-      ]);
+      for (const x of [fan + cowl.front + cowl.lip / 2, fan + cowl.back]) {
+        points.push([
+          x,
+          Math.cos(angle) * (fanRadius + cowl.lip),
+          Math.sin(angle) * (fanRadius + cowl.lip),
+        ]);
+      }
     }
     // The plates' corners, one design or Fly-off's three side by side.
     const reach = designs.offset + (plate.w / 2) * designs.scale;

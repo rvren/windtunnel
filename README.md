@@ -219,10 +219,10 @@ takes the same three steps:
    the project, give the one input that kind needs (or **Use The Example**),
    and start. It always asks first, and says whether the run is billed.
 2. **Watch.** The run page's **Live** tab is the wind tunnel, in 3D, on
-   one screen, drawn as a blueprint in light: a fan on the left, drawn as a
-   turning circle that glows, and the application in the middle as three
+   one screen, drawn as a blueprint in light: a turbine on the left, matte
+   and turning with a glow behind it, and the application in the middle as three
    outlined plates (interface, services, data), each part a tile. Out of
-   the fan come one glowing line per worker; a light runs along a line
+   the turbine come one glowing line per worker; a light runs along a line
    while its worker works, and each finding leaves the application as a
    spark into that worker's count. Each kind adds its own detail: a Tunnel Run pins its
    findings where they are and draws its attack chains, Engine Out cuts a

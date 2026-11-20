@@ -16,12 +16,14 @@ import type { AgentStatus, LineStatus } from "@/server/engine/schema";
 import { css, type Palette, type Rgb } from "./colors";
 
 /*
- * The 3D wind tunnel, as a blueprint drawn in light: nothing solid, no
- * floor, walls, ceiling, bars, lights, shadows or reflections (the owner
- * asked for something minimal that still has impact, and chose this).
- * It sits on an area of its own, whose colour (--wt-bg) is the scene's
- * background, so the glow ends at the area's rounded edge.
- * The fan is a drawn circle with spokes that turn, glowing softly behind;
+ * The 3D wind tunnel, as a blueprint drawn in light: no floor, walls,
+ * ceiling, bars, shadows or reflections (the owner asked for something
+ * minimal that still has impact, and chose this). The one solid thing is
+ * the turbine, matte and lit, as it was in the room: swept blades in a
+ * cowl with a rounded lip (the owner asked for it back). It sits on an
+ * area of its own, whose colour (--wt-bg) is the scene's background, so
+ * the glow ends at the area's rounded edge.
+ * The turbine turns, glowing softly behind;
  * out of it come one fine stream per worker, running level through the
  * application and ending in a dot beside the worker's name (the names are
  * HTML over the drawing). The application stands on a ring in the middle:
@@ -41,8 +43,43 @@ import { css, type Palette, type Rgb } from "./colors";
 
 const T = TUNNEL_3D;
 const PLATES: PlateId[] = ["interface", "services", "data"];
+/**
+ * The turbine's finish: matte, like anodised or painted metal, so the
+ * blades, the cowl and the nose hold their shape without bright
+ * reflections (there is no environment to reflect, so little metal).
+ */
+const MATTE = { metalness: 0.12, roughness: 0.7 } as const;
+
 /** How fast the fan turns once the run is over, in radians a second. */
 const IDLE_SPIN = 0.9;
+
+/**
+ * One fan blade, in the fan's own frame (radial along y, turning about z):
+ * a cambered surface that widens and sweeps towards its tip and twists
+ * from steep at the hub to flat at the tip, as a turbofan's do.
+ */
+function bladeGeometry(hub: number, tip: number): THREE.BufferGeometry {
+  const geometry = new THREE.PlaneGeometry(1, 1, 6, 18);
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i += 1) {
+    const u = position.getX(i); // -0.5 .. 0.5 across the chord
+    const s = position.getY(i) + 0.5; // 0 at the hub, 1 at the tip
+    const r = hub + s * (tip - hub);
+    const chord = 0.2 + 0.18 * s;
+    const twist = 1.05 - 0.55 * s;
+    const camber = (0.25 - u * u) * chord * 0.22;
+    const along = u * chord;
+    const sweep = s * s * 0.12;
+    position.setXYZ(
+      i,
+      along * Math.cos(twist) - camber * Math.sin(twist) + sweep,
+      r,
+      along * Math.sin(twist) + camber * Math.cos(twist),
+    );
+  }
+  geometry.computeVertexNormals();
+  return geometry;
+}
 /** How bright a plate's outline is. */
 const EDGE = 0.9;
 
@@ -209,7 +246,12 @@ export class Tunnel3D {
   private frameId = 0;
   private last = 0;
   private clock = 0;
+  /** The blades and the nose: the part of the turbine that turns. */
   private fan!: THREE.Group;
+  /** At speed the blades blur into a disc, in front of them and still. */
+  private fanBlur!: THREE.MeshBasicMaterial;
+  /** The light deep in the cowl; it breathes while the fan idles. */
+  private cowlGlow!: THREE.MeshBasicMaterial;
   private fanSpeed = 0;
   private fanTarget = 0;
   /** Nothing at work and nothing landing: frames are drawn more slowly. */
@@ -393,65 +435,128 @@ export class Tunnel3D {
 
   // ── The fan: everything that stays for every run ────────────────────────
 
-  /** A circle in the plane across the air (y, z), round the axis. */
-  private circle(radius: number, segments = 96) {
-    const points: THREE.Vector3[] = [];
-    for (let i = 0; i <= segments; i += 1) {
-      const angle = (i / segments) * Math.PI * 2;
-      points.push(
-        new THREE.Vector3(
-          0,
-          Math.cos(angle) * radius,
-          Math.sin(angle) * radius,
-        ),
-      );
-    }
-    return new THREE.BufferGeometry().setFromPoints(points);
+  /** A matte, lit material: the turbine's only lit surfaces. */
+  private matte(
+    color: THREE.Color,
+    options: THREE.MeshStandardMaterialParameters = {},
+  ) {
+    return new THREE.MeshStandardMaterial({
+      color,
+      ...MATTE,
+      side: THREE.DoubleSide,
+      ...options,
+    });
   }
 
   /**
-   * The fan, drawn: a bright ring, a faint ring just inside it, a hub ring
-   * and 18 curved spokes that turn, with a soft glow behind. Light only.
+   * The turbine: matte metal in a cowl with a rounded lip, swept blades
+   * that overlap round a nose cone, and fixed vanes behind them, all in
+   * the one place the drawing is solid and lit. Behind the blades the
+   * cowl glows, and so does the air round it; at speed the blades blur
+   * into a disc. Everything else stays a line of light.
    */
   private buildFan() {
     const p = this.palette;
-    const line = this.color(p.line);
-    const group = new THREE.Group();
-    group.position.set(T.fan, 0, 0);
-    this.root.add(group);
-    const ring = new THREE.TorusGeometry(T.fanRadius, 0.011, 8, 160);
-    ring.rotateY(Math.PI / 2);
-    group.add(
-      new THREE.Mesh(
-        ring,
-        this.basic(line, { opacity: 0.95, blending: this.blend() }),
-      ),
+    const pi = Math.PI;
+    const radius = T.fanRadius;
+    // Light for the turbine alone: every other mark is unlit.
+    this.root.add(new THREE.AmbientLight(0xffffff, (p.dark ? 0.32 : 0.4) * pi));
+    const key = new THREE.DirectionalLight(
+      0xffffff,
+      (p.dark ? 0.95 : 0.7) * pi,
     );
-    group.add(
-      new THREE.Line(this.circle(T.fanRadius - 0.1), this.line(line, 0.3)),
+    key.position.set(3, 9, 6);
+    const fill = new THREE.DirectionalLight(
+      0xffffff,
+      (p.dark ? 0.4 : 0.35) * pi,
     );
-    group.add(new THREE.Line(this.circle(0.3, 48), this.line(line, 0.95)));
-    this.fan = new THREE.Group();
-    group.add(this.fan);
-    const spokes = 18;
-    const reach = T.fanRadius - 0.1;
-    for (let i = 0; i < spokes; i += 1) {
-      const points: THREE.Vector3[] = [];
-      const start = (i / spokes) * Math.PI * 2;
-      for (let j = 0; j <= 10; j += 1) {
-        const r = 0.28 + (j * (reach - 0.28)) / 10;
-        const angle = start + j * 0.045;
-        points.push(
-          new THREE.Vector3(0, Math.cos(angle) * r, Math.sin(angle) * r),
-        );
-      }
-      this.fan.add(
-        new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(points),
-          this.line(line, 0.7),
+    fill.position.set(-6, 3, 4);
+    this.root.add(key, fill);
+
+    // The cowl: a ring of metal with a rounded lip, running back from the
+    // fan's plane. Its axis is the air's (x).
+    const { lip, front, back } = T.cowl;
+    const profile = [
+      new THREE.Vector2(radius, back),
+      new THREE.Vector2(radius, front),
+    ];
+    for (let step = 1; step <= 14; step += 1) {
+      const angle = (step / 14) * pi;
+      profile.push(
+        new THREE.Vector2(
+          radius + lip / 2 - (Math.cos(angle) * lip) / 2,
+          front + (Math.sin(angle) * lip) / 2,
         ),
       );
     }
+    profile.push(new THREE.Vector2(radius + lip, back));
+    const shell = new THREE.LatheGeometry(profile, 96);
+    shell.rotateZ(-pi / 2);
+    const cowl = new THREE.Mesh(shell, this.matte(this.color(p.metal)));
+    cowl.position.x = T.fan;
+    this.root.add(cowl);
+    // The light deep in it, behind the blades.
+    this.cowlGlow = this.basic(this.color(p.brand), {
+      opacity: 0,
+      blending: this.blend(),
+    });
+    const deep = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 64),
+      this.cowlGlow,
+    );
+    deep.rotation.y = pi / 2;
+    deep.position.x = T.fan + back * 0.7;
+    this.root.add(deep);
+
+    // Drawn for a fan of radius 1.32, then scaled to the one here; turned
+    // to face the air (its z runs along x).
+    const mount = new THREE.Group();
+    mount.rotation.y = pi / 2;
+    mount.scale.setScalar(radius / 1.32);
+    mount.position.x = T.fan;
+    this.root.add(mount);
+    this.fan = new THREE.Group();
+    mount.add(this.fan);
+    const blade = this.matte(this.color(p.blade));
+    const shape = bladeGeometry(0.32, 1.27);
+    for (let index = 0; index < 20; index += 1) {
+      const mesh = new THREE.Mesh(shape, blade);
+      mesh.rotation.z = (index * pi * 2) / 20;
+      this.fan.add(mesh);
+    }
+    // Fixed vanes behind the fan, straightening the air.
+    const vane = this.matte(this.color(p.frame));
+    for (let index = 0; index < 13; index += 1) {
+      const geometry = new THREE.BoxGeometry(0.035, 0.94, 0.16);
+      geometry.translate(0, 0.8, 0);
+      const mesh = new THREE.Mesh(geometry, vane);
+      mesh.rotation.z = (index * pi * 2) / 13 + 0.12;
+      mesh.position.z = -0.3;
+      mount.add(mesh);
+    }
+    const hub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.33, 0.33, 0.18, 32),
+      this.matte(this.color(p.blade)),
+    );
+    hub.rotation.x = pi / 2;
+    this.fan.add(hub);
+    const cone = new THREE.Mesh(
+      new THREE.SphereGeometry(0.33, 32, 16),
+      this.matte(this.color(p.metal)),
+    );
+    cone.scale.set(1, 1, 1.8);
+    cone.position.z = 0.06;
+    this.fan.add(cone);
+    // At speed the blades blur into a disc, in front of them and still.
+    this.fanBlur = this.basic(this.color(p.blade), { opacity: 0 });
+    const blur = new THREE.Mesh(
+      new THREE.RingGeometry(0.34, 1.26, 64),
+      this.fanBlur,
+    );
+    blur.position.z = 0.04;
+    mount.add(blur);
+
+    // A soft glow behind it all, in the brand colour.
     this.fanGlow = new THREE.SpriteMaterial({
       map: glowTexture(),
       color: this.color(p.brand),
@@ -463,7 +568,7 @@ export class Tunnel3D {
     });
     const glow = new THREE.Sprite(this.fanGlow);
     glow.scale.set(3.8, 3.8, 1);
-    glow.position.set(T.fan + 0.1, 0, 0);
+    glow.position.set(T.fan - 0.3, 0, 0);
     this.root.add(glow);
   }
 
@@ -1383,13 +1488,17 @@ export class Tunnel3D {
     let moving = false;
 
     this.fanSpeed = approach(this.fanSpeed, this.fanTarget, dt, 1.2);
-    this.fan.rotation.x += this.fanSpeed * dt;
+    this.fan.rotation.z += this.fanSpeed * dt;
     const spin = Math.min(1, this.fanSpeed / 10);
     // The glow behind the fan brightens at speed and breathes, gently,
     // while it idles.
     const breath = this.reduced ? 0 : 0.14 * Math.sin(this.clock * 1.4);
     this.fanGlow.opacity =
       (p.dark ? 0.2 : 0.08) * (0.45 + 0.55 * spin) * (1 + breath);
+    // The light in the cowl, behind the blades, breathes the same way.
+    this.cowlGlow.opacity =
+      (p.dark ? 0.4 : 0.1) * (0.3 + 0.7 * spin) * (1 + breath * (1 - spin));
+    this.fanBlur.opacity = 0.32 * Math.max(0, (this.fanSpeed - 4) / 6);
     if (this.fanSpeed > 0.01 || this.fanTarget > 0) moving = true;
 
     for (const stream of this.streams) {

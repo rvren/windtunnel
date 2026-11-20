@@ -319,6 +319,10 @@ export function WindTunnel3D({
         "dark:[--wt-bg:color-mix(in_oklab,var(--card)_86%,black)]",
         "[--wt-ink:var(--foreground)]",
         "[--wt-line:var(--brand)] dark:[--wt-line:#c9c2ff]",
+        // The turbine's matte metal: mid greys, a touch cool.
+        "[--wt-metal:#b9bbc1] dark:[--wt-metal:#8e8ea2]",
+        "[--wt-blade:#8f9198] dark:[--wt-blade:#5e5e72]",
+        "[--wt-frame:#c3c4c8] dark:[--wt-frame:#3a3b40]",
       )}
       data-testid="wind-tunnel-3d"
       data-ready={ready}

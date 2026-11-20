@@ -14,8 +14,12 @@ export interface Palette {
   bg: Rgb;
   /** Text drawn into the scene: the parts' names, the application's. */
   ink: Rgb;
-  /** The fan, the streams and the fine lines of the drawing. */
+  /** The streams and the fine lines of the drawing. */
   line: Rgb;
+  /** The turbine, matte: its blades, its cowl and lip, its vanes. */
+  blade: Rgb;
+  metal: Rgb;
+  frame: Rgb;
   brand: Rgb;
   ok: Rgb;
   danger: Rgb;
@@ -27,6 +31,9 @@ const TOKENS: Record<Exclude<keyof Palette, "dark">, string> = {
   bg: "--wt-bg",
   ink: "--wt-ink",
   line: "--wt-line",
+  blade: "--wt-blade",
+  metal: "--wt-metal",
+  frame: "--wt-frame",
   brand: "--brand",
   ok: "--ok",
   danger: "--sev-critical",

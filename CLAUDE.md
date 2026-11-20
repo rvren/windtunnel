@@ -86,9 +86,9 @@ take something away.
   `src/lib/viz/tunnel.ts`), in one panel that fits a screen. It is a
   **blueprint drawn in light** (the owner asked for something minimal that
   still has impact, saw three directions mocked, and chose this one):
-  - **Nothing solid.** No room, floor, walls, ceiling, bars, frames,
-    lights, shadows, reflections or patterns on a floor. Everything is a
-    fine line or a glow on the drawing's own colour.
+  - **Nothing solid but the turbine.** No room, floor, walls, ceiling,
+    bars, frames, shadows, reflections or patterns on a floor. Everything
+    else is a fine line or a glow on the drawing's own colour.
   - **The tunnel has its own area** (the owner asked for a very subtle
     background so it stands apart from the card): a rounded panel with a
     hairline ring, tinted `--wt-bg` (a faint violet in the light theme, a
@@ -96,10 +96,24 @@ take something away.
     same colour, read from `--wt-bg`, so the canvas and the panel never
     differ, and the fan's glow stops at the panel's edge. There is no edge
     mask. Keep it faint: the tint must not read as a box.
-  - The **fan** is a drawn circle in light: a bright ring, a faint ring
-    just inside, a hub ring and 18 curved spokes that turn, with a soft
-    glow behind that breathes. No turbine, housing or blades.
-  - One **stream** per worker, coming straight out of the fan: a fine line
+  - The **turbine** is the one solid, lit thing (the owner liked it in the
+    room and asked for it back): matte metal, 20 swept blades that overlap
+    round a nose cone, fixed vanes behind them, in a cowl with a rounded
+    lip (`TUNNEL_3D.cowl`). A violet light deep in the cowl and a soft
+    glow behind it breathe; at speed the blades blur into a disc. Only the
+    turbine takes the scene's three lights (ambient, key and fill), so no
+    environment map: keep its metal matte (`MATTE` in `scene.ts`), since
+    metal with nothing to reflect goes black. It stays inside the frame:
+    the fit test holds the cowl's lip and back edge in view.
+  - **The headline over the tunnel** (`CrewHeadline` in
+    `crew/parts.tsx`, words from `crewOf` in `src/lib/viz/crew.ts`) says
+    what the stage under way is doing ("5 agents are testing Storefront.",
+    "The agents are reviewing each other's findings."), with who is at work
+    and on what in full colour and the words between softer. Under it a
+    quiet line says what each worker is on (a file it reads); it keeps its
+    height when empty so the drawing never moves. Even gaps: headline,
+    drawing, newest finding, stage line.
+  - One **stream** per worker, coming straight out of the turbine: a fine line
     with a soft glow, level, fading in as it leaves the fan and fading
     inside the model. A light travels it while its worker works; a
     finding leaves the model as a spark.
@@ -179,7 +193,9 @@ take something away.
     walls and floor, a solid top wall, and a turbine with a housing. They
     asked for something minimal that still has impact and chose Blueprint
     over an aperture of light and a stage under a light cone, with the fan
-    as light only and **no floor, and no pattern on one** (a grid, rings,
+    as light only (later the owner asked for the turbine back, solid and
+    matte, with the rest staying as light) and **no floor, and no pattern
+    on one** (a grid, rings,
     flow lines, crosses and hexagons were all mocked and passed over). Keep
     it elegant: simple, fine, soft. It must look as good in the light theme
     (violet lines on its faint tint) as in the dark; its colours are the

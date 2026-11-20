@@ -124,8 +124,13 @@ export const TUNNEL_3D = {
   },
   /** Where the fan turns, the streams start, the model sits, they end. */
   fan: -6.4,
-  /** The drawn fan's radius. */
-  fanRadius: 1.18,
+  /** The turbine's blades' radius, inside its cowl. */
+  fanRadius: 1.08,
+  /**
+   * Its cowl: the thickness of its rounded lip, how far the lip stands
+   * downstream of the fan's plane, and how far the cowl runs back.
+   */
+  cowl: { lip: 0.14, front: 0.1, back: -0.75 },
   /** The streams start just downstream of the fan's ring. */
   source: -6.25,
   model: 0.2,
