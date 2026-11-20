@@ -88,7 +88,14 @@ take something away.
   still has impact, saw three directions mocked, and chose this one):
   - **Nothing solid.** No room, floor, walls, ceiling, bars, frames,
     lights, shadows, reflections or patterns on a floor. Everything is a
-    fine line or a glow on the panel's own colour.
+    fine line or a glow on the drawing's own colour.
+  - **The tunnel has its own area** (the owner asked for a very subtle
+    background so it stands apart from the card): a rounded panel with a
+    hairline ring, tinted `--wt-bg` (a faint violet in the light theme, a
+    touch darker than the card in the dark). The scene's background is the
+    same colour, read from `--wt-bg`, so the canvas and the panel never
+    differ, and the fan's glow stops at the panel's edge. There is no edge
+    mask. Keep it faint: the tint must not read as a box.
   - The **fan** is a drawn circle in light: a bright ring, a faint ring
     just inside, a hub ring and 18 curved spokes that turn, with a soft
     glow behind that breathes. No turbine, housing or blades.
@@ -175,7 +182,7 @@ take something away.
     as light only and **no floor, and no pattern on one** (a grid, rings,
     flow lines, crosses and hexagons were all mocked and passed over). Keep
     it elegant: simple, fine, soft. It must look as good in the light theme
-    (violet lines on the card colour) as in the dark; its colours are the
+    (violet lines on its faint tint) as in the dark; its colours are the
     `--wt-*` variables set on the drawing.
 
   Under it once the run has

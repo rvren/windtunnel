@@ -310,17 +310,24 @@ export function WindTunnel3D({
     <div
       ref={box}
       className={cn(
-        "@container",
-        // The drawing's colours: the panel's own, the app's violet for the
-        // lines (paler in the dark theme, where they glow).
-        "[--wt-bg:var(--card)] [--wt-ink:var(--foreground)]",
+        "@container px-5 md:px-6",
+        // The drawing's own area has its own colour, very subtle: a touch
+        // darker than the panel in the dark theme, a faint violet tint in
+        // the light one. The lines are the app's violet (paler in the dark
+        // theme, where they glow).
+        "[--wt-bg:color-mix(in_oklab,var(--brand)_5%,var(--card))]",
+        "dark:[--wt-bg:color-mix(in_oklab,var(--card)_86%,black)]",
+        "[--wt-ink:var(--foreground)]",
         "[--wt-line:var(--brand)] dark:[--wt-line:#c9c2ff]",
       )}
       data-testid="wind-tunnel-3d"
       data-ready={ready}
     >
       <div
-        className={cn("relative w-full", hover && "cursor-pointer")}
+        className={cn(
+          "relative w-full overflow-hidden rounded-card bg-[var(--wt-bg)] ring-1 ring-foreground/[0.06]",
+          hover && "cursor-pointer",
+        )}
         style={{ aspectRatio: `${T.aspect}` }}
         role="img"
         aria-label={crew.sentence}
@@ -340,13 +347,7 @@ export function WindTunnel3D({
       >
         <canvas
           ref={canvas}
-          className={cn(
-            "absolute inset-0 size-full",
-            !ready && "invisible",
-            // The dark theme's glow spreads to the drawing's edge: fade the
-            // edge into the panel, so it never shows as a box.
-            "dark:[mask-composite:intersect] dark:[mask-image:linear-gradient(to_bottom,transparent,#000_4%,#000_96%,transparent),linear-gradient(to_right,transparent,#000_2%,#000_98%,transparent)]",
-          )}
+          className={cn("absolute inset-0 size-full", !ready && "invisible")}
           aria-hidden="true"
         />
         <div aria-hidden="true" className="absolute inset-0 @max-lg:hidden">

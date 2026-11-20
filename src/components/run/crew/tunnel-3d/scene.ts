@@ -19,6 +19,8 @@ import { css, type Palette, type Rgb } from "./colors";
  * The 3D wind tunnel, as a blueprint drawn in light: nothing solid, no
  * floor, walls, ceiling, bars, lights, shadows or reflections (the owner
  * asked for something minimal that still has impact, and chose this).
+ * It sits on an area of its own, whose colour (--wt-bg) is the scene's
+ * background, so the glow ends at the area's rounded edge.
  * The fan is a drawn circle with spokes that turn, glowing softly behind;
  * out of it come one fine stream per worker, running level through the
  * application and ending in a dot beside the worker's name (the names are
